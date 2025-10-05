@@ -3,7 +3,5 @@ node_modules/
 .DS_Store
 *.log
 .vercel
-kaa-app/node_modules/
-kaa-app/build/
-kaa-app/coverage/
+kaa-app/
 server/node_modules/
