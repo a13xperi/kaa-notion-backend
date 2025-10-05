@@ -1,0 +1,19 @@
+{
+  "name": "kaa-notion-integration",
+  "version": "1.0.0",
+  "description": "KAA Notion workspace integration with Cursor",
+  "scripts": {
+    "start": "node notion-api-server.js",
+    "dev": "concurrently \"npm run start\" \"cd kaa-app && npm start\"",
+    "install-all": "npm install && cd kaa-app && npm install"
+  },
+  "dependencies": {
+    "@notionhq/client": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
