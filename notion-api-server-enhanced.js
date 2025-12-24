@@ -11,19 +11,13 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware - CORS configuration for Vercel deployments
-// Allow all origins for now (can restrict later in production)
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// File upload configuration
+// File upload configuration - use memory storage for Vercel
 const upload = multer({ 
-  dest: 'uploads/',
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
@@ -40,9 +34,13 @@ const transporter = nodemailer.createTransport({
 });
 
 // Configuration - Notion Database IDs (set these in .env or use auto-discovery)
-const CLIENT_CREDENTIALS_DB = process.env.CLIENT_CREDENTIALS_DB_ID;
+const CLIENTS_DB = process.env.CLIENTS_DB_ID || process.env.CLIENT_CREDENTIALS_DB_ID;
 const CLIENT_DOCUMENTS_DB = process.env.CLIENT_DOCUMENTS_DB_ID;
-const ACTIVITY_LOG_DB = process.env.ACTIVITY_LOG_DB_ID;
+const CLIENT_ACTIVITIES_DB = process.env.CLIENT_ACTIVITIES_DB_ID || process.env.ACTIVITY_LOG_DB_ID;
+
+// Legacy support
+const CLIENT_CREDENTIALS_DB = CLIENTS_DB;
+const ACTIVITY_LOG_DB = CLIENT_ACTIVITIES_DB;
 
 // ============================================
 // HELPER FUNCTIONS
@@ -179,11 +177,11 @@ async function initializeDatabases() {
 // Create new client (Admin only)
 app.post('/api/admin/clients/create', async (req, res) => {
   try {
-    const { address, email, password, lastName } = req.body;
+    const { address, email, password } = req.body;
 
-    if (!address || !email || !password || !lastName) {
+    if (!address || !email || !password) {
       return res.status(400).json({ 
-        error: 'Address, email, password, and last name are required' 
+        error: 'Address, email, and password are required' 
       });
     }
 
@@ -200,9 +198,6 @@ app.post('/api/admin/clients/create', async (req, res) => {
         },
         'Email': {
           email: email
-        },
-        'Last Name': {
-          rich_text: [{ text: { content: lastName } }]
         },
         'Password Hash': {
           rich_text: [{ text: { content: passwordHash } }]
@@ -249,95 +244,7 @@ app.post('/api/admin/clients/create', async (req, res) => {
   }
 });
 
-// User verification endpoint (second step - verify last name)
-app.post('/api/client/verify-user', async (req, res) => {
-  try {
-    const { address, lastName } = req.body;
-
-    if (!address || !lastName) {
-      return res.status(400).json({ 
-        verified: false, 
-        error: 'Address and last name are required' 
-      });
-    }
-
-    // Demo mode - accept any last name for demo accounts
-    // (These would be accounts that used "demo123" as password)
-    if (lastName.toLowerCase() === 'demo' || lastName.toLowerCase() === 'test') {
-      return res.json({ 
-        verified: true, 
-        address: address,
-        lastName: lastName,
-        mode: 'demo'
-      });
-    }
-
-    // Check credentials database for matching last name
-    if (CLIENT_CREDENTIALS_DB) {
-      try {
-        const response = await notion.databases.query({
-          database_id: CLIENT_CREDENTIALS_DB,
-          filter: {
-            property: 'Address',
-            title: {
-              equals: address
-            }
-          }
-        });
-
-        if (response.results.length > 0) {
-          const clientPage = response.results[0];
-          const props = clientPage.properties;
-
-          // Check if last name property exists and matches
-          const storedLastName = props['Last Name']?.rich_text?.[0]?.plain_text ||
-                                 props['LastName']?.rich_text?.[0]?.plain_text ||
-                                 props['Surname']?.rich_text?.[0]?.plain_text;
-
-          if (storedLastName && storedLastName.toLowerCase() === lastName.toLowerCase()) {
-            await logActivity(address, 'User Verification Success', { 
-              lastName,
-              ip: req.ip 
-            });
-
-            return res.json({ 
-              verified: true, 
-              address: address,
-              lastName: lastName
-            });
-          } else {
-            await logActivity(address, 'User Verification Failed', { 
-              attemptedLastName: lastName,
-              ip: req.ip 
-            });
-
-            return res.json({ 
-              verified: false, 
-              error: 'Last name does not match our records' 
-            });
-          }
-        }
-      } catch (notionError) {
-        console.error('Error querying credentials for user verification:', notionError);
-      }
-    }
-
-    // If no database or not found, return error
-    return res.json({ 
-      verified: false, 
-      error: 'Could not verify user. Please contact support.' 
-    });
-
-  } catch (error) {
-    console.error('Error verifying user:', error);
-    res.status(500).json({ 
-      verified: false,
-      error: 'Server error during verification' 
-    });
-  }
-});
-
-// Client verification (first step - password/access code)
+// Client verification
 app.post('/api/client/verify', async (req, res) => {
   try {
     const { address, password } = req.body;
@@ -482,6 +389,251 @@ app.post('/api/client/verify', async (req, res) => {
   }
 });
 
+// User verification endpoint (second step - verify last name)
+app.post('/api/client/verify-user', async (req, res) => {
+  try {
+    const { address, lastName } = req.body;
+
+    if (!address || !lastName) {
+      return res.status(400).json({
+        verified: false,
+        error: 'Address and last name are required'
+      });
+    }
+
+    // Demo mode - accept any last name for demo accounts
+    if (lastName.toLowerCase() === 'demo' || lastName.toLowerCase() === 'test') {
+      return res.json({
+        verified: true,
+        address: address,
+        lastName: lastName,
+        mode: 'demo'
+      });
+    }
+
+    // Check clients database for matching last name
+    if (CLIENTS_DB) {
+      try {
+        const response = await notion.databases.query({
+          database_id: CLIENTS_DB,
+          filter: {
+            or: [
+              {
+                property: 'Project Address',
+                rich_text: {
+                  equals: address
+                }
+              },
+              {
+                property: 'Client Name',
+                title: {
+                  contains: address
+                }
+              }
+            ]
+          }
+        });
+
+        if (response.results.length > 0) {
+          const clientPage = response.results[0];
+          const props = clientPage.properties;
+
+          // Check if last name property exists and matches
+          const storedLastName = props['Last Name']?.rich_text?.[0]?.plain_text ||
+                                 props['LastName']?.rich_text?.[0]?.plain_text ||
+                                 props['Surname']?.rich_text?.[0]?.plain_text;
+
+          if (storedLastName && storedLastName.toLowerCase() === lastName.toLowerCase()) {
+            await logActivity(address, 'User Verification Success', {
+              lastName,
+              ip: req.ip
+            });
+
+            return res.json({
+              verified: true,
+              address: address,
+              lastName: lastName,
+              clientId: clientPage.id
+            });
+          } else {
+            await logActivity(address, 'User Verification Failed', {
+              attemptedLastName: lastName,
+              ip: req.ip
+            });
+
+            return res.json({
+              verified: false,
+              error: 'Last name does not match our records'
+            });
+          }
+        }
+      } catch (notionError) {
+        console.error('Error querying clients database for user verification:', notionError);
+      }
+    }
+
+    return res.json({
+      verified: false,
+      error: 'Could not verify user. Please contact support.'
+    });
+
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    res.status(500).json({
+      verified: false,
+      error: 'Server error during verification'
+    });
+  }
+});
+
+// Get client-specific data
+app.get('/api/client/data/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+
+    if (!address) {
+      return res.status(400).json({ error: 'Client address is required' });
+    }
+
+    // Get client information
+    let clientInfo = null;
+    if (CLIENTS_DB) {
+      try {
+        const clientResponse = await notion.databases.query({
+          database_id: CLIENTS_DB,
+          filter: {
+            or: [
+              {
+                property: 'Project Address',
+                rich_text: {
+                  equals: address
+                }
+              },
+              {
+                property: 'Client Name',
+                title: {
+                  contains: address
+                }
+              }
+            ]
+          }
+        });
+
+        if (clientResponse.results.length > 0) {
+          const clientPage = clientResponse.results[0];
+          const props = clientPage.properties;
+          
+          clientInfo = {
+            id: clientPage.id,
+            name: getPageTitle(clientPage),
+            address: props['Project Address']?.rich_text?.[0]?.plain_text || address,
+            email: props['Email']?.email || '',
+            status: props['Status']?.select?.name || 'Active',
+            projectType: props['Project Type']?.select?.name || '',
+            budgetRange: props['Budget Range']?.select?.name || '',
+            projectManager: props['Project Manager']?.people?.[0]?.name || '',
+            createdDate: props['Created Date']?.date?.start || '',
+            lastLogin: props['Last Login']?.date?.start || ''
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching client info:', error);
+      }
+    }
+
+    // Get client documents
+    let documents = [];
+    if (CLIENT_DOCUMENTS_DB) {
+      try {
+        const docsResponse = await notion.databases.query({
+          database_id: CLIENT_DOCUMENTS_DB,
+          filter: {
+            property: 'Client Address',
+            relation: {
+              contains: clientInfo?.id || ''
+            }
+          },
+          sorts: [
+            {
+              property: 'Upload Date',
+              direction: 'descending'
+            }
+          ]
+        });
+
+        documents = docsResponse.results.map(doc => {
+          const props = doc.properties;
+          return {
+            id: doc.id,
+            name: getPageTitle(doc),
+            category: props['Category']?.select?.name || 'Document',
+            uploadDate: props['Upload Date']?.date?.start || '',
+            description: props['Description']?.rich_text?.[0]?.plain_text || '',
+            uploadedBy: props['Uploaded By']?.people?.[0]?.name || '',
+            status: props['Status']?.select?.name || 'Draft'
+          };
+        });
+      } catch (error) {
+        console.error('Error fetching client documents:', error);
+      }
+    }
+
+    // Get recent activities
+    let activities = [];
+    if (CLIENT_ACTIVITIES_DB) {
+      try {
+        const activitiesResponse = await notion.databases.query({
+          database_id: CLIENT_ACTIVITIES_DB,
+          filter: {
+            property: 'Client Address',
+            rich_text: {
+              equals: address
+            }
+          },
+          sorts: [
+            {
+              property: 'Timestamp',
+              direction: 'descending'
+            }
+          ]
+        });
+
+        activities = activitiesResponse.results.slice(0, 10).map(activity => {
+          const props = activity.properties;
+          return {
+            id: activity.id,
+            activity: getPageTitle(activity),
+            type: props['Activity Type']?.select?.name || 'General',
+            timestamp: props['Timestamp']?.date?.start || '',
+            details: props['Details']?.rich_text?.[0]?.plain_text || ''
+          };
+        });
+      } catch (error) {
+        console.error('Error fetching client activities:', error);
+      }
+    }
+
+    res.json({
+      client: clientInfo,
+      documents: documents,
+      activities: activities,
+      stats: {
+        totalDocuments: documents.length,
+        recentUploads: documents.filter(doc => {
+          const uploadDate = new Date(doc.uploadDate);
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          return uploadDate > weekAgo;
+        }).length,
+        pendingItems: documents.filter(doc => doc.status === 'Review').length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching client data:', error);
+    res.status(500).json({ error: 'Server error fetching client data' });
+  }
+});
+
 // ============================================
 // API ROUTES - DOCUMENT UPLOAD
 // ============================================
@@ -495,8 +647,8 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'File and address are required' });
     }
 
-    // Read file content
-    const fileContent = fs.readFileSync(file.path);
+    // Get file content from memory storage
+    const fileContent = file.buffer;
     const fileName = file.originalname;
 
     // Create page in Notion with file reference

@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "notion-api-server-enhanced.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/notion-api-server-enhanced.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

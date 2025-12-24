@@ -296,7 +296,8 @@ Test these scenarios:
 
 5. **On desktop?**
    - Hamburger is hidden
-   - Controls always visible
+   - Controls always
+    visible
    - Works as before
 
 ---
