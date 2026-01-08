@@ -4,15 +4,36 @@
     {
       "src": "notion-api-server-enhanced.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "kaa-app/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "/notion-api-server-enhanced.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/kaa-app/$1"
     }
   ],
   "env": {
     "NODE_ENV": "production"
+  },
+  "github": {
+    "enabled": true,
+    "silent": true
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "staging": true
+    }
   }
 }
