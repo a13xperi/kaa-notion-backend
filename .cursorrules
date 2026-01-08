@@ -1,0 +1,131 @@
+# SAGE Platform - Cursor Rules
+
+## SAGE Coding Standards
+
+### TypeScript
+- Use TypeScript everywhere
+- No `any` types unless justified with a comment explaining why
+- Prefer explicit types over inference when it improves clarity
+- Use interfaces for object shapes, types for unions/intersections
+
+### Validation
+- Prefer server-side validation + client-side UX validation
+- Always validate user inputs (sanitize, length limits, type checks)
+- Validate all webhook signatures (Stripe, Zapier, etc.)
+
+### Testing
+- Always add tests for new logic
+- Test error cases, not just happy paths
+- Use descriptive test names that explain what is being tested
+
+### Code Organization
+- One feature per PR
+- Small, focused commits with meaningful messages
+- Extract reusable logic into utilities
+- Keep components focused and single-purpose
+
+## Security Rules
+
+### Secrets Management
+- Never log secrets, API keys, or sensitive data
+- Use environment variables for all secrets
+- Check `.env` files are in `.gitignore`
+- Use `logger` utility instead of `console.log` (filters secrets)
+
+### Input Validation
+- Validate all webhooks (verify signatures)
+- Sanitize file names and user inputs
+- Use parameterized queries for database operations
+- Implement rate limiting on auth and webhook endpoints
+
+### Access Control
+- Use least-privileged database access
+- Implement Row Level Security (RLS) in Supabase
+- Verify user permissions server-side, not just client-side
+- Clients can only access their own data
+
+## Product Guardrails
+
+### Tier Gating
+- Implement tier gating exactly as specified in plan
+- Use `tierGating.ts` utility functions
+- Never bypass tier restrictions in production code
+- Test tier gating for all tiers (1, 2, 3, 4)
+
+### MVP Cutline
+- Don't ship "nice-to-have" features before MVP cutline
+- Focus on: lead capture → payment → portal access → deliverables
+- Defer advanced features (analytics, complex messaging, etc.) until post-MVP
+
+### Backward Compatibility
+- Maintain existing KAA App functionality
+- Test both KAA and SAGE flows when making changes
+- Don't break existing client portal features
+
+## PR & Commit Discipline
+
+### Commits
+- One feature per PR
+- Small commits with meaningful messages
+- Format: `type: description` (e.g., `feat: Add tier routing logic`)
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+### Pull Requests
+- Include Definition of Done checklist
+- Link to related plan items or issues
+- Describe testing approach
+- Get approval before merging
+
+## Architecture Patterns
+
+### Data Architecture
+- Postgres (Supabase) = source of truth for transactional data
+- Notion = display/collaboration layer (synced from Postgres)
+- Always write to Postgres first, then sync to Notion
+- Use Supabase Storage for file uploads
+
+### Authentication
+- Extend existing KAA auth system
+- Support both KAA (address + password) and SAGE (email-based)
+- Store auth data in Supabase `users` table
+- Use unified auth flow for both platforms
+
+### Error Handling
+- Use ErrorBoundary components for React errors
+- Implement try-catch for all async operations
+- Log errors using `logger` utility
+- Provide user-friendly error messages
+- Never expose internal errors to clients
+
+## File Organization
+
+### Components
+- Place in `kaa-app/src/components/`
+- Use PascalCase for component files
+- Co-locate CSS files with components
+- Extract reusable logic to `utils/`
+
+### Backend
+- API routes in `notion-api-server-enhanced.js`
+- Use RESTful conventions
+- Group related endpoints together
+- Add JSDoc comments for complex functions
+
+### Documentation
+- Architecture decisions → `docs/`
+- API documentation → `docs/api/`
+- Setup guides → root level or `docs/`
+
+## Performance
+
+### React
+- Use `React.memo` for expensive components
+- Use `useMemo` for expensive computations
+- Use `useCallback` for stable function references
+- Avoid unnecessary re-renders
+
+### Database
+- Add indexes for frequently queried columns
+- Use pagination for large result sets
+- Cache Notion API responses when appropriate
+- Optimize sync operations (batch when possible)

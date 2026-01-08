@@ -1,0 +1,249 @@
+// SAGE MVP Platform - Prisma Schema
+// This schema defines the Postgres database structure for Supabase
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Supabase connection string
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserType {
+  KAA_CLIENT
+  SAGE_CLIENT
+  TEAM
+  ADMIN
+}
+
+enum LeadStatus {
+  NEW
+  QUALIFIED
+  NEEDS_REVIEW
+  CLOSED
+}
+
+enum ProjectStatus {
+  ONBOARDING
+  IN_PROGRESS
+  AWAITING_FEEDBACK
+  REVISIONS
+  DELIVERED
+  CLOSED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum ClientStatus {
+  ONBOARDING
+  ACTIVE
+  COMPLETED
+  CLOSED
+}
+
+// ============================================
+// TABLES
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String?   @unique
+  address      String? // For KAA clients (address-based auth)
+  passwordHash String    @map("password_hash")
+  userType     UserType  @default(SAGE_CLIENT) @map("user_type")
+  tier         Int? // 1, 2, 3, or 4
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLogin    DateTime? @map("last_login")
+
+  // Relations
+  client       Client?
+  auditLogs    AuditLog[]
+  deliverables Deliverable[]
+
+  @@index([email])
+  @@index([address])
+  @@map("users")
+}
+
+model Client {
+  id             String       @id @default(uuid())
+  userId         String       @unique @map("user_id")
+  tier           Int // 1, 2, 3, or 4 (required)
+  status         ClientStatus @default(ONBOARDING)
+  projectAddress String       @map("project_address")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects Project[]
+  leads    Lead[]
+
+  @@index([userId])
+  @@index([tier])
+  @@map("clients")
+}
+
+model Lead {
+  id              String     @id @default(uuid())
+  email           String
+  name            String?
+  projectAddress  String     @map("project_address")
+  budgetRange     String?    @map("budget_range")
+  timeline        String?
+  projectType     String?    @map("project_type")
+  hasSurvey       Boolean    @default(false) @map("has_survey")
+  hasDrawings     Boolean    @default(false) @map("has_drawings")
+  recommendedTier Int        @map("recommended_tier") // 1, 2, 3, or 4
+  routingReason   String?    @map("routing_reason") // Why this tier was recommended
+  status          LeadStatus @default(NEW)
+  clientId        String?    @map("client_id") // Set when lead converts to client
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  client   Client?   @relation(fields: [clientId], references: [id])
+  projects Project[]
+
+  @@index([email])
+  @@index([status])
+  @@index([recommendedTier])
+  @@map("leads")
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  clientId      String        @map("client_id")
+  leadId        String?       @map("lead_id")
+  tier          Int // 1, 2, 3, or 4 (required)
+  status        ProjectStatus @default(ONBOARDING)
+  name          String
+  notionPageId  String?       @map("notion_page_id") // Link to Notion project page
+  paymentStatus String        @default("pending") @map("payment_status") // 'pending', 'paid', 'refunded'
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lead         Lead?         @relation(fields: [leadId], references: [id])
+  milestones   Milestone[]
+  payments     Payment[]
+  deliverables Deliverable[]
+
+  @@index([clientId])
+  @@index([tier])
+  @@index([status])
+  @@map("projects")
+}
+
+model Tier {
+  id              Int      @id // 1, 2, 3, or 4
+  name            String // "The Concept", "The Builder", "The Concierge", "KAA White Glove"
+  description     String?
+  stripeProductId String?  @map("stripe_product_id")
+  stripePriceId   String?  @map("stripe_price_id")
+  features        Json? // Array of feature names
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("tiers")
+}
+
+model Milestone {
+  id          String          @id @default(uuid())
+  projectId   String          @map("project_id")
+  tier        Int // Which tier this milestone belongs to
+  name        String // "Intake", "Concept", "Draft", "Review", etc.
+  order       Int // Display order
+  status      MilestoneStatus @default(PENDING)
+  dueDate     DateTime?       @map("due_date")
+  completedAt DateTime?       @map("completed_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([tier])
+  @@map("milestones")
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  projectId             String        @map("project_id")
+  stripePaymentIntentId String        @unique @map("stripe_payment_intent_id")
+  stripeCustomerId      String        @map("stripe_customer_id")
+  amount                Int // Amount in cents
+  currency              String        @default("usd")
+  status                PaymentStatus @default(PENDING)
+  tier                  Int // Which tier was purchased
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCustomerId])
+  @@map("payments")
+}
+
+model Deliverable {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  name         String
+  filePath     String   @map("file_path") // Supabase Storage path
+  fileUrl      String   @map("file_url") // Public URL
+  fileSize     Int      @map("file_size") // Bytes
+  fileType     String   @map("file_type") // MIME type
+  category     String // "Document", "Photo", "Invoice", etc.
+  description  String?
+  notionPageId String?  @map("notion_page_id") // Link to Notion showcase page
+  uploadedById String   @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedById], references: [id])
+
+  @@index([projectId])
+  @@index([uploadedById])
+  @@map("deliverables")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?  @map("user_id")
+  action       String // "login", "upload", "payment", etc.
+  resourceType String?  @map("resource_type") // "project", "deliverable", "payment", etc.
+  resourceId   String?  @map("resource_id") // UUID of the resource
+  details      Json? // Additional context
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_log")
+}

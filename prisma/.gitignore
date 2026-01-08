@@ -1,0 +1,4 @@
+# Prisma migrations and generated files
+migrations/
+*.db
+*.db-journal

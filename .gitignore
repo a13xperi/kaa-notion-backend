@@ -1,7 +1,35 @@
 node_modules/
 .env
+.env.local
 .DS_Store
 *.log
 .vercel
-kaa-app/
+kaa-app/node_modules/
+kaa-app/build/
+kaa-app/coverage/
 server/node_modules/
+
+# Prisma
+prisma/migrations/
+*.db
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.pem
+.cache/
