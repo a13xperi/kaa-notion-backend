@@ -49,7 +49,7 @@ const DesignIdeas: React.FC<DesignIdeasProps> = ({ clientAddress }) => {
   const loadDesignIdeas = async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await fetch(`${apiUrl}/api/client/design-ideas/${encodeURIComponent(clientAddress)}`, {
         method: 'GET',
         headers: {
@@ -163,7 +163,7 @@ const DesignIdeas: React.FC<DesignIdeasProps> = ({ clientAddress }) => {
       formData.append('tags', JSON.stringify(selectedTags));
 
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/design-ideas/upload`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/design-ideas/upload`,
         {
           method: 'POST',
           body: formData
@@ -192,7 +192,7 @@ const DesignIdeas: React.FC<DesignIdeasProps> = ({ clientAddress }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/design-ideas/add`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/design-ideas/add`,
         {
           method: 'POST',
           headers: {
@@ -231,7 +231,7 @@ const DesignIdeas: React.FC<DesignIdeasProps> = ({ clientAddress }) => {
     try {
       setPinterestLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/design-ideas/pinterest-import`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/design-ideas/pinterest-import`,
         {
           method: 'POST',
           headers: {
@@ -278,7 +278,7 @@ const DesignIdeas: React.FC<DesignIdeasProps> = ({ clientAddress }) => {
 
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/design-ideas/${id}`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/design-ideas/${id}`,
         {
           method: 'DELETE',
           headers: {

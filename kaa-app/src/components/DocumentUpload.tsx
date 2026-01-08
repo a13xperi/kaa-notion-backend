@@ -72,7 +72,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ clientAddress, onUpload
       formData.append('description', sanitizedDescription);
 
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/upload`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/upload`,
         {
           method: 'POST',
           body: formData

@@ -786,7 +786,7 @@ const SageChat: React.FC<SageChatProps> = ({
     } else {
       // Use ChatGPT API for intelligent responses when not in onboarding
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         
         // Prepare conversation history (last 10 messages for context)
         const conversationHistory = messages.slice(-10).map(msg => ({

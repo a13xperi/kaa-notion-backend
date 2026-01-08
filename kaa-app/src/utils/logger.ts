@@ -3,7 +3,7 @@
  * Only logs in development mode
  */
 
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = import.meta.env.DEV;
 
 export const logger = {
   log: (...args: any[]) => {

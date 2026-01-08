@@ -174,7 +174,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientAddress }) => {
     try {
       setLoading(true);
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await fetch(`${apiUrl}/api/client/data/${encodeURIComponent(clientAddress)}`, {
         method: 'GET',
         headers: {

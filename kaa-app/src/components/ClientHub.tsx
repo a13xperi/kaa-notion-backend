@@ -67,7 +67,7 @@ const ClientHub: React.FC<ClientHubProps> = ({
 
     try {
       // Fetch real data from API
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/data/${encodeURIComponent(clientAddress)}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/data/${encodeURIComponent(clientAddress)}`);
       
       if (response.ok) {
         const data = await response.json();

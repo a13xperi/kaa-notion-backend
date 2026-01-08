@@ -59,7 +59,7 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
       
       // Call backend to verify last name matches the address
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/client/verify-user`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/client/verify-user`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

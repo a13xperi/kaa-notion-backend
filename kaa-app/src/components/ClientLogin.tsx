@@ -40,7 +40,7 @@ const ClientLogin: React.FC<ClientLoginProps> = ({ onLogin, onBack, onQuickAcces
       
       try {
         // Call backend to verify credentials
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         logger.info('[ClientLogin] Calling API:', `${apiUrl}/api/client/verify`);
         // Sanitize inputs before sending
         const sanitizedAddress = address.trim().slice(0, 200); // Limit length

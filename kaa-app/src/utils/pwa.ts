@@ -90,7 +90,6 @@ class PWAManager {
     const defaultOptions: NotificationOptions = {
       icon: '/logo192.png',
       badge: '/logo192.png',
-      vibrate: [200, 100, 200],
       requireInteraction: false,
       ...options
     };
@@ -130,7 +129,7 @@ class PWAManager {
 
   // Get app version
   getAppVersion(): string {
-    return process.env.REACT_APP_VERSION || '1.0.0';
+    return import.meta.env.VITE_VERSION || '1.0.0';
   }
 
   // Check online status

@@ -244,7 +244,7 @@ const MessagingSystem: React.FC<MessagingSystemProps> = ({
     // If this is Sage conversation, get ChatGPT response
     if (selectedConversation === 'sage') {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         
         // Prepare conversation history (last 10 messages for context)
         const conversationHistory = messages.slice(-10).map(msg => ({

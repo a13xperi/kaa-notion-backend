@@ -31,7 +31,7 @@ import {
 /** Base URL for the backend API server */
 import logger from '../utils/logger';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Log the API URL on initialization for debugging
 logger.log('[NotionAPI] Using API_BASE_URL:', API_BASE_URL);
