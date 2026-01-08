@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { Client } = require('@notionhq/client');
+const { OpenAI } = require('openai');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -23,6 +24,11 @@ const upload = multer({
 
 // Initialize Notion client
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
+
+// Initialize OpenAI client
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY 
+}) : null;
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -647,6 +653,13 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'File and address are required' });
     }
 
+    // Check if database ID is configured
+    const documentsDbId = CLIENT_DOCUMENTS_DB || process.env.NOTION_PARENT_PAGE_ID;
+    if (!documentsDbId) {
+      console.error('CLIENT_DOCUMENTS_DB_ID or NOTION_PARENT_PAGE_ID not configured');
+      return res.status(500).json({ error: 'Server configuration error: Documents database not configured' });
+    }
+
     // Get file content from memory storage
     const fileContent = file.buffer;
     const fileName = file.originalname;
@@ -656,7 +669,7 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
     // We'll create a page with file info and upload link
     const page = await notion.pages.create({
       parent: { 
-        database_id: CLIENT_DOCUMENTS_DB || process.env.NOTION_PARENT_PAGE_ID 
+        database_id: documentsDbId
       },
       properties: {
         'Title': {
@@ -702,8 +715,8 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
       );
     }
 
-    // Clean up temp file
-    fs.unlinkSync(file.path);
+    // Note: Using memory storage, no file cleanup needed
+    // File is in memory buffer, not on disk
 
     res.json({ 
       success: true, 
@@ -715,15 +728,9 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
     });
   } catch (error) {
     console.error('Error uploading document:', error);
-    // Clean up on error
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (unlinkError) {
-        console.error('Error cleaning up file:', unlinkError);
-      }
-    }
-    res.status(500).json({ error: 'Failed to upload document' });
+    // Using memory storage, no file cleanup needed
+    const errorMessage = error.message || 'Failed to upload document';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -856,15 +863,313 @@ app.get('/api/notion/databases', async (req, res) => {
   }
 });
 
+// ============================================
+// SAGE CHATGPT API ENDPOINT
+// ============================================
+
+app.post('/api/sage/chat', async (req, res) => {
+  try {
+    // Check if OpenAI is configured
+    if (!openai) {
+      return res.status(500).json({ 
+        error: 'OpenAI API not configured. Please set OPENAI_API_KEY in your .env file.' 
+      });
+    }
+
+    const { 
+      message, 
+      conversationHistory = [], 
+      clientAddress = '',
+      mode = 'client',
+      currentView = 'hub',
+      onboardingActive = false,
+      onboardingStep = 0,
+      isAskingAboutSupport = false
+    } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Build system prompt for Sage personality
+    let systemPrompt = `You are Sage, a friendly and helpful AI assistant for the SAGE Garden Wizard platform (a landscape architecture client portal). 
+
+Your personality:
+- Warm, welcoming, and professional
+- Use emojis sparingly but naturally (🧙‍♀️ for yourself)
+- Be concise but thorough
+- Helpful and proactive
+- Knowledgeable about landscape architecture projects
+
+Context:
+- User: ${clientAddress || 'Client'}
+- Mode: ${mode === 'client' ? 'Client Portal' : 'Team Dashboard'}
+- Current View: ${currentView}
+- Onboarding: ${onboardingActive ? `Active (Step ${onboardingStep})` : 'Not active'}
+
+Available features in the Client Portal:
+- 📄 Documents: View and manage project documents
+- 💬 Messages: Contact project manager
+- 📤 Upload: Share files with team
+- 📊 Analytics: View project progress and insights
+- 🔔 Notifications: Stay updated on project activity
+- 📁 Projects: View project plans and deliverables
+
+${mode === 'client' ? `
+Client Portal Features:
+- Dashboard with project overview
+- Document management
+- Messaging system
+- File uploads
+- Project progress tracking
+- Analytics dashboard
+` : `
+Team Dashboard Features:
+- Project management
+- Deliverable tracking
+- Client communications
+- Task prioritization
+`}
+
+Guidelines:
+- If user asks about onboarding, guide them through it naturally
+- If user asks about features, explain clearly how to access them
+- If user asks about their project, provide helpful context
+- If user asks about support agents, pricing tiers, or service levels, explain the SAGE tier system (Tiers 1-3) and KAA white glove (Tier 4)
+- Keep responses conversational and helpful
+- If you don't know something specific, suggest they contact their project manager
+- Always be encouraging and supportive
+
+${isAskingAboutSupport ? `
+IMPORTANT: The user is asking about support agents or pricing. Include detailed information about:
+- Tier 1 (The Concept): Fully automated, no-touch, fixed pricing
+- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing
+- Tier 3 (The Concierge): Includes site visits, hybrid approach, fixed + site visit fee
+- Tier 4 (KAA White Glove): Premium service, we choose clients, percentage of install pricing
+` : ''}`;
+
+    // Build conversation messages for OpenAI
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.map(msg => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: 'user', content: message }
+    ];
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency, can upgrade to gpt-4o if needed
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 500,
+      top_p: 1,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.3
+    });
+
+    const response = completion.choices[0]?.message?.content || 'I apologize, but I encountered an error. Please try again.';
+
+    res.json({ 
+      response,
+      usage: completion.usage
+    });
+
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error);
+    
+    // Handle specific OpenAI errors
+    if (error.response) {
+      return res.status(error.response.status || 500).json({ 
+        error: error.response.data?.error?.message || 'OpenAI API error',
+        details: error.response.data
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to get response from Sage',
+      details: error.message 
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
+    openai_configured: !!process.env.OPENAI_API_KEY,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
+});
+
+// ============================================
+// DESIGN IDEAS API ROUTES
+// ============================================
+
+// In-memory storage for design ideas (in production, use database)
+const designIdeasStore = new Map();
+
+// Get all design ideas for a client
+app.get('/api/client/design-ideas/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const decodedAddress = decodeURIComponent(address);
+    
+    // Get all design ideas for this client
+    const clientIdeas = Array.from(designIdeasStore.values())
+      .filter(idea => idea.clientAddress === decodedAddress)
+      .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+    
+    res.json({ designIdeas: clientIdeas });
+  } catch (error) {
+    console.error('Error fetching design ideas:', error);
+    res.status(500).json({ error: 'Failed to fetch design ideas' });
+  }
+});
+
+// Upload design idea image
+app.post('/api/client/design-ideas/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { address, title, description, tags } = req.body;
+    const file = req.file;
+
+    if (!file || !address) {
+      return res.status(400).json({ error: 'File and address are required' });
+    }
+
+    // For now, we'll use a placeholder URL since we can't store files directly
+    // In production, upload to Supabase Storage or S3
+    const imageUrl = `https://via.placeholder.com/400x600?text=${encodeURIComponent(title || 'Design Idea')}`;
+    
+    const designIdea = {
+      id: `di-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      imageUrl,
+      title: title?.trim() || '',
+      description: description?.trim() || '',
+      source: 'upload',
+      tags: tags ? JSON.parse(tags) : [],
+      addedAt: new Date().toISOString(),
+      clientAddress: address
+    };
+
+    designIdeasStore.set(designIdea.id, designIdea);
+
+    res.json({ designIdea });
+  } catch (error) {
+    console.error('Error uploading design idea:', error);
+    res.status(500).json({ error: 'Failed to upload design idea' });
+  }
+});
+
+// Add design idea from URL
+app.post('/api/client/design-ideas/add', async (req, res) => {
+  try {
+    const { address, imageUrl, title, description, tags, source } = req.body;
+
+    if (!imageUrl || !address) {
+      return res.status(400).json({ error: 'Image URL and address are required' });
+    }
+
+    const designIdea = {
+      id: `di-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      imageUrl: imageUrl.trim(),
+      title: title?.trim() || '',
+      description: description?.trim() || '',
+      source: source || 'url',
+      tags: tags || [],
+      addedAt: new Date().toISOString(),
+      clientAddress: address
+    };
+
+    designIdeasStore.set(designIdea.id, designIdea);
+
+    res.json({ designIdea });
+  } catch (error) {
+    console.error('Error adding design idea:', error);
+    res.status(500).json({ error: 'Failed to add design idea' });
+  }
+});
+
+// Import from Pinterest
+app.post('/api/client/design-ideas/pinterest-import', async (req, res) => {
+  try {
+    const { address, boardUrl } = req.body;
+
+    if (!boardUrl || !address) {
+      return res.status(400).json({ error: 'Board URL and address are required' });
+    }
+
+    // TODO: Integrate with Pinterest API
+    // For now, return demo data
+    // In production, use Pinterest API to fetch board pins
+    // You'll need: PINTEREST_APP_ID and PINTEREST_APP_SECRET in .env
+    
+    const demoIdeas = [
+      {
+        id: `di-${Date.now()}-1`,
+        imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
+        title: 'Modern Garden Design',
+        description: 'Imported from Pinterest',
+        source: 'pinterest',
+        pinterestUrl: boardUrl,
+        tags: ['Modern', 'Garden'],
+        addedAt: new Date().toISOString(),
+        clientAddress: address
+      },
+      {
+        id: `di-${Date.now()}-2`,
+        imageUrl: 'https://images.unsplash.com/photo-1464822759844-d150ad2996e3?w=400',
+        title: 'Outdoor Living Space',
+        description: 'Imported from Pinterest',
+        source: 'pinterest',
+        pinterestUrl: boardUrl,
+        tags: ['Outdoor Living', 'Hardscape'],
+        addedAt: new Date().toISOString(),
+        clientAddress: address
+      }
+    ];
+
+    demoIdeas.forEach(idea => {
+      designIdeasStore.set(idea.id, idea);
+    });
+
+    res.json({ 
+      designIdeas: demoIdeas,
+      message: 'Pinterest import feature coming soon. For now, showing demo data.'
+    });
+  } catch (error) {
+    console.error('Error importing from Pinterest:', error);
+    res.status(500).json({ error: 'Failed to import from Pinterest' });
+  }
+});
+
+// Delete design idea
+app.delete('/api/client/design-ideas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { address } = req.body;
+
+    const idea = designIdeasStore.get(id);
+    
+    if (!idea) {
+      return res.status(404).json({ error: 'Design idea not found' });
+    }
+
+    if (idea.clientAddress !== address) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    designIdeasStore.delete(id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting design idea:', error);
+    res.status(500).json({ error: 'Failed to delete design idea' });
+  }
 });
 
 // ============================================
@@ -885,6 +1190,13 @@ app.listen(PORT, async () => {
     console.log('⚠️  WARNING: Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
   } else {
     console.log('✅ Email configured');
+  }
+  
+  if (!process.env.OPENAI_API_KEY) {
+    console.log('⚠️  WARNING: OpenAI API key not set - Sage ChatGPT features will not work');
+    console.log('   Set OPENAI_API_KEY in your .env file to enable intelligent Sage conversations');
+  } else {
+    console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
   }
 
   // Initialize databases
