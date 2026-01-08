@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { mockPropertyValues } from '../../test-utils/mockData';
 
 // We need to import the component to access its methods
@@ -20,14 +21,14 @@ describe('Property Rendering', () => {
       switch (prop.type) {
         case 'title':
           return <span>{prop.title?.[0]?.plain_text || '-'}</span>;
-        
+
         case 'select':
           return prop.select ? (
             <span className="select-badge">{prop.select.name}</span>
           ) : (
             <span>-</span>
           );
-        
+
         case 'multi_select':
           return prop.multi_select && prop.multi_select.length > 0 ? (
             <span>
@@ -40,13 +41,13 @@ describe('Property Rendering', () => {
           ) : (
             <span>-</span>
           );
-        
+
         case 'number':
           return <span>{prop.number !== null ? prop.number : '-'}</span>;
-        
+
         case 'checkbox':
           return <span>{prop.checkbox ? '✓' : '✗'}</span>;
-        
+
         case 'date':
           if (!prop.date) return <span>-</span>;
           const { start, end } = prop.date;
@@ -56,14 +57,14 @@ describe('Property Rendering', () => {
               {end && ` → ${end}`}
             </span>
           );
-        
+
         case 'rich_text':
           return (
             <span>
               {prop.rich_text?.[0]?.plain_text || '-'}
             </span>
           );
-        
+
         case 'url':
           return prop.url ? (
             <a href={prop.url} target="_blank" rel="noopener noreferrer">
@@ -72,21 +73,21 @@ describe('Property Rendering', () => {
           ) : (
             <span>-</span>
           );
-        
+
         case 'email':
           return prop.email ? (
             <a href={`mailto:${prop.email}`}>{prop.email}</a>
           ) : (
             <span>-</span>
           );
-        
+
         case 'phone_number':
           return prop.phone_number ? (
             <a href={`tel:${prop.phone_number}`}>{prop.phone_number}</a>
           ) : (
             <span>-</span>
           );
-        
+
         default:
           return <span>-</span>;
       }

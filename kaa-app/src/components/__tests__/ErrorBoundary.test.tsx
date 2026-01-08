@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, Mock } from 'vitest';
 import ErrorBoundary from '../ErrorBoundary';
 
 // Component that throws an error
@@ -19,7 +20,7 @@ describe('ErrorBoundary', () => {
   // Suppress console.error for these tests
   const originalError = console.error;
   beforeAll(() => {
-    console.error = jest.fn();
+    console.error = vi.fn();
   });
 
   afterAll(() => {
@@ -27,7 +28,7 @@ describe('ErrorBoundary', () => {
   });
 
   beforeEach(() => {
-    (console.error as jest.Mock).mockClear();
+    (console.error as Mock).mockClear();
   });
 
   describe('Normal Operation', () => {
@@ -200,7 +201,7 @@ describe('ErrorBoundary', () => {
     });
 
     it('calls window.location.reload when Reload Page is clicked', () => {
-      const reloadSpy = jest.fn();
+      const reloadSpy = vi.fn();
       Object.defineProperty(window, 'location', {
         writable: true,
         value: { reload: reloadSpy },
@@ -295,7 +296,7 @@ describe('ErrorBoundary', () => {
 
       // First boundary should show error
       expect(screen.getByText('First Boundary')).toBeInTheDocument();
-      
+
       // Second boundary should render normally
       expect(screen.getByText('Second boundary OK')).toBeInTheDocument();
     });
@@ -319,7 +320,7 @@ describe('ErrorBoundary', () => {
       // Outer content should still render
       expect(screen.getByText('Outer content')).toBeInTheDocument();
       expect(screen.getByText('More outer content')).toBeInTheDocument();
-      
+
       // Error boundary should catch the error
       expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
     });

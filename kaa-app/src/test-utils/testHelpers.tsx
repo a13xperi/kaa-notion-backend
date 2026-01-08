@@ -4,6 +4,7 @@
 
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import { vi } from 'vitest';
 import { DarkModeProvider } from '../contexts/DarkModeContext';
 
 /**
@@ -24,7 +25,7 @@ export function renderWithProviders(
  * Mock fetch responses for API testing
  */
 export function mockFetch(response: any, ok = true) {
-  global.fetch = jest.fn(() =>
+  global.fetch = vi.fn(() =>
     Promise.resolve({
       ok,
       json: () => Promise.resolve(response),
@@ -44,9 +45,9 @@ export const waitForAsync = () =>
  */
 export function mockConsoleError() {
   const originalError = console.error;
-  const mockError = jest.fn();
+  const mockError = vi.fn();
   console.error = mockError;
-  
+
   return {
     mockError,
     restore: () => {

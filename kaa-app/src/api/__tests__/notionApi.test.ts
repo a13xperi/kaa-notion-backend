@@ -3,14 +3,15 @@
  * Tests API methods, error handling, and data transformation
  */
 
+import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { notionApi } from '../notionApi';
 
 // Mock fetch globally
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 describe('Notion API Client', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getAllPages', () => {
@@ -20,7 +21,7 @@ describe('Notion API Client', () => {
         { id: '2', title: 'Page 2', properties: {} },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -38,7 +39,7 @@ describe('Notion API Client', () => {
         { id: '2', title: 'Child Page', properties: {} },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -52,7 +53,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles API errors', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -62,7 +63,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles network errors', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
+      (global.fetch as Mock).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -70,7 +71,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles empty response', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -82,7 +83,7 @@ describe('Notion API Client', () => {
     it('includes authentication header', async () => {
       const mockResponse: any[] = [];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
@@ -110,7 +111,7 @@ describe('Notion API Client', () => {
         ],
       };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockContent,
       });
@@ -123,7 +124,7 @@ describe('Notion API Client', () => {
     });
 
     it('throws error for invalid page ID', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -139,7 +140,7 @@ describe('Notion API Client', () => {
         blocks: [],
       };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockContent,
       });
@@ -151,7 +152,7 @@ describe('Notion API Client', () => {
     it('makes request to correct endpoint', async () => {
       const mockContent = { id: 'page-123', title: 'Test', blocks: [] };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockContent,
       });
@@ -172,7 +173,7 @@ describe('Notion API Client', () => {
         { id: 'db-2', title: 'Database 2', properties: {} },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockDatabases,
       });
@@ -185,7 +186,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles no databases', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -195,7 +196,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles API errors', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 403,
         statusText: 'Forbidden',
@@ -207,7 +208,7 @@ describe('Notion API Client', () => {
 
   describe('Error Handling', () => {
     it('provides meaningful error messages', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -215,14 +216,14 @@ describe('Notion API Client', () => {
 
       try {
         await notionApi.getAllPages();
-        fail('Should have thrown an error');
+        expect.fail('Should have thrown an error');
       } catch (error) {
         expect(error).toBeDefined();
       }
     });
 
     it('handles malformed JSON responses', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => {
           throw new Error('Invalid JSON');
@@ -233,7 +234,7 @@ describe('Notion API Client', () => {
     });
 
     it('handles timeout errors', async () => {
-      (global.fetch as jest.Mock).mockImplementationOnce(
+      (global.fetch as Mock).mockImplementationOnce(
         () =>
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Timeout')), 100)
@@ -246,7 +247,7 @@ describe('Notion API Client', () => {
 
   describe('Request Configuration', () => {
     it('uses correct HTTP method for GET requests', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -265,7 +266,7 @@ describe('Notion API Client', () => {
     });
 
     it('sets correct Content-Type header', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -283,10 +284,9 @@ describe('Notion API Client', () => {
     });
 
     it('uses base URL from environment', async () => {
-      const originalEnv = process.env.REACT_APP_API_URL;
-      process.env.REACT_APP_API_URL = 'http://test-api.com';
-
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      // Note: In Vitest with import.meta.env, environment variables are set differently
+      // This test verifies the fetch was called with a URL containing http://
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -298,14 +298,12 @@ describe('Notion API Client', () => {
         expect.stringContaining('http://'),
         expect.any(Object)
       );
-
-      process.env.REACT_APP_API_URL = originalEnv;
     });
   });
 
   describe('Response Caching', () => {
     it('makes separate requests for different filters', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => [],
       });
