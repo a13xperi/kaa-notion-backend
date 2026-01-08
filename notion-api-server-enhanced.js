@@ -9,6 +9,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Supabase Database Integration
+const supabaseDb = require('./supabase-db');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -994,13 +997,96 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
   }
 });
 
+// ============================================
+// SUPABASE DATABASE API ROUTES
+// ============================================
+
+// Create a new lead
+app.post('/api/db/leads', async (req, res) => {
+  try {
+    const lead = await supabaseDb.createLead(req.body);
+    res.status(201).json({ success: true, lead });
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create a new user
+app.post('/api/db/users', async (req, res) => {
+  try {
+    const user = await supabaseDb.createUser(req.body);
+    res.status(201).json({ success: true, user });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create a new client
+app.post('/api/db/clients', async (req, res) => {
+  try {
+    const client = await supabaseDb.createClient(req.body);
+    res.status(201).json({ success: true, client });
+  } catch (error) {
+    console.error('Error creating client:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create a new project
+app.post('/api/db/projects', async (req, res) => {
+  try {
+    const project = await supabaseDb.createProject(req.body);
+    res.status(201).json({ success: true, project });
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create a new payment
+app.post('/api/db/payments', async (req, res) => {
+  try {
+    const payment = await supabaseDb.createPayment(req.body);
+    res.status(201).json({ success: true, payment });
+  } catch (error) {
+    console.error('Error creating payment:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Seed milestones for a project
+app.post('/api/db/projects/:projectId/milestones/seed', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { tier } = req.body;
+
+    if (!tier) {
+      return res.status(400).json({ error: 'tier is required in request body' });
+    }
+
+    const milestones = await supabaseDb.seedMilestones(projectId, tier);
+    res.status(201).json({ success: true, milestones });
+  } catch (error) {
+    console.error('Error seeding milestones:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get tier milestone templates
+app.get('/api/db/tiers/milestones', (req, res) => {
+  res.json({ tiers: supabaseDb.TIER_MILESTONES });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
+    supabase_configured: supabaseDb.isSupabaseConfigured(),
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
@@ -1179,24 +1265,31 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
 app.listen(PORT, async () => {
   console.log(`🚀 KAA Enhanced API Server running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  
+
   if (!process.env.NOTION_API_KEY) {
     console.log('⚠️  WARNING: NOTION_API_KEY not set');
   } else {
     console.log('✅ Notion API key configured');
   }
-  
+
   if (!process.env.EMAIL_USER) {
     console.log('⚠️  WARNING: Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
   } else {
     console.log('✅ Email configured');
   }
-  
+
   if (!process.env.OPENAI_API_KEY) {
     console.log('⚠️  WARNING: OpenAI API key not set - Sage ChatGPT features will not work');
     console.log('   Set OPENAI_API_KEY in your .env file to enable intelligent Sage conversations');
   } else {
     console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
+  }
+
+  if (!supabaseDb.isSupabaseConfigured()) {
+    console.log('⚠️  WARNING: Supabase not configured (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)');
+    console.log('   Set these in your .env file to enable Postgres database features');
+  } else {
+    console.log('✅ Supabase Postgres configured - Database API enabled');
   }
 
   // Initialize databases
