@@ -1,0 +1,298 @@
+// KAA App Service Worker
+// Provides offline functionality and caching
+
+const CACHE_NAME = 'kaa-app-v1.0.0';
+const STATIC_CACHE = 'kaa-static-v1.0.0';
+const DYNAMIC_CACHE = 'kaa-dynamic-v1.0.0';
+
+// Files to cache for offline functionality
+const STATIC_FILES = [
+  '/',
+  '/static/js/bundle.js',
+  '/static/css/main.css',
+  '/manifest.json',
+  '/logo192.png',
+  '/logo512.png',
+  '/favicon.ico'
+];
+
+// API endpoints to cache
+const API_CACHE_PATTERNS = [
+  /\/api\/notion\/pages/,
+  /\/api\/notion\/databases/,
+  /\/api\/client\/data/,
+  /\/api\/client\/verify/
+];
+
+// Install event - cache static files
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installing service worker...');
+  
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then((cache) => {
+        console.log('[SW] Caching static files');
+        return cache.addAll(STATIC_FILES);
+      })
+      .then(() => {
+        console.log('[SW] Static files cached successfully');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('[SW] Failed to cache static files:', error);
+      })
+  );
+});
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating service worker...');
+  
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+              console.log('[SW] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+      .then(() => {
+        console.log('[SW] Service worker activated');
+        return self.clients.claim();
+      })
+  );
+});
+
+// Fetch event - serve from cache when offline
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Handle API requests
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(handleApiRequest(request));
+    return;
+  }
+
+  // Handle static file requests
+  if (request.method === 'GET') {
+    event.respondWith(handleStaticRequest(request));
+    return;
+  }
+
+  // For other requests, try network first
+  event.respondWith(fetch(request));
+});
+
+// Handle API requests with network-first strategy
+async function handleApiRequest(request) {
+  try {
+    // Try network first
+    const networkResponse = await fetch(request);
+    
+    // If successful, cache the response
+    if (networkResponse.ok) {
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, networkResponse.clone());
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    console.log('[SW] Network failed, trying cache for:', request.url);
+    
+    // Network failed, try cache
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Return offline fallback for API requests
+    return new Response(
+      JSON.stringify({
+        error: 'Offline',
+        message: 'You are currently offline. Some features may not be available.',
+        offline: true
+      }),
+      {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
+}
+
+// Handle static file requests with cache-first strategy
+async function handleStaticRequest(request) {
+  // Try cache first
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  try {
+    // Cache miss, try network
+    const networkResponse = await fetch(request);
+    
+    // Cache successful responses
+    if (networkResponse.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, networkResponse.clone());
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    console.log('[SW] Network failed for static file:', request.url);
+    
+    // Return offline page for navigation requests
+    if (request.mode === 'navigate') {
+      return caches.match('/') || new Response('Offline', { status: 503 });
+    }
+    
+    // For other static files, return a generic offline response
+    return new Response('Offline', { status: 503 });
+  }
+}
+
+// Background sync for offline actions
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Background sync triggered:', event.tag);
+  
+  if (event.tag === 'message-sync') {
+    event.waitUntil(syncMessages());
+  } else if (event.tag === 'upload-sync') {
+    event.waitUntil(syncUploads());
+  }
+});
+
+// Sync pending messages when back online
+async function syncMessages() {
+  try {
+    const pendingMessages = await getPendingMessages();
+    
+    for (const message of pendingMessages) {
+      try {
+        await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message)
+        });
+        
+        // Remove from pending after successful send
+        await removePendingMessage(message.id);
+        console.log('[SW] Synced message:', message.id);
+      } catch (error) {
+        console.error('[SW] Failed to sync message:', message.id, error);
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Background sync failed:', error);
+  }
+}
+
+// Sync pending uploads when back online
+async function syncUploads() {
+  try {
+    const pendingUploads = await getPendingUploads();
+    
+    for (const upload of pendingUploads) {
+      try {
+        const formData = new FormData();
+        formData.append('file', upload.file);
+        formData.append('address', upload.address);
+        formData.append('category', upload.category);
+        
+        await fetch('/api/client/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        // Remove from pending after successful upload
+        await removePendingUpload(upload.id);
+        console.log('[SW] Synced upload:', upload.id);
+      } catch (error) {
+        console.error('[SW] Failed to sync upload:', upload.id, error);
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Background sync failed:', error);
+  }
+}
+
+// Push notification handling
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push notification received');
+  
+  const options = {
+    body: 'You have a new message or notification',
+    icon: '/logo192.png',
+    badge: '/logo192.png',
+    vibrate: [200, 100, 200],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: 1
+    },
+    actions: [
+      {
+        action: 'open',
+        title: 'Open App',
+        icon: '/logo192.png'
+      },
+      {
+        action: 'close',
+        title: 'Close',
+        icon: '/logo192.png'
+      }
+    ]
+  };
+
+  if (event.data) {
+    const data = event.data.json();
+    options.body = data.body || options.body;
+    options.data = { ...options.data, ...data };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification('KAA Command Center', options)
+  );
+});
+
+// Notification click handling
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.action);
+  
+  event.notification.close();
+
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  }
+});
+
+// Helper functions for IndexedDB operations
+async function getPendingMessages() {
+  // In a real implementation, this would use IndexedDB
+  // For now, return empty array
+  return [];
+}
+
+async function removePendingMessage(id) {
+  // In a real implementation, this would use IndexedDB
+  console.log('[SW] Removing pending message:', id);
+}
+
+async function getPendingUploads() {
+  // In a real implementation, this would use IndexedDB
+  // For now, return empty array
+  return [];
+}
+
+async function removePendingUpload(id) {
+  // In a real implementation, this would use IndexedDB
+  console.log('[SW] Removing pending upload:', id);
+}

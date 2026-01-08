@@ -1,0 +1,784 @@
+.team-dashboard {
+  min-height: 100vh;
+  background: #f8f9fa;
+  color: #333;
+}
+
+.team-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.team-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.team-icon {
+  font-size: 2.5em;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 15px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.team-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.team-role {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.team-member {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.team-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.team-nav-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.team-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.team-nav-btn.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.team-logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.team-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.team-content {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Dashboard View */
+.dashboard-view {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.welcome-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.welcome-section h1 {
+  font-size: 2.5em;
+  margin: 0 0 15px 0;
+  font-weight: 700;
+}
+
+.role-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.last-login {
+  font-size: 0.95em;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.stat-card h3 {
+  font-size: 2.5em;
+  margin: 0 0 10px 0;
+  color: #667eea;
+  font-weight: 700;
+}
+
+.stat-card p {
+  margin: 0;
+  color: #666;
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.quick-actions-section {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.quick-actions-section h2 {
+  margin: 0 0 25px 0;
+  color: #333;
+  font-size: 1.8em;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.action-card {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c3dafe 100%);
+  border: none;
+  padding: 25px;
+  border-radius: 12px;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.action-card:hover {
+  background: linear-gradient(135deg, #c3dafe 0%, #a7c0f5 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.activity-section,
+.deliverables-section {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.activity-section h2,
+.deliverables-section h2 {
+  margin: 0 0 25px 0;
+  color: #333;
+  font-size: 1.8em;
+}
+
+.activity-list,
+.deliverables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.activity-item,
+.deliverable-item {
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.activity-item:hover,
+.deliverable-item:hover {
+  background: #edf2f7;
+  transform: translateY(-2px);
+}
+
+.activity-icon {
+  font-size: 1.8em;
+  margin-right: 15px;
+  color: #667eea;
+}
+
+.activity-details {
+  flex-grow: 1;
+}
+
+.activity-title {
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 5px 0;
+  font-size: 1.1em;
+}
+
+.activity-description {
+  color: #666;
+  margin: 0 0 5px 0;
+}
+
+.activity-time {
+  font-size: 0.9em;
+  color: #888;
+  margin: 0;
+}
+
+.activity-action {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.activity-action:hover {
+  background: #eee;
+  border-color: #999;
+}
+
+.deliverable-priority {
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+  margin-right: 15px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.deliverable-details {
+  flex-grow: 1;
+}
+
+.deliverable-title {
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 5px 0;
+  font-size: 1.1em;
+}
+
+.deliverable-project {
+  color: #666;
+  margin: 0 0 5px 0;
+  font-size: 0.95em;
+}
+
+.deliverable-due {
+  font-size: 0.9em;
+  color: #888;
+  margin: 0;
+}
+
+.deliverable-action {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.deliverable-action:hover {
+  background: #eee;
+  border-color: #999;
+}
+
+/* Projects View */
+.projects-view {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.projects-view h2 {
+  margin: 0 0 30px 0;
+  color: #333;
+  font-size: 1.8em;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.project-card {
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.project-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3em;
+}
+
+.project-status {
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.project-details {
+  margin-bottom: 20px;
+}
+
+.project-client,
+.project-activity {
+  margin: 8px 0;
+  color: #666;
+  font-size: 0.95em;
+}
+
+.project-stats {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.stat {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  color: #555;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.project-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.project-btn {
+  flex: 1;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-btn.primary {
+  background: #667eea;
+  color: white;
+}
+
+.project-btn.primary:hover {
+  background: #5a6fd8;
+}
+
+.project-btn.secondary {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.project-btn.secondary:hover {
+  background: #cbd5e0;
+}
+
+/* Deliverables View */
+.deliverables-view {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.deliverables-view h2 {
+  margin: 0 0 30px 0;
+  color: #333;
+  font-size: 1.8em;
+}
+
+.deliverables-table {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.deliverable-row {
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.deliverable-row:hover {
+  background: #edf2f7;
+  transform: translateY(-2px);
+}
+
+.deliverable-info {
+  flex-grow: 1;
+}
+
+.deliverable-info h4 {
+  margin: 0 0 5px 0;
+  color: #333;
+  font-size: 1.1em;
+}
+
+.deliverable-info p {
+  margin: 0;
+  color: #666;
+  font-size: 0.95em;
+}
+
+.deliverable-meta {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-right: 20px;
+}
+
+.priority-badge {
+  color: white;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.status-badge {
+  background: #e2e8f0;
+  color: #4a5568;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.due-date {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.deliverable-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: #5a6fd8;
+}
+
+/* Communications View */
+.communications-view {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.communications-view h2 {
+  margin: 0 0 30px 0;
+  color: #333;
+  font-size: 1.8em;
+}
+
+.communications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.communication-item {
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+}
+
+.communication-item:hover {
+  transform: translateY(-3px);
+}
+
+.communication-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.communication-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.client-address {
+  color: #666;
+  font-size: 0.95em;
+}
+
+.communication-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.comm-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comm-btn:hover {
+  background: #5a6fd8;
+}
+
+.recent-activity {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.recent-activity p {
+  margin: 0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .team-header-content {
+    padding: 15px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .team-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .team-nav-btn {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .team-content {
+    padding: 20px;
+  }
+
+  .welcome-section {
+    padding: 30px 20px;
+  }
+
+  .welcome-section h1 {
+    font-size: 2em;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .stat-card {
+    padding: 20px;
+  }
+
+  .stat-card h3 {
+    font-size: 2em;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .deliverable-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .deliverable-meta {
+    margin-right: 0;
+    flex-wrap: wrap;
+  }
+
+  .communication-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .team-header-content {
+    padding: 12px 15px;
+  }
+
+  .team-icon {
+    font-size: 2em;
+    padding: 12px;
+  }
+
+  .team-member {
+    font-size: 16px;
+  }
+
+  .team-nav-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .team-content {
+    padding: 15px;
+  }
+
+  .welcome-section {
+    padding: 25px 15px;
+  }
+
+  .welcome-section h1 {
+    font-size: 1.8em;
+  }
+
+  .stats-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    padding: 15px;
+  }
+
+  .stat-card h3 {
+    font-size: 1.8em;
+  }
+
+  .action-card {
+    padding: 20px;
+    font-size: 1em;
+  }
+
+  .activity-item,
+  .deliverable-item {
+    padding: 15px;
+  }
+
+  .project-card {
+    padding: 20px;
+  }
+
+  .deliverable-row {
+    padding: 15px;
+  }
+
+  .communication-item {
+    padding: 20px;
+  }
+}

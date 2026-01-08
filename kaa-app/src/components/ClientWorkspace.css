@@ -1,0 +1,244 @@
+.client-workspace {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.client-header-bar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  position: sticky;
+  top: 0;
+}
+
+.client-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.client-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-dark-mode-toggle {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.header-dark-mode-toggle .dark-mode-toggle {
+  width: 48px;
+  height: 28px;
+}
+
+.header-dark-mode-toggle .dark-mode-toggle .toggle-track {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.header-dark-mode-toggle .dark-mode-toggle:hover .toggle-track {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.header-dark-mode-toggle .dark-mode-toggle .toggle-thumb {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.header-dark-mode-toggle .dark-mode-toggle.dark .toggle-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.client-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-logo {
+  flex-shrink: 0;
+}
+
+.header-logo .sage-logo-image {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.client-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.client-mode {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+.client-address {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.client-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.client-nav-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.client-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.client-nav-btn.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.client-upload-btn {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: #667eea;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.client-upload-btn:hover {
+  background: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.client-logout-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.client-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-2px);
+}
+
+.client-workspace-content {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-secondary);
+  transition: background-color 0.3s ease;
+}
+
+.client-workspace-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .client-header-content {
+    padding: 12px 16px;
+  }
+
+  .client-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .client-mode {
+    font-size: 10px;
+  }
+
+  .client-address {
+    font-size: 14px;
+  }
+
+  .client-nav-btn,
+  .client-upload-btn,
+  .client-logout-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .client-header-content {
+    flex-wrap: wrap;
+  }
+
+  .client-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .client-address {
+    font-size: 13px;
+  }
+
+  .client-nav-btn {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .client-upload-btn,
+  .client-logout-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .client-workspace-inner {
+    padding: 16px;
+  }
+}
+
