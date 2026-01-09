@@ -83,10 +83,10 @@
 ## Phase 5: Admin Dashboard
 
 ### 5.1 Admin Endpoints
-- [ ] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats (leads by status, projects by tier, revenue)
-- [ ] `new-endpoint`: GET /api/admin/leads - All leads with filtering, sorting, pagination
-- [ ] `new-endpoint`: GET /api/admin/projects - All projects with filtering, sorting, pagination
-- [ ] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
+- [x] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats (leads by status, projects by tier, revenue)
+- [x] `new-endpoint`: GET /api/admin/leads - All leads with filtering, sorting, pagination
+- [x] `new-endpoint`: GET /api/admin/projects - All projects with filtering, sorting, pagination
+- [x] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
 
 ### 5.2 Admin Components
 - [ ] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
@@ -203,6 +203,10 @@
 - [x] `new-hook`: useProject/useProjectWithRelations - Single project with parallel data fetching
 - [x] `new-hook`: useMilestones - Milestone list with progress helpers
 - [x] `new-hook`: useDeliverables - Deliverable list with download helpers
+- [x] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats with revenue, leads, projects, clients
+- [x] `new-endpoint`: GET /api/admin/leads - Leads list with search, status, tier, date filters
+- [x] `new-endpoint`: GET /api/admin/projects - Projects list with progress, payment totals
+- [x] `new-endpoint`: GET /api/admin/clients - Clients list with project/payment stats
 
 ### 2025-01-09
 - [x] Initial project setup

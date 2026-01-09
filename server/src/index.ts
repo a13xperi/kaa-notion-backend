@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
-import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter } from './routes';
+import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter } from './routes';
 import { logger } from './logger';
 
 dotenv.config();
@@ -30,6 +30,7 @@ app.use(express.json());
 app.use('/api/projects', createProjectsRouter(prisma));
 app.use('/api', createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
