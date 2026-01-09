@@ -9,6 +9,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Environment validation
+const { validateEnv, getServicesStatus, isUsingDevEmailConfig, isStripeTestMode } = require('./validateEnv');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -996,11 +999,23 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    notion_configured: !!process.env.NOTION_API_KEY,
-    email_configured: !!process.env.EMAIL_USER,
-    openai_configured: !!process.env.OPENAI_API_KEY,
+  const services = getServicesStatus();
+  res.json({
+    status: 'ok',
+    environment: process.env.NODE_ENV || 'development',
+    services: {
+      notion: services.notion.configured,
+      supabase: services.supabase.configured,
+      stripe: {
+        configured: services.stripe.configured,
+        testMode: services.stripe.testMode
+      },
+      email: {
+        configured: services.email.configured,
+        usingDevDefaults: services.email.usingDevDefaults
+      },
+      openai: services.openai.configured
+    },
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
@@ -1176,28 +1191,54 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
 // START SERVER
 // ============================================
 
+// Validate environment variables before starting
+try {
+  // Run validation - throws in production if required vars are missing
+  const validationResults = validateEnv({
+    throwOnError: process.env.NODE_ENV === 'production',
+    logResults: true
+  });
+
+  // Log services status summary
+  const services = getServicesStatus();
+  console.log('\nServices Status:');
+  console.log('-'.repeat(40));
+
+  for (const [name, status] of Object.entries(services)) {
+    const icon = status.configured ? '✅' : '❌';
+    let extra = '';
+    if (name === 'stripe' && status.configured && status.testMode) {
+      extra = ' (TEST MODE)';
+    }
+    if (name === 'email' && status.configured && status.usingDevDefaults) {
+      extra = ' (DEV: Gmail)';
+    }
+    console.log(`  ${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}: ${status.description}${extra}`);
+  }
+  console.log('-'.repeat(40) + '\n');
+
+  // Additional warnings for dev defaults in production
+  if (process.env.NODE_ENV === 'production') {
+    if (isUsingDevEmailConfig()) {
+      console.log('⚠️  PRODUCTION WARNING: Using Gmail for email. Consider Resend or Postmark for production.');
+    }
+    if (isStripeTestMode()) {
+      console.log('⚠️  PRODUCTION WARNING: Stripe is in TEST mode. Switch to live keys for production.');
+    }
+  }
+
+} catch (error) {
+  console.error('\n❌ FATAL: Environment validation failed');
+  console.error(error.message);
+  console.error('\nPlease check your .env file and ensure all required variables are set.');
+  console.error('See env.example for reference.\n');
+  process.exit(1);
+}
+
 app.listen(PORT, async () => {
   console.log(`🚀 KAA Enhanced API Server running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  
-  if (!process.env.NOTION_API_KEY) {
-    console.log('⚠️  WARNING: NOTION_API_KEY not set');
-  } else {
-    console.log('✅ Notion API key configured');
-  }
-  
-  if (!process.env.EMAIL_USER) {
-    console.log('⚠️  WARNING: Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
-  } else {
-    console.log('✅ Email configured');
-  }
-  
-  if (!process.env.OPENAI_API_KEY) {
-    console.log('⚠️  WARNING: OpenAI API key not set - Sage ChatGPT features will not work');
-    console.log('   Set OPENAI_API_KEY in your .env file to enable intelligent Sage conversations');
-  } else {
-    console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
-  }
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
   // Initialize databases
   await initializeDatabases();
