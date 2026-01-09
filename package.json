@@ -23,7 +23,8 @@
     "multer": "^2.0.2",
     "node-fetch": "^2.7.0",
     "nodemailer": "^7.0.7",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "resend": "^6.7.0"
   },
   "devDependencies": {
     "@prisma/client": "^7.2.0",

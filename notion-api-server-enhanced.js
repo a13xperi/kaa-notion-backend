@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const multer = require('multer');
 const { Client } = require('@notionhq/client');
 const { OpenAI } = require('openai');
@@ -30,14 +31,18 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY 
 }) : null;
 
-// Email configuration
-const transporter = nodemailer.createTransport({
+// Email configuration - Resend for production, nodemailer for development
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const DEFAULT_FROM_EMAIL = process.env.FROM_EMAIL || 'KAA Portal <noreply@kaa.com>';
+
+// Nodemailer transporter for development fallback only
+const transporter = (!resend && process.env.EMAIL_USER) ? nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE || 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
   }
-});
+}) : null;
 
 // Configuration - Notion Database IDs (set these in .env or use auto-discovery)
 const CLIENTS_DB = process.env.CLIENTS_DB_ID || process.env.CLIENT_CREDENTIALS_DB_ID;
@@ -120,19 +125,39 @@ async function logActivity(address, action, details = {}) {
 
 async function sendEmail(to, subject, html) {
   try {
-    if (!process.env.EMAIL_USER) {
-      console.log('📧 Email not configured - would send:', { to, subject });
+    // Use Resend for production (better deliverability)
+    if (resend) {
+      const { data, error } = await resend.emails.send({
+        from: DEFAULT_FROM_EMAIL,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html
+      });
+
+      if (error) {
+        console.error('❌ Resend error:', error);
+        throw new Error(error.message);
+      }
+
+      console.log(`✅ Email sent via Resend to ${to} (id: ${data?.id})`);
+      return data;
+    }
+
+    // Fallback to nodemailer for development
+    if (transporter && process.env.EMAIL_USER) {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to,
+        subject,
+        html
+      });
+
+      console.log(`✅ Email sent via nodemailer to ${to}`);
       return;
     }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
-      subject,
-      html
-    });
-
-    console.log(`✅ Email sent to ${to}`);
+    // No email service configured
+    console.log('📧 Email not configured - would send:', { to, subject });
   } catch (error) {
     console.error('Error sending email:', error.message);
   }
@@ -996,10 +1021,12 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  const emailProvider = resend ? 'resend' : (transporter ? 'nodemailer' : 'none');
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
-    email_configured: !!process.env.EMAIL_USER,
+    email_configured: !!resend || !!transporter,
+    email_provider: emailProvider,
     openai_configured: !!process.env.OPENAI_API_KEY,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
