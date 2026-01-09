@@ -66,7 +66,7 @@
 - [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
 
 ### 4.4 Portal Components
-- [ ] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
+- [x] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
 - [ ] `new-component`: ProjectDetail - Full project view with milestones timeline, deliverables, status
 - [ ] `new-component`: MilestoneTimeline - Visual timeline of project milestones with status indicators
 - [ ] `new-component`: DeliverableList - Grid/list of project deliverables with download buttons
@@ -211,6 +211,7 @@
 - [x] `new-endpoint`: GET /api/projects/:id/deliverables - Deliverables list grouped by category
 - [x] `new-endpoint`: POST /api/projects/:id/deliverables - Admin deliverable upload with metadata
 - [x] `new-endpoint`: GET /api/deliverables/:id/download - Signed download URL generation
+- [x] `new-component`: ProjectDashboard - Portal home with greeting, stats, project cards, progress
 
 ---
 
