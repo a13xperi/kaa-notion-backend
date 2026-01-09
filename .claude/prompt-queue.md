@@ -61,9 +61,9 @@
 - [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status, completed_at (admin only)
 
 ### 4.3 Deliverable Endpoints
-- [ ] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables for project
-- [ ] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable (admin only)
-- [ ] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
+- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables for project
+- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable (admin only)
+- [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
 
 ### 4.4 Portal Components
 - [ ] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
@@ -187,6 +187,11 @@
 - [x] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project with summary
 - [x] `new-endpoint`: GET /api/milestones/:id - Get single milestone with navigation
 - [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status (auto-advances next milestone)
+- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables with summary by category
+- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable metadata (admin only)
+- [x] `new-endpoint`: GET /api/deliverables/:id - Get single deliverable details
+- [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL (60 min expiry)
+- [x] `new-endpoint`: DELETE /api/deliverables/:id - Delete deliverable (admin only)
 
 ### 2025-01-09
 - [x] Initial project setup

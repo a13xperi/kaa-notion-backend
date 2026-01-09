@@ -5,4 +5,5 @@
 
 export { createProjectsRouter, requireAuth, requireAdmin } from './projects';
 export { createMilestonesRouter } from './milestones';
+export { createDeliverablesRouter } from './deliverables';
 export type { AuthenticatedRequest } from './projects';
