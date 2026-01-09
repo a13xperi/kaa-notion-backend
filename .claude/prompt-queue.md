@@ -12,7 +12,7 @@
 
 ### 2.1 Tier Router Implementation
 - [x] `new-util`: tierRouter.ts - Implement tier recommendation algorithm with IntakeFormData input, returns TierRecommendation with tier (1-4), reason, confidence, needsManualReview
-- [ ] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
+- [x] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
 
 ### 2.2 Lead API Endpoints
 - [ ] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
@@ -182,6 +182,7 @@
 - [x] Claude Code configuration files (.claude/config.json, prompts.md, context/)
 - [x] Updated .cursorrules with comprehensive guidelines
 - [x] `new-util`: tierRouter.ts - Tier recommendation algorithm implementation
+- [x] `test`: tierRouter.test.ts - Comprehensive tests (57 tests passing)
 
 ---
 
