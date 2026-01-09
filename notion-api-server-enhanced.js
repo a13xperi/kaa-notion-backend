@@ -9,6 +9,20 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Sage Chat hardening utilities
+const {
+  validateChatInput,
+  checkRateLimit,
+  generateSystemPrompt,
+  getModelConfig,
+  logger: sageLogger
+} = require('./lib/sage-chat');
+const {
+  storeConversationExchange,
+  getUserTier,
+  isDatabaseAvailable
+} = require('./lib/db');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -864,91 +878,113 @@ app.get('/api/notion/databases', async (req, res) => {
 });
 
 // ============================================
-// SAGE CHATGPT API ENDPOINT
+// SAGE CHATGPT API ENDPOINT (HARDENED)
 // ============================================
 
 app.post('/api/sage/chat', async (req, res) => {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const startTime = Date.now();
+
+  // Get client IP for rate limiting
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                   req.headers['x-real-ip'] ||
+                   req.socket?.remoteAddress ||
+                   'unknown';
+
+  sageLogger.info('Chat request received', {
+    requestId,
+    ip: clientIp,
+    userAgent: req.headers['user-agent']?.slice(0, 100)
+  });
+
   try {
-    // Check if OpenAI is configured
+    // 1. Check if OpenAI is configured
     if (!openai) {
-      return res.status(500).json({ 
-        error: 'OpenAI API not configured. Please set OPENAI_API_KEY in your .env file.' 
+      sageLogger.error('OpenAI not configured', { requestId });
+      return res.status(500).json({
+        error: 'OpenAI API not configured. Please set OPENAI_API_KEY in your .env file.'
       });
     }
 
-    const { 
-      message, 
-      conversationHistory = [], 
-      clientAddress = '',
-      mode = 'client',
-      currentView = 'hub',
-      onboardingActive = false,
-      onboardingStep = 0,
-      isAskingAboutSupport = false
-    } = req.body;
-
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    // 2. Validate input
+    const validation = validateChatInput(req.body);
+    if (!validation.valid) {
+      sageLogger.warn('Validation failed', {
+        requestId,
+        errors: validation.errors
+      });
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: validation.errors
+      });
     }
 
-    // Build system prompt for Sage personality
-    let systemPrompt = `You are Sage, a friendly and helpful AI assistant for the SAGE Garden Wizard platform (a landscape architecture client portal). 
+    const {
+      message,
+      conversationHistory,
+      clientAddress,
+      mode,
+      currentView,
+      onboardingActive,
+      onboardingStep,
+      isAskingAboutSupport,
+      sessionId,
+      tier: requestTier
+    } = validation.sanitized;
 
-Your personality:
-- Warm, welcoming, and professional
-- Use emojis sparingly but naturally (🧙‍♀️ for yourself)
-- Be concise but thorough
-- Helpful and proactive
-- Knowledgeable about landscape architecture projects
+    // 3. Get user tier (from request or database)
+    let tier = requestTier;
+    if (!tier && clientAddress) {
+      tier = await getUserTier(clientAddress);
+    }
 
-Context:
-- User: ${clientAddress || 'Client'}
-- Mode: ${mode === 'client' ? 'Client Portal' : 'Team Dashboard'}
-- Current View: ${currentView}
-- Onboarding: ${onboardingActive ? `Active (Step ${onboardingStep})` : 'Not active'}
+    sageLogger.debug('User context', {
+      requestId,
+      clientAddress: clientAddress ? '***' : null,
+      tier,
+      mode,
+      currentView
+    });
 
-Available features in the Client Portal:
-- 📄 Documents: View and manage project documents
-- 💬 Messages: Contact project manager
-- 📤 Upload: Share files with team
-- 📊 Analytics: View project progress and insights
-- 🔔 Notifications: Stay updated on project activity
-- 📁 Projects: View project plans and deliverables
+    // 4. Rate limiting
+    const rateLimitKey = clientAddress || clientIp;
+    const rateLimit = await checkRateLimit(rateLimitKey, tier);
 
-${mode === 'client' ? `
-Client Portal Features:
-- Dashboard with project overview
-- Document management
-- Messaging system
-- File uploads
-- Project progress tracking
-- Analytics dashboard
-` : `
-Team Dashboard Features:
-- Project management
-- Deliverable tracking
-- Client communications
-- Task prioritization
-`}
+    // Set rate limit headers
+    res.set({
+      'X-RateLimit-Limit': rateLimit.limit,
+      'X-RateLimit-Remaining': rateLimit.remaining,
+      'X-RateLimit-Reset': rateLimit.resetAt.toISOString()
+    });
 
-Guidelines:
-- If user asks about onboarding, guide them through it naturally
-- If user asks about features, explain clearly how to access them
-- If user asks about their project, provide helpful context
-- If user asks about support agents, pricing tiers, or service levels, explain the SAGE tier system (Tiers 1-3) and KAA white glove (Tier 4)
-- Keep responses conversational and helpful
-- If you don't know something specific, suggest they contact their project manager
-- Always be encouraging and supportive
+    if (!rateLimit.allowed) {
+      sageLogger.warn('Rate limit exceeded', {
+        requestId,
+        identifier: rateLimitKey.slice(0, 20),
+        tier,
+        limit: rateLimit.limit
+      });
+      return res.status(429).json({
+        error: 'Too many requests. Please slow down.',
+        retryAfter: Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000)
+      });
+    }
 
-${isAskingAboutSupport ? `
-IMPORTANT: The user is asking about support agents or pricing. Include detailed information about:
-- Tier 1 (The Concept): Fully automated, no-touch, fixed pricing
-- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing
-- Tier 3 (The Concierge): Includes site visits, hybrid approach, fixed + site visit fee
-- Tier 4 (KAA White Glove): Premium service, we choose clients, percentage of install pricing
-` : ''}`;
+    // 5. Generate tier-aware system prompt
+    const systemPrompt = generateSystemPrompt({
+      clientAddress,
+      mode,
+      currentView,
+      onboardingActive,
+      onboardingStep,
+      isAskingAboutSupport,
+      tier
+    });
 
-    // Build conversation messages for OpenAI
+    // 6. Get model config based on tier
+    const modelConfig = getModelConfig(tier);
+
+    // 7. Build conversation messages for OpenAI
     const messages = [
       { role: 'system', content: systemPrompt },
       ...conversationHistory.map(msg => ({
@@ -958,50 +994,114 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
       { role: 'user', content: message }
     ];
 
-    // Call OpenAI API
+    sageLogger.debug('Calling OpenAI', {
+      requestId,
+      model: modelConfig.model,
+      maxTokens: modelConfig.maxTokens,
+      historyLength: conversationHistory.length
+    });
+
+    // 8. Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency, can upgrade to gpt-4o if needed
+      model: modelConfig.model,
       messages: messages,
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: modelConfig.maxTokens,
       top_p: 1,
       frequency_penalty: 0.3,
       presence_penalty: 0.3
     });
 
-    const response = completion.choices[0]?.message?.content || 'I apologize, but I encountered an error. Please try again.';
+    const response = completion.choices[0]?.message?.content ||
+      'I apologize, but I encountered an error. Please try again.';
 
-    res.json({ 
+    const usage = completion.usage;
+    const duration = Date.now() - startTime;
+
+    sageLogger.info('Chat response generated', {
+      requestId,
+      tier,
+      model: modelConfig.model,
+      promptTokens: usage?.prompt_tokens,
+      completionTokens: usage?.completion_tokens,
+      totalTokens: usage?.total_tokens,
+      durationMs: duration
+    });
+
+    // 9. Persist conversation to database (async, non-blocking)
+    if (sessionId) {
+      storeConversationExchange({
+        sessionId,
+        clientAddress,
+        tier,
+        mode,
+        userMessage: message,
+        assistantMessage: response,
+        userTokens: null, // Could calculate from prompt
+        assistantTokens: usage?.completion_tokens,
+        metadata: {
+          currentView,
+          onboardingActive,
+          onboardingStep,
+          model: modelConfig.model,
+          requestId
+        }
+      }).catch(err => {
+        sageLogger.warn('Failed to persist conversation', {
+          requestId,
+          error: err.message
+        });
+      });
+    }
+
+    // 10. Send response
+    res.json({
       response,
-      usage: completion.usage
+      usage,
+      tier: tier || 'default',
+      model: modelConfig.model
     });
 
   } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    
+    const duration = Date.now() - startTime;
+    sageLogger.error('Chat request failed', {
+      requestId,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      durationMs: duration
+    });
+
     // Handle specific OpenAI errors
-    if (error.response) {
-      return res.status(error.response.status || 500).json({ 
-        error: error.response.data?.error?.message || 'OpenAI API error',
-        details: error.response.data
+    if (error.status) {
+      const status = error.status || 500;
+      return res.status(status).json({
+        error: error.message || 'OpenAI API error',
+        code: error.code,
+        requestId
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to get response from Sage',
-      details: error.message 
+      requestId
     });
   }
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/api/health', async (req, res) => {
+  // Check database availability asynchronously
+  const dbAvailable = await isDatabaseAvailable().catch(() => false);
+
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
+    postgres_available: dbAvailable,
+    upstash_configured: !!(process.env.UPSTASH_REDIS_URL && process.env.UPSTASH_REDIS_TOKEN),
+    sage_chat_hardened: true,
     timestamp: new Date().toISOString()
   });
 });
