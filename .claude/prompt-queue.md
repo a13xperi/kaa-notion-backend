@@ -24,7 +24,7 @@
 ### 2.3 Intake Form Components
 - [x] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
 - [x] `new-component`: TierRecommendation - Display recommended tier with pricing and features after form submission
-- [ ] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
+- [x] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
 - [ ] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
 
 ---
@@ -190,6 +190,7 @@
 - [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client with user, project, payment creation
 - [x] `new-form`: IntakeForm - 5-step form (contact, budget, timeline, project type, review) with validation
 - [x] `new-component`: TierRecommendation - Recommended tier display with pricing, features, confidence, factors breakdown
+- [x] `new-component`: TierCard - Reusable tier card with name, price, features, CTA, and visual states
 
 ---
 

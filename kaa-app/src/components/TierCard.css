@@ -1,0 +1,297 @@
+/* TierCard Component Styles */
+
+.tier-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.2s ease;
+}
+
+.tier-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Selected State */
+.tier-card--selected {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.tier-card--selected:hover {
+  border-color: #10b981;
+}
+
+/* Disabled State */
+.tier-card--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tier-card--disabled:hover {
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
+/* Highlighted State (Most Popular) */
+.tier-card--highlighted {
+  border-color: #10b981;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.tier-card--highlighted:hover {
+  border-color: #059669;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Invite Only State (Tier 4) */
+.tier-card--invite-only {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+  border-color: #a855f7;
+}
+
+.tier-card--invite-only:hover {
+  border-color: #9333ea;
+}
+
+/* Compact Mode */
+.tier-card--compact {
+  padding: 16px;
+}
+
+.tier-card--compact .tier-card-header {
+  margin-bottom: 12px;
+}
+
+.tier-card--compact .tier-card-name {
+  font-size: 18px;
+}
+
+.tier-card--compact .tier-card-price {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+
+.tier-card--compact .tier-card-price-value {
+  font-size: 24px;
+}
+
+.tier-card--compact .tier-card-features {
+  margin-bottom: 12px;
+}
+
+.tier-card--compact .tier-card-feature {
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+/* Badge */
+.tier-card-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.tier-card--invite-only .tier-card-badge {
+  background: #a855f7;
+}
+
+/* Header */
+.tier-card-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.tier-card-tier-number {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.tier-card-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 4px 0;
+}
+
+.tier-card-tagline {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Price */
+.tier-card-price {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tier-card-price-value {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.tier-card-price-note {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+/* Features List */
+.tier-card-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  flex: 1;
+}
+
+.tier-card-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.tier-card-feature-check {
+  color: #10b981;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.tier-card--invite-only .tier-card-feature-check {
+  color: #a855f7;
+}
+
+/* CTA Button */
+.tier-card-cta {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  background: #10b981;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  margin-top: auto;
+}
+
+.tier-card-cta:hover:not(:disabled) {
+  background: #059669;
+}
+
+.tier-card-cta:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.tier-card-cta:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.tier-card--selected .tier-card-cta {
+  background: #059669;
+}
+
+.tier-card--invite-only .tier-card-cta {
+  background: #a855f7;
+}
+
+.tier-card--invite-only .tier-card-cta:hover:not(:disabled) {
+  background: #9333ea;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .tier-card {
+    padding: 20px;
+  }
+
+  .tier-card-name {
+    font-size: 20px;
+  }
+
+  .tier-card-price-value {
+    font-size: 28px;
+  }
+
+  .tier-card-feature {
+    font-size: 13px;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .tier-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .tier-card:hover {
+    border-color: #4b5563;
+  }
+
+  .tier-card--selected {
+    border-color: #10b981;
+  }
+
+  .tier-card--highlighted {
+    border-color: #10b981;
+  }
+
+  .tier-card--invite-only {
+    background: linear-gradient(135deg, #1f2937 0%, #2d1f42 100%);
+    border-color: #a855f7;
+  }
+
+  .tier-card-tier-number {
+    color: #9ca3af;
+  }
+
+  .tier-card-name,
+  .tier-card-price-value {
+    color: #f9fafb;
+  }
+
+  .tier-card-tagline,
+  .tier-card-price-note {
+    color: #9ca3af;
+  }
+
+  .tier-card-price {
+    border-bottom-color: #374151;
+  }
+
+  .tier-card-feature {
+    color: #e5e7eb;
+  }
+}
