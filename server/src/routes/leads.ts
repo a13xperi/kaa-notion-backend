@@ -1,10 +1,104 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { recommendTier } from '../utils/tierRouter';
-import { createLeadSchema, CreateLeadInput } from '../utils/validation';
+import { createLeadSchema, leadFiltersSchema, CreateLeadInput } from '../utils/validation';
 
 const router = Router();
+
+/**
+ * GET /api/leads
+ * List leads with pagination, filtering by status and tier (admin only)
+ */
+router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    // Validate query params
+    const validationResult = leadFiltersSchema.safeParse(req.query);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid query parameters',
+          details: validationResult.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    const { page, limit, status, tier, email } = validationResult.data;
+
+    // Build where clause for filtering
+    const where: Record<string, unknown> = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (tier) {
+      where.recommendedTier = tier;
+    }
+
+    if (email) {
+      where.email = {
+        contains: email,
+        mode: 'insensitive',
+      };
+    }
+
+    // Get total count for pagination
+    const totalCount = await prisma.lead.count({ where });
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Fetch leads with pagination
+    const leads = await prisma.lead.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        projectAddress: true,
+        budgetRange: true,
+        timeline: true,
+        projectType: true,
+        hasSurvey: true,
+        hasDrawings: true,
+        recommendedTier: true,
+        routingReason: true,
+        status: true,
+        tierOverride: true,
+        overrideReason: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: leads,
+      meta: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    next(error);
+  }
+});
 
 /**
  * POST /api/leads
