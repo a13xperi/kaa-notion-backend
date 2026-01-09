@@ -11,21 +11,22 @@
 ## Phase 2: Lead Capture & Intake (Current Focus)
 
 ### 2.1 Tier Router Implementation
-- [ ] `new-util`: tierRouter.ts - Implement tier recommendation algorithm with IntakeFormData input, returns TierRecommendation with tier (1-4), reason, confidence, needsManualReview
-- [ ] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
+- [x] `new-util`: tierRouter.ts - Implement tier recommendation algorithm with IntakeFormData input, returns TierRecommendation with tier (1-4), reason, confidence, needsManualReview
+- [x] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases (56 tests)
 
 ### 2.2 Lead API Endpoints
-- [ ] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
-- [ ] `new-endpoint`: GET /api/leads - List leads with pagination, filtering by status and tier (admin only)
-- [ ] `new-endpoint`: GET /api/leads/:id - Get single lead with tier recommendation details
-- [ ] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
-- [ ] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client after payment
+- [x] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
+- [x] `new-endpoint`: GET /api/leads - List leads with pagination, filtering by status and tier (admin only)
+- [x] `new-endpoint`: GET /api/leads/:id - Get single lead with tier recommendation details
+- [x] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
+- [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client after payment
+- [x] `new-endpoint`: GET /api/leads/stats/overview - Get lead statistics (admin only)
 
 ### 2.3 Intake Form Components
-- [ ] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
-- [ ] `new-component`: TierRecommendation - Display recommended tier with pricing and features after form submission
-- [ ] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
-- [ ] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
+- [x] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
+- [x] `new-component`: TierRecommendation - Display recommended tier with pricing and features after form submission
+- [x] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
+- [x] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
 
 ---
 

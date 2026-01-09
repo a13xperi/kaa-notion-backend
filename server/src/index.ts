@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
-import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter, createUploadRouter } from './routes';
+import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter, createUploadRouter, createLeadsRouter } from './routes';
 import { initNotionSyncService, initStorageService, initAuditService } from './services';
 import { errorHandler, notFoundHandler } from './middleware';
 import { logger } from './logger';
@@ -63,6 +63,7 @@ app.use('/api', createDeliverablesRouter(prisma)); // Handles /api/projects/:id/
 app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoints
 app.use('/api/notion', createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 app.use('/api/upload', createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/leads', createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({

@@ -9,4 +9,5 @@ export { createDeliverablesRouter } from './deliverables';
 export { createAdminRouter } from './admin';
 export { createNotionRouter } from './notion';
 export { createUploadRouter } from './upload';
+export { createLeadsRouter } from './leads';
 export type { AuthenticatedRequest } from './projects';
