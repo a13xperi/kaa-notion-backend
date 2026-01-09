@@ -89,7 +89,7 @@
 - [x] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
 
 ### 5.2 Admin Components
-- [ ] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
+- [x] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
 - [ ] `new-component`: LeadQueue - Lead management table with status, tier, actions (approve, change tier, close)
 - [ ] `new-component`: ProjectsTable - Admin project list with client, tier, status, actions
 - [ ] `new-component`: ClientsTable - Client list with tier, projects, status
@@ -224,6 +224,7 @@
 - [x] `new-endpoint`: GET /api/admin/leads - Paginated leads with search, status/tier filtering, sorting
 - [x] `new-endpoint`: GET /api/admin/projects - Paginated projects with progress, client info, filtering
 - [x] `new-endpoint`: GET /api/admin/clients - Paginated clients with tier, project count, search
+- [x] `new-component`: AdminDashboard - Stats cards, lead status chart, tier donut, recent tables, conversion banner
 
 ---
 
