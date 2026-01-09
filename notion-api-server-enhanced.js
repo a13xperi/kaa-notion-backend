@@ -5,9 +5,13 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { Client } = require('@notionhq/client');
 const { OpenAI } = require('openai');
+const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -135,6 +139,253 @@ async function sendEmail(to, subject, html) {
     console.log(`✅ Email sent to ${to}`);
   } catch (error) {
     console.error('Error sending email:', error.message);
+  }
+}
+
+// ============================================
+// TIER ROUTER LOGIC
+// ============================================
+
+/**
+ * Budget range thresholds (in dollars)
+ * These can be configured via environment variables or database
+ */
+const BUDGET_THRESHOLDS = {
+  TIER_1_MAX: 5000,      // Under $5K -> Tier 1
+  TIER_2_MAX: 15000,     // $5K - $15K -> Tier 2
+  TIER_3_MAX: 50000,     // $15K - $50K -> Tier 3
+  // Above $50K -> Tier 4
+};
+
+/**
+ * Parse budget range string to get numeric value
+ */
+function parseBudgetRange(budgetRange) {
+  if (!budgetRange) return null;
+
+  const budgetLower = budgetRange.toLowerCase();
+
+  // Handle common budget range formats
+  if (budgetLower.includes('under') || budgetLower.includes('<')) {
+    if (budgetLower.includes('5k') || budgetLower.includes('5000') || budgetLower.includes('5,000')) {
+      return 3000;
+    }
+    if (budgetLower.includes('10k') || budgetLower.includes('10000') || budgetLower.includes('10,000')) {
+      return 7500;
+    }
+  }
+
+  // Specific ranges
+  if (budgetLower.includes('5k-10k') || budgetLower.includes('5000-10000') || budgetLower.includes('$5,000-$10,000')) {
+    return 7500;
+  }
+  if (budgetLower.includes('10k-25k') || budgetLower.includes('10000-25000') || budgetLower.includes('$10,000-$25,000')) {
+    return 17500;
+  }
+  if (budgetLower.includes('25k-50k') || budgetLower.includes('25000-50000') || budgetLower.includes('$25,000-$50,000')) {
+    return 37500;
+  }
+  if (budgetLower.includes('50k+') || budgetLower.includes('50000+') || budgetLower.includes('$50,000+') || budgetLower.includes('over 50')) {
+    return 75000;
+  }
+  if (budgetLower.includes('100k') || budgetLower.includes('100000') || budgetLower.includes('$100,000')) {
+    return 100000;
+  }
+
+  // Try to extract numeric value
+  const numericMatch = budgetRange.match(/\d+/g);
+  if (numericMatch) {
+    const nums = numericMatch.map(n => parseInt(n));
+    // If there are two numbers, take the average
+    if (nums.length >= 2) {
+      return (nums[0] + nums[1]) / 2;
+    }
+    return nums[0];
+  }
+
+  return null;
+}
+
+/**
+ * Parse timeline string to get weeks estimate
+ */
+function parseTimeline(timeline) {
+  if (!timeline) return null;
+
+  const timelineLower = timeline.toLowerCase();
+
+  // Handle common timeline formats
+  if (timelineLower.includes('asap') || timelineLower.includes('urgent') || timelineLower.includes('< 2 week') || timelineLower.includes('under 2 week')) {
+    return 1;
+  }
+  if (timelineLower.includes('2-4 week') || timelineLower.includes('2 to 4 week') || timelineLower.includes('this month')) {
+    return 3;
+  }
+  if (timelineLower.includes('4-8 week') || timelineLower.includes('1-2 month') || timelineLower.includes('1 to 2 month')) {
+    return 6;
+  }
+  if (timelineLower.includes('8-12 week') || timelineLower.includes('2-3 month') || timelineLower.includes('2 to 3 month')) {
+    return 10;
+  }
+  if (timelineLower.includes('3-6 month') || timelineLower.includes('3 to 6 month')) {
+    return 18;
+  }
+  if (timelineLower.includes('6+ month') || timelineLower.includes('6 month') || timelineLower.includes('flexible') || timelineLower.includes('no rush')) {
+    return 30;
+  }
+
+  // Try to extract numeric value
+  const weekMatch = timeline.match(/(\d+)\s*week/i);
+  if (weekMatch) {
+    return parseInt(weekMatch[1]);
+  }
+
+  const monthMatch = timeline.match(/(\d+)\s*month/i);
+  if (monthMatch) {
+    return parseInt(monthMatch[1]) * 4;
+  }
+
+  return null;
+}
+
+/**
+ * Recommend tier based on intake form data
+ * Following the logic from docs/tier-router-rules.md
+ */
+function recommendTier(data) {
+  const {
+    budgetRange,
+    timeline,
+    projectType,
+    hasSurvey,
+    hasDrawings
+  } = data;
+
+  let tier = 1;
+  const reasons = [];
+  let needsManualReview = false;
+
+  // Parse budget
+  const budgetValue = parseBudgetRange(budgetRange);
+
+  // Parse timeline
+  const timelineWeeks = parseTimeline(timeline);
+
+  // ============================================
+  // Rule 1: Budget-Based Routing (Primary Factor)
+  // ============================================
+  if (budgetValue !== null) {
+    if (budgetValue <= BUDGET_THRESHOLDS.TIER_1_MAX) {
+      tier = 1;
+      reasons.push('Budget in Tier 1 range (under $5K)');
+    } else if (budgetValue <= BUDGET_THRESHOLDS.TIER_2_MAX) {
+      tier = 2;
+      reasons.push('Budget in Tier 2 range ($5K-$15K)');
+    } else if (budgetValue <= BUDGET_THRESHOLDS.TIER_3_MAX) {
+      tier = 3;
+      reasons.push('Budget in Tier 3 range ($15K-$50K)');
+    } else {
+      tier = 4;
+      reasons.push('Budget in Tier 4 range ($50K+)');
+      needsManualReview = true; // Always review Tier 4
+    }
+  } else {
+    reasons.push('Budget unclear - defaulting to Tier 1');
+    needsManualReview = true;
+  }
+
+  // ============================================
+  // Rule 2: Timeline-Based Adjustments
+  // ============================================
+  if (timelineWeeks !== null) {
+    if (timelineWeeks < 2) {
+      // Fast track - can only be Tier 1 or 2
+      if (tier > 2) {
+        needsManualReview = true;
+        reasons.push('Tight timeline may not be feasible for selected tier');
+      } else {
+        reasons.push('Fast-track timeline');
+      }
+    } else if (timelineWeeks > 8) {
+      // Extended timeline - suggest higher tier
+      if (tier < 3) {
+        tier = Math.max(tier, 2);
+        reasons.push('Extended timeline may benefit from higher service level');
+      }
+    }
+  }
+
+  // ============================================
+  // Rule 3: Asset-Based Adjustments
+  // ============================================
+  if (!hasSurvey && !hasDrawings) {
+    // No existing assets - site visit likely needed
+    if (tier < 3) {
+      tier = 3;
+      reasons.push('Site visit required (no existing survey or drawings)');
+    }
+  } else if (hasSurvey && hasDrawings) {
+    // Has both assets - can potentially use lower tier
+    if (tier > 2 && budgetValue && budgetValue < BUDGET_THRESHOLDS.TIER_3_MAX) {
+      reasons.push('Existing assets allow streamlined process');
+    }
+  } else if (hasSurvey || hasDrawings) {
+    reasons.push('Some existing assets available');
+  }
+
+  // ============================================
+  // Rule 4: Project Type Adjustments
+  // ============================================
+  if (projectType) {
+    const projectTypeLower = projectType.toLowerCase();
+
+    if (projectTypeLower.includes('new build') || projectTypeLower.includes('new construction')) {
+      if (tier < 3) {
+        tier = 3;
+        reasons.push('New build requires site visits');
+      }
+    } else if (projectTypeLower.includes('complex') || projectTypeLower.includes('multiple') || projectTypeLower.includes('estate') || projectTypeLower.includes('commercial')) {
+      tier = 4;
+      needsManualReview = true;
+      reasons.push('Complex project requires white-glove service');
+    } else if (projectTypeLower.includes('simple') || projectTypeLower.includes('basic') || projectTypeLower.includes('small')) {
+      reasons.push('Simple project scope');
+    }
+  }
+
+  // ============================================
+  // Tier 4 always requires manual review
+  // ============================================
+  if (tier === 4) {
+    needsManualReview = true;
+  }
+
+  // Determine confidence level
+  let confidence = 'high';
+  if (needsManualReview) {
+    confidence = 'low';
+  } else if (reasons.length > 3) {
+    confidence = 'medium';
+  }
+
+  return {
+    tier,
+    reason: reasons.join('; '),
+    confidence,
+    needsManualReview
+  };
+}
+
+/**
+ * Get next URL based on tier recommendation
+ */
+function getNextUrl(tier, needsManualReview) {
+  if (tier === 4 || needsManualReview) {
+    // Tier 4 or needs review -> book a call
+    return '/sage/book-call';
+  } else {
+    // Tiers 1-3 -> checkout
+    return `/sage/checkout?tier=${tier}`;
   }
 }
 
@@ -994,13 +1245,169 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
   }
 });
 
+// ============================================
+// SAGE INTAKE ENDPOINT
+// ============================================
+
+app.post('/api/sage/intake', async (req, res) => {
+  try {
+    const {
+      email,
+      name,
+      projectAddress,
+      budgetRange,
+      timeline,
+      projectType,
+      hasSurvey,
+      hasDrawings
+    } = req.body;
+
+    // Validate required fields
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        error: 'Email is required',
+        field: 'email'
+      });
+    }
+
+    if (!projectAddress || !projectAddress.trim()) {
+      return res.status(400).json({
+        error: 'Project address is required',
+        field: 'projectAddress'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        error: 'Invalid email format',
+        field: 'email'
+      });
+    }
+
+    // Run tier router logic
+    const tierRecommendation = recommendTier({
+      budgetRange: budgetRange || '',
+      timeline: timeline || '',
+      projectType: projectType || '',
+      hasSurvey: hasSurvey === true || hasSurvey === 'true',
+      hasDrawings: hasDrawings === true || hasDrawings === 'true'
+    });
+
+    // Determine lead status based on tier
+    let leadStatus = 'NEW';
+    if (tierRecommendation.needsManualReview) {
+      leadStatus = 'NEEDS_REVIEW';
+    } else if (tierRecommendation.confidence === 'high') {
+      leadStatus = 'QUALIFIED';
+    }
+
+    // Create Lead in Postgres using Prisma
+    const lead = await prisma.lead.create({
+      data: {
+        email: email.trim().toLowerCase(),
+        name: name?.trim() || null,
+        projectAddress: projectAddress.trim(),
+        budgetRange: budgetRange || null,
+        timeline: timeline || null,
+        projectType: projectType || null,
+        hasSurvey: hasSurvey === true || hasSurvey === 'true',
+        hasDrawings: hasDrawings === true || hasDrawings === 'true',
+        recommendedTier: tierRecommendation.tier,
+        routingReason: tierRecommendation.reason,
+        status: leadStatus
+      }
+    });
+
+    // Get next URL based on tier
+    const nextUrl = getNextUrl(tierRecommendation.tier, tierRecommendation.needsManualReview);
+
+    // Log the intake submission
+    console.log(`✅ New lead created: ${lead.id} - Tier ${tierRecommendation.tier} (${leadStatus})`);
+
+    // Send notification to team for Tier 4 or needs review
+    if (tierRecommendation.tier === 4 || tierRecommendation.needsManualReview) {
+      if (process.env.TEAM_EMAIL) {
+        await sendEmail(
+          process.env.TEAM_EMAIL,
+          `🎯 New Lead Requires Review: ${name || email}`,
+          `
+            <h2>New Lead Submission</h2>
+            <p>A new lead requires manual review:</p>
+            <ul>
+              <li><strong>Name:</strong> ${name || 'Not provided'}</li>
+              <li><strong>Email:</strong> ${email}</li>
+              <li><strong>Project Address:</strong> ${projectAddress}</li>
+              <li><strong>Budget Range:</strong> ${budgetRange || 'Not provided'}</li>
+              <li><strong>Timeline:</strong> ${timeline || 'Not provided'}</li>
+              <li><strong>Project Type:</strong> ${projectType || 'Not provided'}</li>
+              <li><strong>Has Survey:</strong> ${hasSurvey ? 'Yes' : 'No'}</li>
+              <li><strong>Has Drawings:</strong> ${hasDrawings ? 'Yes' : 'No'}</li>
+            </ul>
+            <h3>Tier Recommendation</h3>
+            <ul>
+              <li><strong>Recommended Tier:</strong> ${tierRecommendation.tier}</li>
+              <li><strong>Confidence:</strong> ${tierRecommendation.confidence}</li>
+              <li><strong>Reason:</strong> ${tierRecommendation.reason}</li>
+            </ul>
+            <p><a href="${process.env.FRONTEND_URL || 'https://kaa-app.vercel.app'}/admin/leads">View in Admin Dashboard</a></p>
+          `
+        );
+      }
+    }
+
+    // Return response
+    res.json({
+      success: true,
+      leadId: lead.id,
+      recommendedTier: tierRecommendation.tier,
+      tierName: getTierName(tierRecommendation.tier),
+      confidence: tierRecommendation.confidence,
+      routingReason: tierRecommendation.reason,
+      needsManualReview: tierRecommendation.needsManualReview,
+      nextUrl
+    });
+
+  } catch (error) {
+    console.error('Error processing intake:', error);
+
+    // Handle Prisma errors
+    if (error.code === 'P2002') {
+      return res.status(400).json({
+        error: 'A lead with this email already exists',
+        field: 'email'
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to process intake submission',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Get tier name from tier number
+ */
+function getTierName(tier) {
+  const tierNames = {
+    1: 'The Concept',
+    2: 'The Builder',
+    3: 'The Concierge',
+    4: 'KAA White Glove'
+  };
+  return tierNames[tier] || 'Unknown';
+}
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
+    prisma_configured: !!prisma,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });

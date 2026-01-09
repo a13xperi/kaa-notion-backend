@@ -10,17 +10,30 @@ import ClientWorkspace from './components/ClientWorkspace';
 import TeamLogin from './components/TeamLogin';
 import TeamDashboard from './components/TeamDashboard';
 import FeatureDemo from './components/FeatureDemo';
+import SageIntake from './components/SageIntake';
 import OfflineIndicator from './components/OfflineIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import pwaManager from './utils/pwa';
 
+interface IntakeResponse {
+  success: boolean;
+  leadId: string;
+  recommendedTier: number;
+  tierName: string;
+  confidence: string;
+  routingReason: string;
+  needsManualReview: boolean;
+  nextUrl: string;
+}
+
 function App() {
-  const [selectedPortal, setSelectedPortal] = useState<'landing' | 'client-portal' | 'client-login' | 'user-verification' | 'client' | 'team-login' | 'team' | 'demo'>('landing');
+  const [selectedPortal, setSelectedPortal] = useState<'landing' | 'client-portal' | 'client-login' | 'user-verification' | 'client' | 'team-login' | 'team' | 'demo' | 'sage-get-started'>('landing');
   const [clientAddress, setClientAddress] = useState<string>('');
   const [clientPassword, setClientPassword] = useState<string>('');
   const [clientLastName, setClientLastName] = useState<string>(''); // Used in handleUserVerification
   const [teamMember, setTeamMember] = useState<string>('');
   const [teamRole, setTeamRole] = useState<string>('');
+  const [intakeResponse, setIntakeResponse] = useState<IntakeResponse | null>(null);
 
   // Check if user has previously selected a portal (optional: remember choice)
   useEffect(() => {
@@ -49,8 +62,11 @@ function App() {
     const savedPassword = localStorage.getItem('kaa-client-password');
     const savedLastName = localStorage.getItem('kaa-client-lastname');
     
-    // Check for demo mode in URL
-    if (window.location.pathname === '/demo' || window.location.search.includes('demo=true')) {
+    // Check for specific routes in URL
+    if (window.location.pathname === '/sage/get-started') {
+      setSelectedPortal('sage-get-started');
+      return;
+    } else if (window.location.pathname === '/demo' || window.location.search.includes('demo=true')) {
       setSelectedPortal('demo');
     } else if (savedPortal === 'team') {
       setSelectedPortal('team');
@@ -172,6 +188,40 @@ function App() {
     localStorage.removeItem('kaa-team-role');
   };
 
+  // Sage Intake Handlers
+  const handleSageGetStarted = () => {
+    setSelectedPortal('sage-get-started');
+    window.history.pushState({}, '', '/sage/get-started');
+  };
+
+  const handleIntakeComplete = (response: IntakeResponse) => {
+    logger.info('[App] Intake complete:', response);
+    setIntakeResponse(response);
+
+    // Navigate based on tier
+    if (response.recommendedTier >= 1 && response.recommendedTier <= 3 && !response.needsManualReview) {
+      // Tiers 1-3: Go to checkout
+      logger.info(`[App] Routing to checkout for Tier ${response.recommendedTier}`);
+      // For now, show an alert with the result since checkout page isn't implemented yet
+      alert(`Great news! Based on your project, we recommend ${response.tierName} (Tier ${response.recommendedTier}).\n\nNext step: ${response.nextUrl}\n\nReason: ${response.routingReason}`);
+      // In production, this would redirect to: window.location.href = response.nextUrl;
+    } else {
+      // Tier 4 or needs review: Book a call
+      logger.info('[App] Routing to book-call for Tier 4 / manual review');
+      alert(`Thank you for your interest! Your project requires a personalized consultation.\n\nWe recommend: ${response.tierName}\n\nOur team will reach out to schedule a call.\n\nReason: ${response.routingReason}`);
+      // In production, this would redirect to: window.location.href = response.nextUrl;
+    }
+
+    // Return to landing after showing result
+    setSelectedPortal('landing');
+    window.history.pushState({}, '', '/');
+  };
+
+  const handleBackFromIntake = () => {
+    setSelectedPortal('landing');
+    window.history.pushState({}, '', '/');
+  };
+
   // Removed handleBackToTeamLogin - not currently used
   // Team login uses handleBackToLanding for navigation
 
@@ -180,6 +230,17 @@ function App() {
     return (
       <>
         <FeatureDemo onBack={handleBackToLanding} />
+        <OfflineIndicator />
+        <InstallPrompt />
+      </>
+    );
+  }
+
+  // Show Sage Intake page (/sage/get-started)
+  if (selectedPortal === 'sage-get-started') {
+    return (
+      <>
+        <SageIntake onComplete={handleIntakeComplete} onBack={handleBackFromIntake} />
         <OfflineIndicator />
         <InstallPrompt />
       </>
