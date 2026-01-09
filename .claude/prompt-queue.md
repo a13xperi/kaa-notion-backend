@@ -52,9 +52,9 @@
 ## Phase 4: Client Portal
 
 ### 4.1 Project Endpoints
-- [ ] `new-endpoint`: GET /api/projects - List user's projects with status and progress
-- [ ] `new-endpoint`: GET /api/projects/:id - Get project with milestones, deliverables, payment status
-- [ ] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
+- [x] `new-endpoint`: GET /api/projects - List user's projects with status and progress
+- [x] `new-endpoint`: GET /api/projects/:id - Get project with milestones, deliverables, payment status
+- [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
 
 ### 4.2 Milestone Endpoints
 - [ ] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project
@@ -203,6 +203,9 @@
 - [x] `new-service`: clientService.ts - Atomic client creation from lead with idempotency
 - [x] `new-util`: milestoneTemplates.ts - Tier-specific milestone templates with due date calculation
 - [x] `new-service`: projectService.ts - Project creation with milestones, status management, progress tracking
+- [x] `new-endpoint`: GET /api/projects - User's projects with progress, admin pagination
+- [x] `new-endpoint`: GET /api/projects/:id - Full project with milestones, deliverables, payments
+- [x] `new-endpoint`: PATCH /api/projects/:id - Admin status update
 
 ---
 
