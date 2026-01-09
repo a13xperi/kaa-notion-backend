@@ -22,7 +22,7 @@
 - [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client after payment
 
 ### 2.3 Intake Form Components
-- [ ] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
+- [x] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
 - [ ] `new-component`: TierRecommendation - Display recommended tier with pricing and features after form submission
 - [ ] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
 - [ ] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
@@ -188,6 +188,7 @@
 - [x] `new-endpoint`: GET /api/leads/:id - Single lead with full tier recommendation details
 - [x] `new-endpoint`: PATCH /api/leads/:id - Update status, tier override with reason validation
 - [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client with user, project, payment creation
+- [x] `new-form`: IntakeForm - 5-step form (contact, budget, timeline, project type, review) with validation
 
 ---
 
