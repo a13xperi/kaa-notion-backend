@@ -8,4 +8,5 @@ export { createMilestonesRouter } from './milestones';
 export { createDeliverablesRouter } from './deliverables';
 export { createAdminRouter } from './admin';
 export { createNotionRouter } from './notion';
+export { createUploadRouter } from './upload';
 export type { AuthenticatedRequest } from './projects';

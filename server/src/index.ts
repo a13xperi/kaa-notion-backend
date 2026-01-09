@@ -6,8 +6,8 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
-import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter } from './routes';
-import { initNotionSyncService } from './services';
+import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter, createUploadRouter } from './routes';
+import { initNotionSyncService, initStorageService } from './services';
 import { logger } from './logger';
 
 dotenv.config();
@@ -40,12 +40,24 @@ if (process.env.NOTION_API_KEY && process.env.NOTION_PROJECTS_DATABASE_ID) {
   logger.info('Notion sync service initialized');
 }
 
+// Initialize storage service if configured
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+  initStorageService({
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+    bucketName: process.env.STORAGE_BUCKET || 'deliverables',
+    maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB || '50', 10),
+  });
+  logger.info('Storage service initialized');
+}
+
 // API Routes
 app.use('/api/projects', createProjectsRouter(prisma));
 app.use('/api', createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
 app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoints
 app.use('/api/notion', createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
@@ -189,6 +201,7 @@ app.get('/api/health', async (req, res) => {
         figma: process.env.FIGMA_ACCESS_TOKEN ? 'configured' : 'not configured',
         stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
         notion: process.env.NOTION_API_KEY ? 'configured' : 'not configured',
+        storage: process.env.SUPABASE_URL ? 'configured' : 'not configured',
       },
     });
   } catch (error) {

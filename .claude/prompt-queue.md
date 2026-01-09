@@ -117,9 +117,9 @@
 ## Phase 7: File Storage
 
 ### 7.1 Supabase Storage
-- [ ] `new-service`: storageService.ts - Upload files to Supabase Storage, get signed URLs, delete files
-- [ ] `new-endpoint`: POST /api/upload - Handle file upload with validation (size, type), store metadata
-- [ ] `new-component`: FileUpload - Drag-drop upload with progress, file type validation, preview
+- [x] `new-service`: storageService.ts - Upload files to Supabase Storage, get signed URLs, delete files
+- [x] `new-endpoint`: POST /api/upload - Handle file upload with validation (size, type), store metadata
+- [x] `new-component`: FileUpload - Drag-drop upload with progress, file type validation, preview
 
 ---
 
@@ -222,6 +222,12 @@
 - [x] `new-endpoint`: POST /api/notion/retry - Retry all failed syncs
 - [x] `new-endpoint`: POST /api/notion/sync/project/:id - Manually sync specific project
 - [x] `new-endpoint`: GET /api/notion/failed - Get list of failed syncs
+- [x] `new-service`: storageService.ts - Supabase Storage upload, signed URLs, delete, metadata
+- [x] `new-endpoint`: POST /api/upload - Single file upload with validation, creates deliverable record
+- [x] `new-endpoint`: POST /api/upload/multiple - Multiple file upload (up to 10 files)
+- [x] `new-endpoint`: GET /api/upload/config - Get allowed file types and size limits
+- [x] `new-endpoint`: DELETE /api/upload/:id - Delete file from storage and database
+- [x] `new-component`: FileUpload - Drag-drop upload with preview, progress, validation
 
 ### 2025-01-09
 - [x] Initial project setup

@@ -61,3 +61,16 @@ export {
   type DeliverableSyncData,
   type SyncOptions,
 } from './notionSync';
+
+// Storage Service - Supabase Storage for file uploads
+export {
+  StorageService,
+  initStorageService,
+  getStorageService,
+  type StorageConfig,
+  type UploadOptions,
+  type UploadResult,
+  type SignedUrlResult,
+  type DeleteResult,
+  type FileMetadata,
+} from './storageService';
