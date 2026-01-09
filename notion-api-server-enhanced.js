@@ -5,15 +5,104 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { Client } = require('@notionhq/client');
 const { OpenAI } = require('openai');
+const { PrismaClient } = require('@prisma/client');
+const Stripe = require('stripe');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
+
+// Initialize Stripe client
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// ============================================
+// STRIPE WEBHOOK (must be before express.json())
+// Stripe requires raw body for signature verification
+// ============================================
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) {
+    console.error('❌ Stripe not configured');
+    return res.status(500).json({ error: 'Stripe not configured' });
+  }
+
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
+  let event;
+
+  try {
+    // Verify webhook signature
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error(`❌ Webhook signature verification failed: ${err.message}`);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  console.log(`📩 Received Stripe event: ${event.type} (${event.id})`);
+
+  try {
+    // Idempotency check - skip if already processed
+    const existingEvent = await prisma.processedStripeEvent.findUnique({
+      where: { id: event.id }
+    });
+
+    if (existingEvent) {
+      console.log(`⏭️  Event ${event.id} already processed, skipping`);
+      return res.json({ received: true, skipped: true });
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object, event.id);
+        break;
+
+      case 'payment_intent.succeeded':
+        console.log(`💰 Payment intent succeeded: ${event.data.object.id}`);
+        break;
+
+      case 'payment_intent.payment_failed':
+        console.log(`❌ Payment failed: ${event.data.object.id}`);
+        break;
+
+      default:
+        console.log(`ℹ️  Unhandled event type: ${event.type}`);
+    }
+
+    // Mark event as processed (idempotency)
+    await prisma.processedStripeEvent.create({
+      data: {
+        id: event.id,
+        eventType: event.type,
+        payload: event.data.object
+      }
+    });
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error(`❌ Error processing webhook: ${err.message}`);
+    // Return 500 so Stripe will retry
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// JSON body parser for all other routes
 app.use(express.json());
 
 // File upload configuration - use memory storage for Vercel
@@ -136,6 +225,354 @@ async function sendEmail(to, subject, html) {
   } catch (error) {
     console.error('Error sending email:', error.message);
   }
+}
+
+// ============================================
+// STRIPE CHECKOUT SESSION HANDLER
+// ============================================
+
+async function handleCheckoutSessionCompleted(session, eventId) {
+  console.log(`🛒 Processing checkout session: ${session.id}`);
+
+  // Extract customer info from the session
+  const customerEmail = session.customer_email || session.customer_details?.email;
+  const customerName = session.customer_details?.name || '';
+  const stripeCustomerId = session.customer || '';
+  const paymentIntentId = session.payment_intent || session.id;
+  const amountTotal = session.amount_total || 0;
+  const currency = session.currency || 'usd';
+
+  if (!customerEmail) {
+    console.error('❌ No customer email found in checkout session');
+    throw new Error('Customer email is required');
+  }
+
+  console.log(`👤 Customer: ${customerEmail} (${customerName})`);
+
+  // Determine tier from metadata or line items
+  let tier = 1; // Default tier
+  let projectAddress = '';
+
+  // Check session metadata first
+  if (session.metadata?.tier) {
+    tier = parseInt(session.metadata.tier, 10);
+  }
+  if (session.metadata?.project_address) {
+    projectAddress = session.metadata.project_address;
+  }
+
+  // If no tier in metadata, try to determine from line items
+  if (!session.metadata?.tier && session.line_items) {
+    // Fetch line items if available
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+      for (const item of lineItems.data) {
+        const priceId = item.price?.id;
+        if (priceId) {
+          // Look up tier by Stripe price ID
+          const tierRecord = await prisma.tier.findFirst({
+            where: { stripePriceId: priceId }
+          });
+          if (tierRecord) {
+            tier = tierRecord.id;
+            console.log(`📦 Matched tier ${tier} from price ${priceId}`);
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.log(`⚠️  Could not fetch line items: ${err.message}`);
+    }
+  }
+
+  console.log(`📊 Tier: ${tier}, Amount: ${amountTotal / 100} ${currency.toUpperCase()}`);
+
+  // Use a transaction to ensure atomic operations
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Find or create User by email
+    let user = await tx.user.findUnique({
+      where: { email: customerEmail }
+    });
+
+    // Generate a random password and access code for new users
+    const accessCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const tempPassword = Math.random().toString(36).substring(2, 14);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    if (!user) {
+      console.log(`📝 Creating new user for ${customerEmail}`);
+      user = await tx.user.create({
+        data: {
+          email: customerEmail,
+          address: projectAddress || null,
+          passwordHash: passwordHash,
+          userType: 'SAGE_CLIENT',
+          tier: tier
+        }
+      });
+    } else {
+      console.log(`👤 Found existing user: ${user.id}`);
+      // Update tier if higher
+      if (tier > (user.tier || 0)) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { tier: tier }
+        });
+      }
+    }
+
+    // 2. Find or create Client
+    let client = await tx.client.findUnique({
+      where: { userId: user.id }
+    });
+
+    if (!client) {
+      console.log(`📝 Creating new client for user ${user.id}`);
+      client = await tx.client.create({
+        data: {
+          userId: user.id,
+          tier: tier,
+          status: 'ONBOARDING',
+          projectAddress: projectAddress || `Project-${Date.now()}`
+        }
+      });
+    } else {
+      console.log(`🏢 Found existing client: ${client.id}`);
+      // Update tier if higher
+      if (tier > client.tier) {
+        await tx.client.update({
+          where: { id: client.id },
+          data: { tier: tier }
+        });
+      }
+    }
+
+    // 3. Create Project
+    const projectName = session.metadata?.project_name ||
+                       customerName ? `${customerName}'s Project` :
+                       `Project ${new Date().toLocaleDateString()}`;
+
+    console.log(`📁 Creating project: ${projectName}`);
+    const project = await tx.project.create({
+      data: {
+        clientId: client.id,
+        tier: tier,
+        status: 'ONBOARDING',
+        name: projectName,
+        paymentStatus: 'paid'
+      }
+    });
+
+    // 4. Create Payment record
+    console.log(`💳 Recording payment: ${paymentIntentId}`);
+    const payment = await tx.payment.create({
+      data: {
+        projectId: project.id,
+        stripePaymentIntentId: paymentIntentId,
+        stripeCustomerId: stripeCustomerId || `cus_${session.id}`,
+        amount: amountTotal,
+        currency: currency,
+        status: 'SUCCEEDED',
+        tier: tier
+      }
+    });
+
+    // 5. Create default milestones based on tier
+    const milestones = getMilestonesForTier(tier);
+    for (let i = 0; i < milestones.length; i++) {
+      await tx.milestone.create({
+        data: {
+          projectId: project.id,
+          tier: tier,
+          name: milestones[i],
+          order: i + 1,
+          status: i === 0 ? 'IN_PROGRESS' : 'PENDING'
+        }
+      });
+    }
+
+    // 6. Create audit log entry
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'checkout_completed',
+        resourceType: 'project',
+        resourceId: project.id,
+        details: {
+          stripeEventId: eventId,
+          sessionId: session.id,
+          tier: tier,
+          amount: amountTotal,
+          currency: currency
+        }
+      }
+    });
+
+    return { user, client, project, payment, accessCode, tempPassword };
+  });
+
+  console.log(`✅ Checkout processing complete for ${customerEmail}`);
+  console.log(`   User: ${result.user.id}`);
+  console.log(`   Client: ${result.client.id}`);
+  console.log(`   Project: ${result.project.id}`);
+  console.log(`   Payment: ${result.payment.id}`);
+
+  // 7. Send portal access email
+  await sendPortalAccessEmail({
+    email: customerEmail,
+    name: customerName,
+    projectAddress: result.client.projectAddress,
+    accessCode: result.accessCode,
+    tier: tier,
+    projectName: result.project.name
+  });
+
+  return result;
+}
+
+// Helper function to get milestones based on tier
+function getMilestonesForTier(tier) {
+  const baseMilestones = ['Intake', 'Concept Development'];
+
+  switch (tier) {
+    case 1: // The Concept
+      return [...baseMilestones, 'Design Delivery'];
+    case 2: // The Builder
+      return [...baseMilestones, 'Draft Review', 'Revisions', 'Final Design'];
+    case 3: // The Concierge
+      return [...baseMilestones, 'Site Visit', 'Draft Review', 'Revisions', 'Final Design', 'Installation Support'];
+    case 4: // KAA White Glove
+      return [...baseMilestones, 'Site Assessment', 'Design Development', 'Client Review', 'Revisions', 'Final Design', 'Installation Oversight', 'Project Completion'];
+    default:
+      return baseMilestones;
+  }
+}
+
+// Send portal access email to new client
+async function sendPortalAccessEmail({ email, name, projectAddress, accessCode, tier, projectName }) {
+  const tierNames = {
+    1: 'The Concept',
+    2: 'The Builder',
+    3: 'The Concierge',
+    4: 'KAA White Glove'
+  };
+
+  const tierName = tierNames[tier] || `Tier ${tier}`;
+  const portalUrl = process.env.FRONTEND_URL || 'https://kaa-app.vercel.app';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2d5a27 0%, #4a7c45 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { color: white; margin: 0; font-size: 28px; }
+        .header p { color: rgba(255,255,255,0.9); margin: 10px 0 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; }
+        .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #ddd; }
+        .credentials h3 { margin-top: 0; color: #2d5a27; }
+        .credential-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .credential-item:last-child { border-bottom: none; }
+        .credential-label { font-weight: 600; color: #666; }
+        .credential-value { font-family: monospace; font-size: 16px; color: #2d5a27; background: #f0f7ef; padding: 4px 8px; border-radius: 4px; }
+        .cta-button { display: inline-block; background: #2d5a27; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .cta-button:hover { background: #3d7a37; }
+        .tier-badge { display: inline-block; background: #2d5a27; color: white; padding: 6px 16px; border-radius: 20px; font-size: 14px; margin: 10px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+        .steps { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .steps ol { margin: 0; padding-left: 20px; }
+        .steps li { margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🌿 Welcome to SAGE</h1>
+          <p>Your landscape design journey begins now</p>
+        </div>
+
+        <div class="content">
+          <p>Hi ${name || 'there'},</p>
+
+          <p>Thank you for choosing SAGE! Your payment has been processed and your client portal is ready.</p>
+
+          <div style="text-align: center;">
+            <span class="tier-badge">${tierName}</span>
+          </div>
+
+          <div class="credentials">
+            <h3>🔐 Your Portal Access</h3>
+            <div class="credential-item">
+              <span class="credential-label">Project Address:</span>
+              <span class="credential-value">${projectAddress}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Access Code:</span>
+              <span class="credential-value">${accessCode}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Project:</span>
+              <span class="credential-value">${projectName}</span>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${portalUrl}" class="cta-button">Access Your Portal</a>
+          </div>
+
+          <div class="steps">
+            <h3>🚀 Getting Started</h3>
+            <ol>
+              <li>Click the button above or visit <strong>${portalUrl}</strong></li>
+              <li>Enter your project address and access code</li>
+              <li>Complete your project intake form</li>
+              <li>Upload any inspiration photos or site documents</li>
+            </ol>
+          </div>
+
+          <p>Your project manager will be in touch shortly to guide you through the next steps. In the meantime, feel free to explore your portal and start gathering your design ideas!</p>
+
+          <p>Questions? Simply reply to this email or use the messaging feature in your portal.</p>
+
+          <p>Welcome aboard! 🌱</p>
+          <p><em>The SAGE Team</em></p>
+        </div>
+
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} SAGE Garden Wizard. All rights reserved.</p>
+          <p>This email was sent to ${email}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail(
+    email,
+    `🌿 Welcome to SAGE - Your ${tierName} Portal is Ready!`,
+    html
+  );
+
+  // Also notify team
+  if (process.env.TEAM_EMAIL) {
+    await sendEmail(
+      process.env.TEAM_EMAIL,
+      `New Client: ${name || email} - ${tierName}`,
+      `
+        <h2>New Client Registration</h2>
+        <p><strong>Name:</strong> ${name || 'Not provided'}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Tier:</strong> ${tierName}</p>
+        <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Project Address:</strong> ${projectAddress}</p>
+        <p><a href="${portalUrl}">View in Admin Portal</a></p>
+      `
+    );
+  }
+
+  console.log(`📧 Portal access email sent to ${email}`);
 }
 
 // ============================================
@@ -996,11 +1433,13 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
+    stripe_configured: !!stripe,
+    stripe_webhook_configured: !!process.env.STRIPE_WEBHOOK_SECRET,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
@@ -1507,6 +1946,20 @@ app.listen(PORT, async () => {
     console.log('   Set OPENAI_API_KEY in your .env file to enable intelligent Sage conversations');
   } else {
     console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
+  }
+
+  if (!stripe) {
+    console.log('⚠️  WARNING: Stripe not configured (STRIPE_SECRET_KEY)');
+    console.log('   Set STRIPE_SECRET_KEY in your .env file to enable payments');
+  } else {
+    console.log('✅ Stripe API configured');
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.log('⚠️  WARNING: Stripe webhook secret not set (STRIPE_WEBHOOK_SECRET)');
+    console.log('   Set STRIPE_WEBHOOK_SECRET to enable webhook signature verification');
+  } else {
+    console.log('✅ Stripe webhook configured');
   }
 
   // Initialize databases

@@ -247,3 +247,15 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+// Idempotency table for Stripe webhook events
+model ProcessedStripeEvent {
+  id          String   @id // Stripe event ID (evt_xxx)
+  eventType   String   @map("event_type") // e.g., "checkout.session.completed"
+  processedAt DateTime @default(now()) @map("processed_at")
+  payload     Json? // Store event payload for debugging
+
+  @@index([eventType])
+  @@index([processedAt])
+  @@map("processed_stripe_events")
+}
