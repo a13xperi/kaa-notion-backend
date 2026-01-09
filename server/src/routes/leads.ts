@@ -204,4 +204,79 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
   }
 });
 
+/**
+ * GET /api/leads/:id
+ * Get single lead with tier recommendation details
+ */
+router.get('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Fetch lead by ID
+    const lead = await prisma.lead.findUnique({
+      where: { id },
+    });
+
+    if (!lead) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Lead not found',
+        },
+      });
+      return;
+    }
+
+    // Re-calculate tier recommendation for detailed response
+    const tierRecommendation = recommendTier({
+      budgetRange: lead.budgetRange,
+      timeline: lead.timeline,
+      projectType: lead.projectType,
+      hasSurvey: lead.hasSurvey,
+      hasDrawings: lead.hasDrawings,
+      projectAddress: lead.projectAddress,
+      email: lead.email,
+      name: lead.name ?? undefined,
+    });
+
+    // Determine effective tier (override or recommended)
+    const effectiveTier = lead.tierOverride ?? lead.recommendedTier;
+
+    res.json({
+      success: true,
+      data: {
+        lead: {
+          id: lead.id,
+          email: lead.email,
+          name: lead.name,
+          projectAddress: lead.projectAddress,
+          budgetRange: lead.budgetRange,
+          timeline: lead.timeline,
+          projectType: lead.projectType,
+          hasSurvey: lead.hasSurvey,
+          hasDrawings: lead.hasDrawings,
+          status: lead.status,
+          recommendedTier: lead.recommendedTier,
+          tierOverride: lead.tierOverride,
+          overrideReason: lead.overrideReason,
+          effectiveTier,
+          createdAt: lead.createdAt,
+          updatedAt: lead.updatedAt,
+        },
+        tierRecommendation: {
+          tier: tierRecommendation.tier,
+          reason: tierRecommendation.reason,
+          confidence: tierRecommendation.confidence,
+          needsManualReview: tierRecommendation.needsManualReview,
+          factors: tierRecommendation.factors,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching lead:', error);
+    next(error);
+  }
+});
+
 export default router;
