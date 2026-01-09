@@ -6,6 +6,7 @@ const multer = require('multer');
 const { Client } = require('@notionhq/client');
 const fs = require('fs');
 const path = require('path');
+const logger = require('./server/logger');
 require('dotenv').config();
 
 const app = express();
@@ -73,12 +74,12 @@ async function findOrCreateDatabase(name, properties) {
   });
 
   if (existing) {
-    console.log(`✅ Found existing database: ${name}`);
+    logger.debug(`Found existing database: ${name}`);
     return existing.id;
   }
 
   // Create new database
-  console.log(`📝 Creating new database: ${name}`);
+  logger.debug(`Creating new database: ${name}`);
   const newDb = await notion.databases.create({
     parent: { type: 'page_id', page_id: process.env.NOTION_PARENT_PAGE_ID || 'workspace' },
     title: [{ type: 'text', text: { content: name } }],
@@ -110,14 +111,14 @@ async function logActivity(address, action, details = {}) {
       }
     });
   } catch (error) {
-    console.error('Error logging activity:', error.message);
+    logger.error('Error logging activity:', error.message);
   }
 }
 
 async function sendEmail(to, subject, html) {
   try {
     if (!process.env.EMAIL_USER) {
-      console.log('📧 Email not configured - would send:', { to, subject });
+      logger.debug('Email not configured - would send:', { to, subject });
       return;
     }
 
@@ -128,9 +129,9 @@ async function sendEmail(to, subject, html) {
       html
     });
 
-    console.log(`✅ Email sent to ${to}`);
+    logger.debug(`Email sent to ${to}`);
   } catch (error) {
-    console.error('Error sending email:', error.message);
+    logger.error('Error sending email:', error.message);
   }
 }
 
@@ -166,9 +167,9 @@ async function initializeDatabases() {
       process.env.ACTIVITY_LOG_DB_ID = activityDb;
     }
 
-    console.log('✅ Databases initialized');
+    logger.info('Databases initialized');
   } catch (error) {
-    console.error('❌ Error initializing databases:', error.message);
+    logger.error('Error initializing databases:', error.message);
   }
 }
 
@@ -244,7 +245,7 @@ app.post('/api/admin/clients/create', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error creating client:', error);
+    logger.error('Error creating client:', error);
     res.status(500).json({ error: 'Failed to create client' });
   }
 });
@@ -318,18 +319,18 @@ app.post('/api/client/verify-user', async (req, res) => {
           }
         }
       } catch (notionError) {
-        console.error('Error querying credentials for user verification:', notionError);
+        logger.error('Error querying credentials for user verification:', notionError);
       }
     }
 
     // If no database or not found, return error
-    return res.json({ 
-      verified: false, 
-      error: 'Could not verify user. Please contact support.' 
+    return res.json({
+      verified: false,
+      error: 'Could not verify user. Please contact support.'
     });
 
   } catch (error) {
-    console.error('Error verifying user:', error);
+    logger.error('Error verifying user:', error);
     res.status(500).json({ 
       verified: false,
       error: 'Server error during verification' 
@@ -446,7 +447,7 @@ app.post('/api/client/verify', async (req, res) => {
           }
         }
       } catch (notionError) {
-        console.error('Error querying credentials:', notionError);
+        logger.error('Error querying credentials:', notionError);
       }
     }
 
@@ -474,10 +475,10 @@ app.post('/api/client/verify', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error verifying client:', error);
-    res.status(500).json({ 
+    logger.error('Error verifying client:', error);
+    res.status(500).json({
       verified: false,
-      error: 'Server error during verification' 
+      error: 'Server error during verification'
     });
   }
 });
@@ -562,13 +563,13 @@ app.post('/api/client/upload', upload.single('file'), async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error uploading document:', error);
+    logger.error('Error uploading document:', error);
     // Clean up on error
     if (req.file) {
       try {
         fs.unlinkSync(req.file.path);
       } catch (unlinkError) {
-        console.error('Error cleaning up file:', unlinkError);
+        logger.error('Error cleaning up file:', unlinkError);
       }
     }
     res.status(500).json({ error: 'Failed to upload document' });
@@ -651,7 +652,7 @@ app.get('/api/notion/pages', async (req, res) => {
 
     res.json(pages);
   } catch (error) {
-    console.error('Error fetching pages:', error);
+    logger.error('Error fetching pages:', error);
     res.status(500).json({ error: 'Failed to fetch pages from Notion' });
   }
 });
@@ -675,7 +676,7 @@ app.get('/api/notion/pages/:pageId', async (req, res) => {
       blocks: blocks.results
     });
   } catch (error) {
-    console.error('Error fetching page content:', error);
+    logger.error('Error fetching page content:', error);
     res.status(500).json({ error: 'Failed to fetch page content' });
   }
 });
@@ -699,7 +700,7 @@ app.get('/api/notion/databases', async (req, res) => {
 
     res.json(databases);
   } catch (error) {
-    console.error('Error fetching databases:', error);
+    logger.error('Error fetching databases:', error);
     res.status(500).json({ error: 'Failed to fetch databases' });
   }
 });
@@ -720,19 +721,19 @@ app.get('/api/health', (req, res) => {
 // ============================================
 
 app.listen(PORT, async () => {
-  console.log(`🚀 KAA Enhanced API Server running on http://localhost:${PORT}`);
-  console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  
+  logger.info(`KAA Enhanced API Server running on http://localhost:${PORT}`);
+  logger.info(`Health check: http://localhost:${PORT}/api/health`);
+
   if (!process.env.NOTION_API_KEY) {
-    console.log('⚠️  WARNING: NOTION_API_KEY not set');
+    logger.warn('NOTION_API_KEY not set');
   } else {
-    console.log('✅ Notion API key configured');
+    logger.info('Notion API key configured');
   }
-  
+
   if (!process.env.EMAIL_USER) {
-    console.log('⚠️  WARNING: Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
+    logger.warn('Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
   } else {
-    console.log('✅ Email configured');
+    logger.info('Email configured');
   }
 
   // Initialize databases
