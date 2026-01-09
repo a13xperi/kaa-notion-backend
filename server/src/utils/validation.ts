@@ -57,6 +57,11 @@ export const createLeadSchema = z.object({
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 
 /**
+ * Lead status enum
+ */
+export const leadStatusSchema = z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CONVERTED', 'CLOSED']);
+
+/**
  * Lead status update schema (admin only)
  * All fields optional for partial updates
  */
@@ -78,6 +83,20 @@ export const updateLeadSchema = z.object({
 export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
 
 /**
+ * Convert lead to client schema
+ * Used after successful payment
+ */
+export const convertLeadSchema = z.object({
+  stripePaymentIntentId: z.string().min(1, 'Payment intent ID is required'),
+  stripeCustomerId: z.string().min(1, 'Customer ID is required'),
+  amount: z.number().int().positive('Amount must be positive'),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+  projectName: z.string().min(1, 'Project name is required').optional(),
+});
+
+export type ConvertLeadInput = z.infer<typeof convertLeadSchema>;
+
+/**
  * Pagination query params schema
  */
 export const paginationSchema = z.object({
@@ -89,7 +108,7 @@ export const paginationSchema = z.object({
  * Lead list filters schema
  */
 export const leadFiltersSchema = paginationSchema.extend({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  status: leadStatusSchema.optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
   email: z.string().optional(),
 });

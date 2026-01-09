@@ -1,7 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { recommendTier } from '../utils/tierRouter';
-import { createLeadSchema, leadFiltersSchema, updateLeadSchema, CreateLeadInput } from '../utils/validation';
+import {
+  createLeadSchema,
+  leadFiltersSchema,
+  updateLeadSchema,
+  convertLeadSchema,
+  CreateLeadInput,
+} from '../utils/validation';
 
 const router = Router();
 
@@ -370,6 +376,177 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction): Pr
     });
   } catch (error) {
     console.error('Error updating lead:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/leads/:id/convert
+ * Convert lead to client after payment
+ */
+router.post('/:id/convert', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Validate request body
+    const validationResult = convertLeadSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: validationResult.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    // Check if lead exists
+    const lead = await prisma.lead.findUnique({
+      where: { id },
+    });
+
+    if (!lead) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Lead not found',
+        },
+      });
+      return;
+    }
+
+    // Check if lead is already converted
+    if (lead.clientId) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'ALREADY_CONVERTED',
+          message: 'Lead has already been converted to a client',
+        },
+      });
+      return;
+    }
+
+    const data = validationResult.data;
+    const effectiveTier = lead.tierOverride ?? lead.recommendedTier;
+
+    // Use a transaction to create user, client, project, and update lead
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user account
+      const user = await tx.user.create({
+        data: {
+          email: lead.email,
+          passwordHash: data.password ?? 'PENDING_PASSWORD_SETUP', // In production, hash the password
+          userType: effectiveTier === 4 ? 'KAA_CLIENT' : 'SAGE_CLIENT',
+          tier: effectiveTier,
+        },
+      });
+
+      // Create client
+      const client = await tx.client.create({
+        data: {
+          userId: user.id,
+          tier: effectiveTier,
+          projectAddress: lead.projectAddress,
+          status: 'ONBOARDING',
+        },
+      });
+
+      // Create project
+      const projectName = data.projectName ?? `${lead.name ?? lead.email}'s Project`;
+      const project = await tx.project.create({
+        data: {
+          clientId: client.id,
+          leadId: lead.id,
+          tier: effectiveTier,
+          name: projectName,
+          status: 'ONBOARDING',
+          paymentStatus: 'paid',
+        },
+      });
+
+      // Create payment record
+      const payment = await tx.payment.create({
+        data: {
+          projectId: project.id,
+          stripePaymentIntentId: data.stripePaymentIntentId,
+          stripeCustomerId: data.stripeCustomerId,
+          amount: data.amount,
+          currency: 'usd',
+          status: 'SUCCEEDED',
+          tier: effectiveTier,
+        },
+      });
+
+      // Update lead to mark as converted
+      const updatedLead = await tx.lead.update({
+        where: { id },
+        data: {
+          clientId: client.id,
+          status: 'CONVERTED',
+        },
+      });
+
+      return { user, client, project, payment, lead: updatedLead };
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          userType: result.user.userType,
+          tier: result.user.tier,
+        },
+        client: {
+          id: result.client.id,
+          tier: result.client.tier,
+          status: result.client.status,
+          projectAddress: result.client.projectAddress,
+        },
+        project: {
+          id: result.project.id,
+          name: result.project.name,
+          tier: result.project.tier,
+          status: result.project.status,
+          paymentStatus: result.project.paymentStatus,
+        },
+        payment: {
+          id: result.payment.id,
+          amount: result.payment.amount,
+          currency: result.payment.currency,
+          status: result.payment.status,
+        },
+        lead: {
+          id: result.lead.id,
+          status: result.lead.status,
+          clientId: result.lead.clientId,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error converting lead:', error);
+
+    // Handle unique constraint violation (duplicate email)
+    if (error instanceof Error && error.message.includes('Unique constraint')) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'USER_EXISTS',
+          message: 'A user with this email already exists',
+        },
+      });
+      return;
+    }
+
     next(error);
   }
 });

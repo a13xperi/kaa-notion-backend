@@ -25,6 +25,7 @@ enum LeadStatus {
   NEW
   QUALIFIED
   NEEDS_REVIEW
+  CONVERTED
   CLOSED
 }
 
