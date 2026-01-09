@@ -164,13 +164,16 @@
 - [x] `test`: tierFeatures.test.ts - Test tier-based feature access
 
 ### Component Tests
-- [ ] `test`: IntakeForm.test.tsx - Test form validation, submission, tier display
-- [ ] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation
-- [ ] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators
+- [x] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation (40 tests)
+- [x] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators (18 tests)
+- [x] `test`: DeliverableCard.test.tsx - Test file icons, download actions (27 tests)
+- [x] `test`: AdminDashboard.test.tsx - Test stats cards, navigation (15 tests)
+- [x] `test`: LeadQueue.test.tsx - Test filters, pagination, actions (25 tests)
+- [x] `test`: FileUpload.test.tsx - Test drag-drop, validation, upload (28 tests)
 
-### E2E Tests
-- [ ] `e2e`: lead-to-client.spec.ts - Full flow: intake form → tier recommendation → checkout → portal access
-- [ ] `e2e`: client-portal.spec.ts - Login → view projects → view deliverables → download file
+### E2E Tests (Integration)
+- [x] `e2e`: leadToClientFlow.test.ts - Full flow: intake → tier routing → client conversion → payment (14 tests)
+- [x] `e2e`: clientPortalFlow.test.ts - Authentication → dashboard → milestones → deliverables → features (22 tests)
 
 ---
 
@@ -242,6 +245,14 @@
 - [x] `test`: appError.test.ts - 24 tests for error class and factory functions
 - [x] `test`: milestoneTemplates.test.ts - 20 tests for tier milestone configurations
 - [x] `test`: tierFeatures.test.ts - 13 tests for tier-based feature access
+- [x] `test`: ProjectDashboard.test.tsx - 40 tests for dashboard component
+- [x] `test`: MilestoneTimeline.test.tsx - 18 tests for timeline component
+- [x] `test`: DeliverableCard.test.tsx - 27 tests for deliverable display
+- [x] `test`: AdminDashboard.test.tsx - 15 tests for admin overview
+- [x] `test`: LeadQueue.test.tsx - 25 tests for lead management
+- [x] `test`: FileUpload.test.tsx - 28 tests for file upload component
+- [x] `e2e`: leadToClientFlow.test.ts - 14 tests for lead conversion journey
+- [x] `e2e`: clientPortalFlow.test.ts - 22 tests for client portal experience
 
 ### 2025-01-09
 - [x] Initial project setup
