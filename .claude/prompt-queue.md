@@ -68,7 +68,7 @@
 ### 4.4 Portal Components
 - [x] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
 - [x] `new-component`: ProjectDetail - Full project view with milestones timeline, deliverables, status
-- [ ] `new-component`: MilestoneTimeline - Visual timeline of project milestones with status indicators
+- [x] `new-component`: MilestoneTimeline - Visual timeline of project milestones with status indicators
 - [ ] `new-component`: DeliverableList - Grid/list of project deliverables with download buttons
 - [ ] `new-component`: DeliverableCard - Individual deliverable with thumbnail, name, download action
 
@@ -213,6 +213,7 @@
 - [x] `new-endpoint`: GET /api/deliverables/:id/download - Signed download URL generation
 - [x] `new-component`: ProjectDashboard - Portal home with greeting, stats, project cards, progress
 - [x] `new-component`: ProjectDetail - Full project view with progress ring, milestone timeline, deliverables grid, payment info
+- [x] `new-component`: MilestoneTimeline - Reusable timeline with vertical/horizontal orientation, progress summary, status icons
 
 ---
 
