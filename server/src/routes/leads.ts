@@ -25,6 +25,126 @@ interface CreateLeadBody {
 }
 
 /**
+ * GET /api/leads Query Parameters
+ */
+interface ListLeadsQuery {
+  page?: string;
+  limit?: string;
+  status?: string;
+  tier?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * GET /api/leads
+ * List leads with pagination, filtering by status and tier (admin only)
+ */
+router.get('/', async (req: Request<{}, {}, {}, ListLeadsQuery>, res: Response) => {
+  try {
+    // Parse pagination parameters
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '20', 10)));
+    const skip = (page - 1) * limit;
+
+    // Parse filter parameters
+    const { status, tier, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+
+    // Build where clause
+    const where: Record<string, unknown> = {};
+
+    if (status) {
+      // Support multiple statuses comma-separated
+      const statuses = status.split(',').map((s) => s.trim().toUpperCase());
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
+
+    if (tier) {
+      // Support multiple tiers comma-separated
+      const tiers = tier.split(',').map((t) => parseInt(t.trim(), 10)).filter((t) => !isNaN(t));
+      if (tiers.length > 0) {
+        where.recommendedTier = tiers.length === 1 ? tiers[0] : { in: tiers };
+      }
+    }
+
+    if (search) {
+      // Search in email, name, and projectAddress
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { projectAddress: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Validate sort field
+    const allowedSortFields = ['createdAt', 'updatedAt', 'email', 'name', 'status', 'recommendedTier'];
+    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderByDirection = sortOrder === 'asc' ? 'asc' : 'desc';
+
+    // Execute queries in parallel
+    const [leads, totalCount] = await Promise.all([
+      prisma.lead.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [orderByField]: orderByDirection },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          projectAddress: true,
+          budgetRange: true,
+          timeline: true,
+          projectType: true,
+          hasSurvey: true,
+          hasDrawings: true,
+          recommendedTier: true,
+          routingReason: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.lead.count({ where }),
+    ]);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    logger.info('Leads listed', {
+      page,
+      limit,
+      totalCount,
+      filters: { status, tier, search },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        leads,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages,
+          hasNextPage,
+          hasPrevPage,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Error listing leads', { error });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: ['Failed to fetch leads. Please try again.'],
+    });
+  }
+});
+
+/**
  * POST /api/leads
  * Create a new lead from intake form data, run tier router, return recommendation
  */
