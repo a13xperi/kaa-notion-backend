@@ -83,10 +83,10 @@
 ## Phase 5: Admin Dashboard
 
 ### 5.1 Admin Endpoints
-- [ ] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats (leads by status, projects by tier, revenue)
-- [ ] `new-endpoint`: GET /api/admin/leads - All leads with filtering, sorting, pagination
-- [ ] `new-endpoint`: GET /api/admin/projects - All projects with filtering, sorting, pagination
-- [ ] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
+- [x] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats (leads by status, projects by tier, revenue)
+- [x] `new-endpoint`: GET /api/admin/leads - All leads with filtering, sorting, pagination
+- [x] `new-endpoint`: GET /api/admin/projects - All projects with filtering, sorting, pagination
+- [x] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
 
 ### 5.2 Admin Components
 - [ ] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
@@ -220,6 +220,10 @@
 - [x] `new-hook`: useProject - Single project fetch with status mutation, cache invalidation
 - [x] `new-hook`: useMilestones - Milestones with progress tracking, status update mutation
 - [x] `new-hook`: useDeliverables - Deliverables with grouping, download URL mutation, auto-trigger download
+- [x] `new-endpoint`: GET /api/admin/dashboard - Summary stats, leads by status, projects by tier, revenue, recent items
+- [x] `new-endpoint`: GET /api/admin/leads - Paginated leads with search, status/tier filtering, sorting
+- [x] `new-endpoint`: GET /api/admin/projects - Paginated projects with progress, client info, filtering
+- [x] `new-endpoint`: GET /api/admin/clients - Paginated clients with tier, project count, search
 
 ---
 
