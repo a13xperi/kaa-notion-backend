@@ -4,6 +4,8 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import { initializeDatabase } from './db';
+import sageRoutes from './routes/sage';
 
 dotenv.config();
 
@@ -13,6 +15,9 @@ const port = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Sage API routes
+app.use('/api/sage', sageRoutes);
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
@@ -95,7 +100,24 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 app.post('/webhook', handleFigmaWebhook);
 
 // Start the server
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log('Test the server at: http://localhost:3001/test');
-}); 
+async function start() {
+  try {
+    // Initialize database (only if DATABASE_URL is set)
+    if (process.env.DATABASE_URL) {
+      await initializeDatabase();
+      console.log('Database connected and initialized');
+    } else {
+      console.log('DATABASE_URL not set - skipping database initialization');
+    }
+
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+      console.log('Test the server at: http://localhost:3001/test');
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+start(); 

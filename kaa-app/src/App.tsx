@@ -10,12 +10,15 @@ import ClientWorkspace from './components/ClientWorkspace';
 import TeamLogin from './components/TeamLogin';
 import TeamDashboard from './components/TeamDashboard';
 import FeatureDemo from './components/FeatureDemo';
+import SageGetStarted from './components/SageGetStarted';
 import OfflineIndicator from './components/OfflineIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import pwaManager from './utils/pwa';
 
 function App() {
-  const [selectedPortal, setSelectedPortal] = useState<'landing' | 'client-portal' | 'client-login' | 'user-verification' | 'client' | 'team-login' | 'team' | 'demo'>('landing');
+  const [selectedPortal, setSelectedPortal] = useState<'landing' | 'client-portal' | 'client-login' | 'user-verification' | 'client' | 'team-login' | 'team' | 'demo' | 'sage-get-started' | 'sage-checkout' | 'sage-book-call'>('landing');
+  const [sageNextUrl, setSageNextUrl] = useState<string>('');
+  const [sageTier, setSageTier] = useState<number>(0);
   const [clientAddress, setClientAddress] = useState<string>('');
   const [clientPassword, setClientPassword] = useState<string>('');
   const [clientLastName, setClientLastName] = useState<string>(''); // Used in handleUserVerification
@@ -49,6 +52,20 @@ function App() {
     const savedPassword = localStorage.getItem('kaa-client-password');
     const savedLastName = localStorage.getItem('kaa-client-lastname');
     
+    // Check for Sage routes
+    if (window.location.pathname === '/sage/get-started') {
+      setSelectedPortal('sage-get-started');
+      return;
+    }
+    if (window.location.pathname === '/sage/checkout') {
+      setSelectedPortal('sage-checkout');
+      return;
+    }
+    if (window.location.pathname === '/sage/book-call') {
+      setSelectedPortal('sage-book-call');
+      return;
+    }
+
     // Check for demo mode in URL
     if (window.location.pathname === '/demo' || window.location.search.includes('demo=true')) {
       setSelectedPortal('demo');
@@ -142,6 +159,27 @@ function App() {
 
   const handleShowDemo = () => {
     setSelectedPortal('demo');
+  };
+
+  const handleSageGetStarted = () => {
+    window.history.pushState({}, '', '/sage/get-started');
+    setSelectedPortal('sage-get-started');
+  };
+
+  const handleSageComplete = (nextUrl: string, tier: number) => {
+    setSageNextUrl(nextUrl);
+    setSageTier(tier);
+    window.history.pushState({}, '', nextUrl);
+    if (nextUrl.includes('book-call')) {
+      setSelectedPortal('sage-book-call');
+    } else {
+      setSelectedPortal('sage-checkout');
+    }
+  };
+
+  const handleSageBack = () => {
+    window.history.pushState({}, '', '/');
+    setSelectedPortal('landing');
   };
 
   const handleClientPortalLogin = () => {
@@ -261,6 +299,104 @@ function App() {
     return (
       <>
         <TeamDashboard teamMember={teamMember} role={teamRole} onLogout={handleTeamLogout} />
+        <OfflineIndicator />
+        <InstallPrompt />
+      </>
+    );
+  }
+
+  // Sage Get Started - Intake form
+  if (selectedPortal === 'sage-get-started') {
+    return (
+      <>
+        <SageGetStarted onBack={handleSageBack} onComplete={handleSageComplete} />
+        <OfflineIndicator />
+        <InstallPrompt />
+      </>
+    );
+  }
+
+  // Sage Checkout - After intake for Tier 1-3
+  if (selectedPortal === 'sage-checkout') {
+    return (
+      <>
+        <div className="sage-checkout-placeholder">
+          <div style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            padding: '40px'
+          }}>
+            <h1 style={{ fontSize: '32px', marginBottom: '16px' }}>Checkout - Tier {sageTier}</h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '32px' }}>
+              You've been recommended for Tier {sageTier} service.
+            </p>
+            <button
+              onClick={handleSageBack}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                color: 'white',
+                padding: '14px 32px',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
+        <OfflineIndicator />
+        <InstallPrompt />
+      </>
+    );
+  }
+
+  // Sage Book Call - After intake for Tier 4
+  if (selectedPortal === 'sage-book-call') {
+    return (
+      <>
+        <div className="sage-book-call-placeholder">
+          <div style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            padding: '40px'
+          }}>
+            <h1 style={{ fontSize: '32px', marginBottom: '16px' }}>Book a Consultation</h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '16px', textAlign: 'center', maxWidth: '500px' }}>
+              Based on your project requirements, we recommend our White Glove service (Tier 4).
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '32px', textAlign: 'center', maxWidth: '500px' }}>
+              Our team will review your submission and reach out to schedule a consultation.
+            </p>
+            <button
+              onClick={handleSageBack}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                color: 'white',
+                padding: '14px 32px',
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
         <OfflineIndicator />
         <InstallPrompt />
       </>
