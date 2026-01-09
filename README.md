@@ -1,234 +1,221 @@
 # SAGE MVP Platform
 
-**SAGE** is a tiered service platform (Tiers 1-3) built on top of the **KAA App**, providing scalable, productized landscape architecture services. **KAA** (Tier 4) remains the white-glove, luxury service.
+A tiered landscape architecture service platform with automated tier recommendation, Stripe payments, client portal, and admin dashboard.
 
----
+## 🏗️ Architecture
 
-## Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      SAGE MVP Platform                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Frontend (React + TypeScript)                                  │
+│  ├── Intake Form → Tier Recommendation                          │
+│  ├── Client Portal → Projects, Milestones, Deliverables        │
+│  └── Admin Dashboard → Leads, Projects, Clients                │
+├─────────────────────────────────────────────────────────────────┤
+│  Backend (Node.js + Express + TypeScript)                       │
+│  ├── /api/auth      → Registration, Login, JWT                  │
+│  ├── /api/leads     → Lead management, Tier routing            │
+│  ├── /api/checkout  → Stripe payment sessions                   │
+│  ├── /api/projects  → Project management                        │
+│  ├── /api/admin     → Admin dashboard data                      │
+│  └── /api/webhooks  → Stripe payment events                     │
+├─────────────────────────────────────────────────────────────────┤
+│  Database: PostgreSQL (Supabase)                                │
+│  Storage: Supabase Storage                                      │
+│  Payments: Stripe                                               │
+│  Sync: Notion (optional)                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-- **Frontend:** React (Create React App) + TypeScript
-- **Backend:** Node.js/Express
-- **Database:** Supabase Postgres (transactional) + Notion (display/collaboration)
-- **Storage:** Supabase Storage
-- **Payments:** Stripe
-- **Hosting:** Vercel
+## 🎯 Service Tiers
 
----
+| Tier | Name | Price | Description |
+|------|------|-------|-------------|
+| 1 | The Concept | $299 | DIY guidance, automated |
+| 2 | The Builder | $1,499 | Low-touch with checkpoints |
+| 3 | The Concierge | $4,999 | Site visits, hybrid approach |
+| 4 | White Glove | Custom | Full service, invitation-only |
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
-- Supabase account
-- Notion integration
-- Stripe account (for payments)
+- PostgreSQL (or Supabase account)
+- Stripe account
+- (Optional) Notion integration
 
-### Installation
+### Setup
 
-1. **Clone repository:**
+1. **Clone and install dependencies:**
+
 ```bash
-git clone <repository-url>
-cd "KAA app"
+# Install root dependencies
+npm install
+
+# Install server dependencies
+cd server && npm install && cd ..
+
+# Install frontend dependencies
+cd kaa-app && npm install && cd ..
 ```
 
-2. **Install dependencies:**
-```bash
-npm run install-all
-```
+2. **Configure environment:**
 
-3. **Set up environment variables:**
 ```bash
+# Copy example env file
 cp env.example .env
-# Edit .env with your actual values
+cp env.example server/.env
+
+# Edit .env with your values
 ```
 
-4. **Set up Supabase:**
-   - Create Supabase project at https://app.supabase.com
-   - Get connection string and API keys
-   - Add to `.env`:
-     - `SUPABASE_URL`
-     - `SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY`
-
-5. **Set up Prisma:**
-```bash
-npm run prisma:generate
-npm run prisma:migrate
-```
-
-6. **Start development servers:**
-```bash
-npm run dev
-```
-
-This starts:
-- Backend API server on `http://localhost:3001`
-- Frontend React app on `http://localhost:3000`
-
----
-
-## Project Structure
-
-```
-KAA app/
-├── kaa-app/              # React frontend
-│   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── utils/        # Utility functions
-│   │   └── ...
-│   └── package.json
-├── prisma/               # Prisma schema and migrations
-│   └── schema.prisma
-├── docs/                 # Documentation
-│   ├── tech-stack.md
-│   ├── hybrid-data-architecture.md
-│   ├── sync-strategy.md
-│   └── ...
-├── notion-api-server-enhanced.js  # Backend API server
-├── .cursorrules          # Cursor IDE rules
-├── CONTRIBUTING.md       # Contribution guidelines
-└── package.json
-```
-
----
-
-## Development
-
-### Running Locally
+3. **Set up database:**
 
 ```bash
-# Start both frontend and backend
-npm run dev
+cd server
+npx prisma db push
+npx prisma generate
+```
 
-# Start backend only
-npm start
+4. **Start development:**
 
-# Start frontend only
+```bash
+# Option 1: Use the dev script
+./scripts/dev-start.sh
+
+# Option 2: Start manually
+cd server && npm start &
 cd kaa-app && npm start
 ```
 
-### Database Migrations
+5. **Access the app:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:3001
 
-```bash
-# Create new migration
-npm run prisma:migrate
+## 📁 Project Structure
 
-# Apply migrations (production)
-npm run prisma:deploy
-
-# Open Prisma Studio (database GUI)
-npm run prisma:studio
+```
+/workspace
+├── kaa-app/                 # React frontend
+│   ├── src/
+│   │   ├── components/      # UI components
+│   │   │   ├── intake/      # Intake form components
+│   │   │   ├── portal/      # Client portal components
+│   │   │   └── admin/       # Admin dashboard components
+│   │   ├── api/             # API client
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── types/           # TypeScript types
+│   │   └── utils/           # Utilities
+│   └── public/              # Static assets
+│
+├── server/                  # Node.js backend
+│   ├── src/
+│   │   ├── routes/          # API routes
+│   │   ├── services/        # Business logic
+│   │   ├── middleware/      # Express middleware
+│   │   ├── utils/           # Utilities
+│   │   └── __tests__/       # Tests
+│   └── prisma/              # Database schema
+│
+├── docs/                    # Documentation
+│   ├── API_REFERENCE.md     # API documentation
+│   └── ENVIRONMENT_SETUP.md # Environment guide
+│
+└── scripts/                 # Utility scripts
+    ├── dev-start.sh         # Development startup
+    └── verify-deployment.sh # Deployment check
 ```
 
-### Code Quality
+## 🔧 Available Scripts
+
+### Server (in `/server`)
 
 ```bash
-# Type checking
-cd kaa-app && npm run typecheck
+npm start           # Start production server
+npm run dev         # Start with nodemon
+npm run build       # Build TypeScript
+npm test            # Run tests
+```
 
-# Linting
-cd kaa-app && npm run lint
+### Frontend (in `/kaa-app`)
 
-# Testing
+```bash
+npm start           # Start development server
+npm run build       # Production build
+npm test            # Run tests
+```
+
+### Root
+
+```bash
+./scripts/dev-start.sh           # Start both services
+./scripts/verify-deployment.sh   # Verify deployment config
+```
+
+## 📊 Test Coverage
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Backend | 186 | ✅ Passing |
+| Frontend | 314 | ✅ Passing |
+| **Total** | **500** | ✅ |
+
+Run tests:
+```bash
+# Backend tests
+cd server && npm test
+
+# Frontend tests
 cd kaa-app && npm test
 ```
 
----
+## 🔐 Environment Variables
 
-## Environment Variables
-
-See `env.example` for complete list of required variables.
+See [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) for complete configuration.
 
 **Required:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Authentication secret
+- `STRIPE_SECRET_KEY` - Stripe API key
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing
 - `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
-- `NOTION_API_KEY` - Notion integration token
-- `STRIPE_SECRET_KEY` - Stripe secret key
-- `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
-- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `SUPABASE_SERVICE_KEY` - Supabase service key
 
----
+## 📚 Documentation
 
-## Documentation
+- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
+- [Environment Setup](docs/ENVIRONMENT_SETUP.md) - Configuration guide
+- [Architecture](/.claude/context/architecture.md) - System architecture
 
-- **[Tech Stack](docs/tech-stack.md)** - Technology decisions and stack overview
-- **[Hybrid Data Architecture](docs/hybrid-data-architecture.md)** - Postgres + Notion architecture
-- **[Sync Strategy](docs/sync-strategy.md)** - Postgres ↔ Notion sync mechanism
-- **[Data Model](docs/data-model.md)** - Database schema and relationships
-- **[Tier Router Rules](docs/tier-router-rules.md)** - Tier assignment logic
-- **[Claude Code Setup](docs/claude-code-setup.md)** - Claude Code installation and usage
-- **[Notion MCP Setup](docs/notion-mcp-setup.md)** - Notion MCP connection guide
-- **[Contributing](CONTRIBUTING.md)** - Contribution guidelines
+## 🛠️ Tech Stack
 
----
+**Frontend:**
+- React 19
+- TypeScript
+- CSS Modules
 
-## SAGE vs KAA
+**Backend:**
+- Node.js
+- Express
+- TypeScript
+- Prisma ORM
+- PostgreSQL
 
-**SAGE (Tiers 1-3):**
-- Accessible, scalable services
-- Clients choose us
-- Fixed pricing packages
-- Tier 1: No-touch, fully automated
-- Tier 2: Low-touch with designer checkpoints
-- Tier 3: Site visits + 3D scan included
+**Services:**
+- Stripe (Payments)
+- Supabase (Database + Storage)
+- Notion (Optional sync)
 
-**KAA (Tier 4):**
-- White-glove, luxury service
-- We choose the clients
-- Percentage of install pricing
-- High-touch, full-service
+**Testing:**
+- Jest
+- React Testing Library
 
----
+## 📝 License
 
-## Deployment
+Private - KAA Design Studio
 
-### Vercel
+## 🤝 Contributing
 
-The project is configured for Vercel deployment:
-
-- **Frontend:** Automatically deployed from `kaa-app/`
-- **Backend:** Serverless functions from `notion-api-server-enhanced.js`
-- **Environments:** Preview (PRs), Staging (`staging` branch), Production (`main`)
-
-### Environment Setup
-
-1. Add environment variables in Vercel dashboard
-2. Configure deployment checks (typecheck, lint, tests)
-3. Set up webhooks (Stripe, Zapier, etc.)
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Branch strategy
-- PR process
-- Definition of Done checklist
-- Code standards
-
----
-
-## Support
-
-For issues, questions, or contributions:
-- Check existing documentation in `/docs`
-- Review [CONTRIBUTING.md](CONTRIBUTING.md)
-- Open an issue or PR
-
----
-
-## License
-
-[Add license information]
-
----
-
-## Roadmap
-
-See the SAGE MVP Implementation Plan for current phase and next steps.
-
-**Current Phase:** Phase 0 & 1 (Setup & Foundation)  
-**Next Steps:** Supabase setup, data architecture implementation, SAGE landing pages
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
