@@ -274,6 +274,11 @@
 - [x] `docs`: README.md - Project overview and quick start guide
 - [x] `scripts`: verify-deployment.sh - Deployment verification script
 - [x] `scripts`: dev-start.sh - Development quick start script
+- [x] `new-api`: authApi.ts - Frontend auth API client with token management
+- [x] `new-api`: checkoutApi.ts - Frontend checkout API client
+- [x] `new-api`: leadsApi.ts - Frontend leads API client with helpers
+- [x] `new-context`: AuthContext.tsx - React auth context with RequireAuth, RequireAdmin, RequireTier components
+- [x] `new-api`: index.ts - Central API exports
 
 ### 2025-01-09
 - [x] Initial project setup
