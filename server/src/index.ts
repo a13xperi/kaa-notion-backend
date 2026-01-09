@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import leadsRouter from './routes/leads';
 
 dotenv.config();
 
@@ -94,8 +95,26 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 
 app.post('/webhook', handleFigmaWebhook);
 
+// API Routes
+app.use('/api/leads', leadsRouter);
+
+// Global error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: process.env.NODE_ENV === 'production'
+        ? 'An unexpected error occurred'
+        : err.message,
+    },
+  });
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log('Test the server at: http://localhost:3001/test');
+  console.log('API endpoints available at: http://localhost:3001/api/*');
 }); 
