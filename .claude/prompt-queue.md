@@ -41,7 +41,7 @@
 - [x] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
 - [x] `new-endpoint`: POST /api/auth/login - Authenticate user, return JWT token
 - [x] `new-endpoint`: GET /api/auth/me - Get current user profile with client/tier info
-- [ ] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
+- [x] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
 
 ### 3.3 Project Auto-Creation
 - [ ] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
@@ -200,6 +200,7 @@
 - [x] `new-endpoint`: POST /api/auth/register - User registration with email/password or address auth
 - [x] `new-endpoint`: POST /api/auth/login - User login with JWT token response
 - [x] `new-endpoint`: GET /api/auth/me - Current user profile with client and project data
+- [x] `new-service`: clientService.ts - Atomic client creation from lead with idempotency
 
 ---
 
