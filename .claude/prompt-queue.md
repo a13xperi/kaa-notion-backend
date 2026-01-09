@@ -15,7 +15,7 @@
 - [x] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
 
 ### 2.2 Lead API Endpoints
-- [ ] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
+- [x] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
 - [ ] `new-endpoint`: GET /api/leads - List leads with pagination, filtering by status and tier (admin only)
 - [ ] `new-endpoint`: GET /api/leads/:id - Get single lead with tier recommendation details
 - [ ] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
@@ -183,6 +183,7 @@
 - [x] Updated .cursorrules with comprehensive guidelines
 - [x] `new-util`: tierRouter.ts - Tier recommendation algorithm implementation
 - [x] `test`: tierRouter.test.ts - Comprehensive tests (57 tests passing)
+- [x] `new-endpoint`: POST /api/leads - Lead creation with tier routing
 
 ---
 

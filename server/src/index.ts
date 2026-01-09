@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import { logger } from './logger';
+import leadsRouter from './routes/leads';
 
 dotenv.config();
 
@@ -100,6 +101,9 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 });
 
 app.post('/webhook', handleFigmaWebhook);
+
+// API Routes
+app.use('/api/leads', leadsRouter);
 
 // Stripe Checkout endpoint
 app.post('/api/stripe/checkout', async (req, res) => {
