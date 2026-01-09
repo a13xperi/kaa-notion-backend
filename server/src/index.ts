@@ -7,6 +7,7 @@ import { handleFigmaWebhook } from './webhook-handler';
 import leadsRouter from './routes/leads';
 import checkoutRouter from './routes/checkout';
 import webhooksRouter from './routes/webhooks';
+import authRouter from './routes/auth';
 
 dotenv.config();
 
@@ -106,6 +107,7 @@ app.post('/webhook', handleFigmaWebhook);
 app.use('/api/leads', leadsRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/auth', authRouter);
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

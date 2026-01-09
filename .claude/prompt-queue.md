@@ -38,9 +38,9 @@
 - [x] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
 
 ### 3.2 User & Client Creation
-- [ ] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
-- [ ] `new-endpoint`: POST /api/auth/login - Authenticate user, return JWT token
-- [ ] `new-endpoint`: GET /api/auth/me - Get current user profile with client/tier info
+- [x] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
+- [x] `new-endpoint`: POST /api/auth/login - Authenticate user, return JWT token
+- [x] `new-endpoint`: GET /api/auth/me - Get current user profile with client/tier info
 - [ ] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
 
 ### 3.3 Project Auto-Creation
@@ -196,6 +196,10 @@
 - [x] `new-util`: stripeHelpers.ts - Checkout session creation, webhook verification, data extraction utilities
 - [x] `new-endpoint`: POST /api/checkout/create-session - Checkout endpoint with lead validation and session status
 - [x] `new-webhook`: POST /api/webhooks/stripe - Full payment flow: checkout completed, user/client/project creation
+- [x] `new-util`: auth.ts - Password hashing (PBKDF2), JWT token generation/verification
+- [x] `new-endpoint`: POST /api/auth/register - User registration with email/password or address auth
+- [x] `new-endpoint`: POST /api/auth/login - User login with JWT token response
+- [x] `new-endpoint`: GET /api/auth/me - Current user profile with client and project data
 
 ---
 

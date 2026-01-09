@@ -126,3 +126,33 @@ export const createCheckoutSessionSchema = z.object({
 });
 
 export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>;
+
+/**
+ * User registration schema
+ */
+export const registerUserSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(1, 'Name is required').optional(),
+  // For KAA clients using address-based auth
+  address: z.string().min(5, 'Address must be at least 5 characters').optional(),
+}).refine(
+  (data) => data.email || data.address,
+  { message: 'Either email or address is required' }
+);
+
+export type RegisterUserInput = z.infer<typeof registerUserSchema>;
+
+/**
+ * User login schema
+ */
+export const loginUserSchema = z.object({
+  email: z.string().email('Invalid email address').optional(),
+  address: z.string().min(5, 'Address is required').optional(),
+  password: z.string().min(1, 'Password is required'),
+}).refine(
+  (data) => data.email || data.address,
+  { message: 'Either email or address is required' }
+);
+
+export type LoginUserInput = z.infer<typeof loginUserSchema>;
