@@ -66,11 +66,11 @@
 - [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
 
 ### 4.4 Portal Components
-- [ ] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
-- [ ] `new-component`: ProjectDetail - Full project view with milestones timeline, deliverables, status
-- [ ] `new-component`: MilestoneTimeline - Visual timeline of project milestones with status indicators
-- [ ] `new-component`: DeliverableList - Grid/list of project deliverables with download buttons
-- [ ] `new-component`: DeliverableCard - Individual deliverable with thumbnail, name, download action
+- [x] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
+- [x] `new-component`: ProjectDetail - Full project view with milestones timeline, deliverables, status
+- [x] `new-component`: MilestoneTimeline - Visual timeline of project milestones with status indicators
+- [x] `new-component`: DeliverableList - Grid/list of project deliverables with download buttons
+- [x] `new-component`: DeliverableCard - Individual deliverable with thumbnail, name, download action
 
 ### 4.5 Portal Hooks
 - [ ] `new-hook`: useProjects - Fetch user's projects with React Query, handle loading/error
@@ -192,6 +192,12 @@
 - [x] `new-endpoint`: GET /api/deliverables/:id - Get single deliverable details
 - [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL (60 min expiry)
 - [x] `new-endpoint`: DELETE /api/deliverables/:id - Delete deliverable (admin only)
+- [x] `new-component`: ProjectDashboard - Main portal view with project list, stats, filtering
+- [x] `new-component`: ProjectDetail - Full project view with tabs (overview, milestones, deliverables, payments)
+- [x] `new-component`: MilestoneTimeline - Visual timeline with progress bar, status indicators
+- [x] `new-component`: DeliverableList - Grid/list view with search, category filters
+- [x] `new-component`: DeliverableCard - File card with icon, category badge, download
+- [x] `new-types`: portal.types.ts - TypeScript types for all portal components
 
 ### 2025-01-09
 - [x] Initial project setup

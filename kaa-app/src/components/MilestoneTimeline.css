@@ -1,0 +1,424 @@
+/**
+ * MilestoneTimeline Component Styles
+ */
+
+.milestone-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Header */
+.milestone-timeline__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.milestone-timeline__title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.milestone-timeline__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  margin: 0;
+}
+
+.milestone-timeline__project {
+  font-weight: 400;
+  color: var(--text-secondary, #6b7280);
+}
+
+.milestone-timeline__summary {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* Progress bar */
+.milestone-timeline__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 200px;
+}
+
+.milestone-timeline__progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-secondary, #e5e7eb);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.milestone-timeline__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+.milestone-timeline__progress-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Timeline content */
+.milestone-timeline__content {
+  position: relative;
+}
+
+.milestone-timeline__track {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Horizontal orientation */
+.milestone-timeline--horizontal .milestone-timeline__track {
+  flex-direction: row;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.milestone-timeline--horizontal .milestone-timeline__item {
+  flex-direction: column;
+  align-items: center;
+  min-width: 150px;
+  text-align: center;
+}
+
+.milestone-timeline--horizontal .milestone-timeline__connector {
+  left: 50%;
+  top: 20px;
+  width: 100%;
+  height: 2px;
+  transform: translateX(50%);
+}
+
+/* Timeline item */
+.milestone-timeline__item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.milestone-timeline__item--clickable {
+  cursor: pointer;
+}
+
+.milestone-timeline__item--clickable:hover .milestone-timeline__details {
+  background: var(--bg-secondary, #f9fafb);
+}
+
+/* Connector line */
+.milestone-timeline__connector {
+  position: absolute;
+  left: 19px;
+  top: 44px;
+  width: 2px;
+  height: calc(100% - 4px);
+  background: var(--border-color, #e5e7eb);
+}
+
+.milestone-timeline__connector--completed {
+  background: #22c55e;
+}
+
+/* Status indicator */
+.milestone-timeline__indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  z-index: 1;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.milestone-timeline__item--clickable:hover .milestone-timeline__indicator {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.milestone-timeline__indicator.milestone--completed {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.milestone-timeline__indicator.milestone--in_progress {
+  background: #f59e0b;
+  color: #ffffff;
+  animation: pulse 2s infinite;
+}
+
+.milestone-timeline__indicator.milestone--pending {
+  background: var(--bg-secondary, #f3f4f6);
+  border: 2px solid var(--border-color, #e5e7eb);
+  color: var(--text-tertiary, #9ca3af);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+.milestone-timeline__icon {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Details */
+.milestone-timeline__details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.milestone-timeline__name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.milestone-timeline__name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary, #111827);
+}
+
+.milestone-timeline__status-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.milestone-timeline__status-badge.milestone--completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.milestone-timeline__status-badge.milestone--in_progress {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.milestone-timeline__status-badge.milestone--pending {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Dates */
+.milestone-timeline__dates {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.milestone-timeline__completed-date {
+  color: #16a34a;
+}
+
+.milestone-timeline__due-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.milestone-timeline__due-date.overdue {
+  color: #dc2626;
+}
+
+.milestone-timeline__due-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 9999px;
+}
+
+.milestone-timeline__due-date.overdue .milestone-timeline__due-badge {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.milestone-timeline__no-date {
+  color: var(--text-tertiary, #9ca3af);
+  font-style: italic;
+}
+
+/* Order number */
+.milestone-timeline__order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary, #9ca3af);
+  background: var(--bg-secondary, #f3f4f6);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Legend */
+.milestone-timeline__legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.milestone-timeline__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.milestone-timeline__legend-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.625rem;
+}
+
+.milestone-timeline__legend-icon.milestone--completed {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.milestone-timeline__legend-icon.milestone--in_progress {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.milestone-timeline__legend-icon.milestone--pending {
+  background: var(--bg-secondary, #f3f4f6);
+  border: 2px solid var(--border-color, #e5e7eb);
+  color: var(--text-tertiary, #9ca3af);
+}
+
+/* Compact variant */
+.milestone-timeline--compact .milestone-timeline__header {
+  gap: 0.5rem;
+}
+
+.milestone-timeline--compact .milestone-timeline__title {
+  font-size: 1rem;
+}
+
+.milestone-timeline--compact .milestone-timeline__indicator {
+  width: 28px;
+  height: 28px;
+}
+
+.milestone-timeline--compact .milestone-timeline__connector {
+  left: 13px;
+  top: 32px;
+}
+
+.milestone-timeline--compact .milestone-timeline__details {
+  padding: 0.25rem 0.5rem;
+}
+
+.milestone-timeline--compact .milestone-timeline__name {
+  font-size: 0.875rem;
+}
+
+/* Dark mode */
+.dark .milestone-timeline__title {
+  color: var(--text-primary-dark, #f9fafb);
+}
+
+.dark .milestone-timeline__project,
+.dark .milestone-timeline__summary,
+.dark .milestone-timeline__dates {
+  color: var(--text-secondary-dark, #9ca3af);
+}
+
+.dark .milestone-timeline__progress-bar {
+  background: var(--bg-secondary-dark, #374151);
+}
+
+.dark .milestone-timeline__progress-text {
+  color: var(--text-primary-dark, #f9fafb);
+}
+
+.dark .milestone-timeline__connector {
+  background: var(--border-color-dark, #4b5563);
+}
+
+.dark .milestone-timeline__indicator.milestone--pending {
+  background: var(--bg-secondary-dark, #374151);
+  border-color: var(--border-color-dark, #4b5563);
+}
+
+.dark .milestone-timeline__name {
+  color: var(--text-primary-dark, #f9fafb);
+}
+
+.dark .milestone-timeline__item--clickable:hover .milestone-timeline__details {
+  background: var(--bg-secondary-dark, #374151);
+}
+
+.dark .milestone-timeline__order {
+  background: var(--bg-secondary-dark, #374151);
+  color: var(--text-tertiary-dark, #6b7280);
+}
+
+.dark .milestone-timeline__legend {
+  border-color: var(--border-color-dark, #374151);
+}
+
+.dark .milestone-timeline__legend-item {
+  color: var(--text-secondary-dark, #9ca3af);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .milestone-timeline__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .milestone-timeline__progress {
+    min-width: 100%;
+  }
+
+  .milestone-timeline__legend {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+}
