@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0",
+    "@prisma/client": "^7.2.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -23,10 +24,10 @@
     "multer": "^2.0.2",
     "node-fetch": "^2.7.0",
     "nodemailer": "^7.0.7",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.2.0",
     "concurrently": "^8.2.2",
     "prisma": "^5.22.0"
   },
