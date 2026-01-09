@@ -3,11 +3,16 @@ import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import Stripe from 'stripe';
+import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import { createProjectsRouter } from './routes';
 import { logger } from './logger';
 
 dotenv.config();
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
 
 // Initialize Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -20,6 +25,9 @@ const port = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// API Routes
+app.use('/api/projects', createProjectsRouter(prisma));
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
@@ -149,8 +157,57 @@ app.post('/api/stripe/checkout', async (req, res) => {
   }
 });
 
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check database connection
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      success: true,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'connected',
+        figma: process.env.FIGMA_ACCESS_TOKEN ? 'configured' : 'not configured',
+        stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
+      },
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 // Start the server
-app.listen(port, () => {
+const server = app.listen(port, () => {
   logger.info(`Server running on port ${port}`);
   logger.info('Test the server at: http://localhost:3001/test');
-}); 
+  logger.info('API health check: http://localhost:3001/api/health');
+});
+
+// Graceful shutdown
+async function shutdown() {
+  logger.info('Shutting down gracefully...');
+  
+  // Close WebSocket server
+  wss.close(() => {
+    logger.info('WebSocket server closed');
+  });
+  
+  // Close HTTP server
+  server.close(() => {
+    logger.info('HTTP server closed');
+  });
+  
+  // Disconnect Prisma
+  await prisma.$disconnect();
+  logger.info('Database connection closed');
+  
+  process.exit(0);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown); 

@@ -52,9 +52,9 @@
 ## Phase 4: Client Portal
 
 ### 4.1 Project Endpoints
-- [ ] `new-endpoint`: GET /api/projects - List user's projects with status and progress
-- [ ] `new-endpoint`: GET /api/projects/:id - Get project with milestones, deliverables, payment status
-- [ ] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
+- [x] `new-endpoint`: GET /api/projects - List user's projects with status and progress
+- [x] `new-endpoint`: GET /api/projects/:id - Get project with milestones, deliverables, payment status
+- [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
 
 ### 4.2 Milestone Endpoints
 - [ ] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project
@@ -181,6 +181,9 @@
 - [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
 - [x] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier
 - [x] `new-adapter`: prismaAdapter.ts - Prisma database adapter for projectService
+- [x] `new-endpoint`: GET /api/projects - List user's projects with status and progress
+- [x] `new-endpoint`: GET /api/projects/:id - Get project with full details (milestones, deliverables, payments)
+- [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
 
 ### 2025-01-09
 - [x] Initial project setup
