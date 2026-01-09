@@ -1,0 +1,64 @@
+---
+export interface Props {
+  showDarkModeToggle?: boolean;
+}
+
+const { showDarkModeToggle = true } = Astro.props;
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 bg-bg-primary/80 backdrop-blur-md border-b border-border dark-mode-transition">
+  <nav class="section-container">
+    <div class="flex items-center justify-between h-16">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-medium group-hover:shadow-lg transition-shadow">
+          <span class="text-white font-bold text-lg">K</span>
+        </div>
+        <span class="font-semibold text-xl text-text-primary">KAA Portal</span>
+      </a>
+
+      <!-- Navigation Links -->
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#features" class="text-text-secondary hover:text-brand-primary transition-colors font-medium">
+          Features
+        </a>
+        <a href="#sage" class="text-text-secondary hover:text-brand-primary transition-colors font-medium">
+          SAGE AI
+        </a>
+        <a href="#pricing" class="text-text-secondary hover:text-brand-primary transition-colors font-medium">
+          Pricing
+        </a>
+        <a href="/contact" class="text-text-secondary hover:text-brand-primary transition-colors font-medium">
+          Contact
+        </a>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-4">
+        {showDarkModeToggle && (
+          <button
+            onclick="toggleDarkMode()"
+            class="p-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            <!-- Sun icon (shown in dark mode) -->
+            <svg class="w-5 h-5 text-text-primary hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <!-- Moon icon (shown in light mode) -->
+            <svg class="w-5 h-5 text-text-primary block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
+        )}
+
+        <a href="/login" class="btn-secondary text-sm py-2 px-4">
+          Sign In
+        </a>
+        <a href="/get-started" class="btn-primary text-sm py-2 px-4">
+          Get Started
+        </a>
+      </div>
+    </div>
+  </nav>
+</header>

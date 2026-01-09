@@ -1,0 +1,164 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/global.css';
+---
+
+<BaseLayout title="SAGE AI - Smart Advisory & Guidance Engine | KAA Portal">
+  <Header />
+
+  <main>
+    <!-- Hero Section -->
+    <section class="pt-24 pb-16 md:pt-32 md:pb-24 bg-bg-primary dark-mode-transition">
+      <div class="section-container">
+        <div class="max-w-4xl mx-auto text-center">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-primary flex items-center justify-center mx-auto mb-8 animate-float">
+            <span class="text-white text-3xl font-bold">S</span>
+          </div>
+
+          <h1 class="text-4xl md:text-6xl font-bold text-text-primary mb-6">
+            Meet <span class="text-gradient">SAGE</span>
+          </h1>
+          <p class="text-xl text-text-secondary mb-4">
+            Smart Advisory & Guidance Engine
+          </p>
+          <p class="text-lg text-text-secondary mb-10 max-w-2xl mx-auto">
+            Your AI-powered project assistant that learns from your documentation and provides instant, accurate answers to your clients - 24/7.
+          </p>
+
+          <a href="/get-started" class="btn-primary">
+            Try SAGE Free
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="py-16 md:py-24 bg-bg-secondary dark-mode-transition">
+      <div class="section-container">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            How SAGE Works
+          </h2>
+          <p class="text-text-secondary text-lg max-w-2xl mx-auto">
+            Three simple steps to transform your client communication
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <!-- Step 1 -->
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
+              1
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">Connect Your Data</h3>
+            <p class="text-text-secondary">
+              Link your Notion workspace, documents, and project files. SAGE securely indexes your content.
+            </p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-accent-primary flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
+              2
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">SAGE Learns</h3>
+            <p class="text-text-secondary">
+              Our AI analyzes your project data, understands context, and builds a knowledge base specific to your business.
+            </p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-gradient-secondary flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
+              3
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">Clients Get Answers</h3>
+            <p class="text-text-secondary">
+              Clients can ask questions and get instant, accurate responses based on your actual project data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section class="py-16 md:py-24 bg-bg-primary dark-mode-transition">
+      <div class="section-container">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            SAGE Capabilities
+          </h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div class="card p-6 flex gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-text-primary mb-2">Instant Responses</h3>
+              <p class="text-text-secondary text-sm">Get answers in seconds, not hours. SAGE responds immediately to client queries.</p>
+            </div>
+          </div>
+
+          <div class="card p-6 flex gap-4">
+            <div class="w-12 h-12 rounded-xl bg-accent-primary/10 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-text-primary mb-2">Secure & Private</h3>
+              <p class="text-text-secondary text-sm">Your data stays yours. Enterprise-grade security keeps all information protected.</p>
+            </div>
+          </div>
+
+          <div class="card p-6 flex gap-4">
+            <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-text-primary mb-2">24/7 Availability</h3>
+              <p class="text-text-secondary text-sm">SAGE never sleeps. Your clients can get answers any time, day or night.</p>
+            </div>
+          </div>
+
+          <div class="card p-6 flex gap-4">
+            <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-text-primary mb-2">Context-Aware</h3>
+              <p class="text-text-secondary text-sm">SAGE understands your projects deeply and provides relevant, contextual answers.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-16 md:py-24 hero-gradient text-white">
+      <div class="section-container text-center">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6">
+          Ready to Meet SAGE?
+        </h2>
+        <p class="text-white/80 text-lg mb-10 max-w-2xl mx-auto">
+          Start your free trial and see how SAGE can transform your client communication.
+        </p>
+        <a href="/get-started" class="px-8 py-4 rounded-xl bg-white text-brand-primary font-semibold hover:bg-gray-100 transition-colors shadow-lg inline-block">
+          Get Started Free
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
