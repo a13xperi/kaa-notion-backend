@@ -73,10 +73,10 @@
 - [x] `new-component`: DeliverableCard - Individual deliverable with thumbnail, name, download action
 
 ### 4.5 Portal Hooks
-- [ ] `new-hook`: useProjects - Fetch user's projects with React Query, handle loading/error
-- [ ] `new-hook`: useProject - Fetch single project with milestones and deliverables
-- [ ] `new-hook`: useMilestones - Fetch milestones by project ID
-- [ ] `new-hook`: useDeliverables - Fetch deliverables by project ID
+- [x] `new-hook`: useProjects - Fetch user's projects with React Query, handle loading/error
+- [x] `new-hook`: useProject - Fetch single project with milestones and deliverables
+- [x] `new-hook`: useMilestones - Fetch milestones by project ID
+- [x] `new-hook`: useDeliverables - Fetch deliverables by project ID
 
 ---
 
@@ -216,6 +216,10 @@
 - [x] `new-component`: MilestoneTimeline - Reusable timeline with vertical/horizontal orientation, progress summary, status icons
 - [x] `new-component`: DeliverableList - Grid/list toggle with grouping, file icons, download/preview actions, loading skeletons
 - [x] `new-component`: DeliverableCard - Three variants (default, compact, featured) with thumbnail preview, file icons, download state
+- [x] `new-hook`: useProjects - Projects list with pagination, query key factory, React Query integration
+- [x] `new-hook`: useProject - Single project fetch with status mutation, cache invalidation
+- [x] `new-hook`: useMilestones - Milestones with progress tracking, status update mutation
+- [x] `new-hook`: useDeliverables - Deliverables with grouping, download URL mutation, auto-trigger download
 
 ---
 
