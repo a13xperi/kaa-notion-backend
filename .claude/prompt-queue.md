@@ -57,8 +57,8 @@
 - [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
 
 ### 4.2 Milestone Endpoints
-- [ ] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project
-- [ ] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status, completed_at (admin only)
+- [x] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project
+- [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status, completed_at (admin only)
 
 ### 4.3 Deliverable Endpoints
 - [ ] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables for project
@@ -184,6 +184,9 @@
 - [x] `new-endpoint`: GET /api/projects - List user's projects with status and progress
 - [x] `new-endpoint`: GET /api/projects/:id - Get project with full details (milestones, deliverables, payments)
 - [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
+- [x] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project with summary
+- [x] `new-endpoint`: GET /api/milestones/:id - Get single milestone with navigation
+- [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status (auto-advances next milestone)
 
 ### 2025-01-09
 - [x] Initial project setup
