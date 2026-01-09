@@ -1154,7 +1154,7 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
     const { address } = req.body;
 
     const idea = designIdeasStore.get(id);
-    
+
     if (!idea) {
       return res.status(404).json({ error: 'Design idea not found' });
     }
@@ -1169,6 +1169,316 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting design idea:', error);
     res.status(500).json({ error: 'Failed to delete design idea' });
+  }
+});
+
+// ============================================
+// DELIVERABLES API ROUTES
+// ============================================
+
+// In-memory storage for deliverables (in production, use Prisma with Supabase)
+const deliverablesStore = new Map();
+
+// Get all deliverables for a project
+app.get('/api/projects/:projectId/deliverables', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { address } = req.query;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    // Get deliverables for this project (filtered by address if provided)
+    const projectDeliverables = Array.from(deliverablesStore.values())
+      .filter(d => {
+        if (d.projectId !== projectId) return false;
+        // If address is provided, filter by client address
+        if (address && d.clientAddress !== address) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Log activity
+    if (address) {
+      await logActivity(address, 'Viewed Deliverables', { projectId });
+    }
+
+    res.json({
+      deliverables: projectDeliverables,
+      count: projectDeliverables.length
+    });
+  } catch (error) {
+    console.error('Error fetching deliverables:', error);
+    res.status(500).json({ error: 'Failed to fetch deliverables' });
+  }
+});
+
+// Get all deliverables for a client (by address)
+app.get('/api/client/:address/deliverables', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const decodedAddress = decodeURIComponent(address);
+
+    if (!decodedAddress) {
+      return res.status(400).json({ error: 'Client address is required' });
+    }
+
+    // Get all deliverables for this client
+    const clientDeliverables = Array.from(deliverablesStore.values())
+      .filter(d => d.clientAddress === decodedAddress)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    await logActivity(decodedAddress, 'Viewed All Deliverables', { count: clientDeliverables.length });
+
+    res.json({
+      deliverables: clientDeliverables,
+      count: clientDeliverables.length
+    });
+  } catch (error) {
+    console.error('Error fetching client deliverables:', error);
+    res.status(500).json({ error: 'Failed to fetch deliverables' });
+  }
+});
+
+// Create a new deliverable (Team/Admin only)
+// Supports Option A (file upload to Supabase Storage) and Option B (external link)
+app.post('/api/projects/:projectId/deliverables', upload.single('file'), async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const {
+      name,
+      description,
+      category,
+      fileUrl,        // Option B: External link
+      clientAddress,
+      clientEmail,
+      uploadedBy,
+      userType        // 'team' or 'admin' required
+    } = req.body;
+    const file = req.file;  // Option A: File upload
+
+    // Authorization check - only team/admin can create deliverables
+    if (!userType || !['team', 'admin', 'TEAM', 'ADMIN'].includes(userType)) {
+      return res.status(403).json({
+        error: 'Unauthorized. Only team members and admins can upload deliverables.'
+      });
+    }
+
+    if (!projectId || !name) {
+      return res.status(400).json({ error: 'Project ID and name are required' });
+    }
+
+    // Must have either file or external URL
+    if (!file && !fileUrl) {
+      return res.status(400).json({
+        error: 'Either a file upload or external URL is required'
+      });
+    }
+
+    let deliverableUrl = '';
+    let fileSize = 0;
+    let fileType = '';
+    let filePath = '';
+    let deliveryMethod = '';
+
+    if (file) {
+      // Option A: File upload (to Supabase Storage in production)
+      // For MVP, we'll store file metadata and use a placeholder URL
+      // In production, upload to Supabase Storage bucket
+
+      fileSize = file.size;
+      fileType = file.mimetype;
+      filePath = `deliverables/${projectId}/${Date.now()}-${file.originalname}`;
+
+      // TODO: In production, upload to Supabase Storage:
+      // const { data, error } = await supabase.storage
+      //   .from('deliverables')
+      //   .upload(filePath, file.buffer, { contentType: file.mimetype });
+      // deliverableUrl = supabase.storage.from('deliverables').getPublicUrl(filePath).data.publicUrl;
+
+      // For MVP, use a data URL for small files or placeholder for large files
+      if (file.size < 1024 * 1024) { // Less than 1MB
+        const base64 = file.buffer.toString('base64');
+        deliverableUrl = `data:${file.mimetype};base64,${base64}`;
+      } else {
+        // For larger files, we'd need Supabase Storage
+        // For now, indicate file is stored server-side
+        deliverableUrl = `#file-stored:${filePath}`;
+      }
+
+      deliveryMethod = 'upload';
+      console.log(`📦 Deliverable file received: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB)`);
+    } else {
+      // Option B: External URL
+      deliverableUrl = fileUrl.trim();
+      fileType = 'external-link';
+      fileSize = 0;
+      filePath = deliverableUrl;
+      deliveryMethod = 'link';
+      console.log(`🔗 Deliverable link added: ${deliverableUrl}`);
+    }
+
+    // Create deliverable record
+    const deliverable = {
+      id: `del-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      projectId,
+      name: name.trim(),
+      description: description?.trim() || '',
+      category: category || 'Document',
+      fileUrl: deliverableUrl,
+      filePath,
+      fileSize,
+      fileType,
+      deliveryMethod,
+      clientAddress: clientAddress || '',
+      uploadedBy: uploadedBy || 'Team',
+      userType: userType.toUpperCase(),
+      createdAt: new Date().toISOString(),
+      downloadCount: 0
+    };
+
+    deliverablesStore.set(deliverable.id, deliverable);
+
+    // Log activity
+    await logActivity(clientAddress || 'System', 'Deliverable Created', {
+      deliverableId: deliverable.id,
+      name: deliverable.name,
+      category: deliverable.category,
+      deliveryMethod,
+      uploadedBy
+    });
+
+    // Send "Deliverable Ready" notification email to client
+    if (clientEmail) {
+      await sendEmail(
+        clientEmail,
+        `New Deliverable Ready: ${name}`,
+        `
+          <h2>Your Deliverable is Ready!</h2>
+          <p>Great news! A new deliverable has been uploaded for your project.</p>
+          <hr>
+          <p><strong>Deliverable:</strong> ${name}</p>
+          ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}
+          <p><strong>Category:</strong> ${category || 'Document'}</p>
+          <p><strong>Uploaded by:</strong> ${uploadedBy || 'KAA Team'}</p>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <hr>
+          <p>
+            <a href="${process.env.FRONTEND_URL || 'https://kaa-app.vercel.app'}"
+               style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              View in Portal
+            </a>
+          </p>
+          <p>Log in to your client portal to download your deliverable.</p>
+          <p style="color: #666; font-size: 0.9em;">If you have any questions, please contact your project manager.</p>
+        `
+      );
+      console.log(`📧 Deliverable notification sent to ${clientEmail}`);
+    }
+
+    // Also notify team email
+    if (process.env.TEAM_EMAIL) {
+      await sendEmail(
+        process.env.TEAM_EMAIL,
+        `Deliverable Uploaded: ${name}`,
+        `
+          <p>A new deliverable has been uploaded:</p>
+          <ul>
+            <li><strong>Project:</strong> ${projectId}</li>
+            <li><strong>Name:</strong> ${name}</li>
+            <li><strong>Category:</strong> ${category || 'Document'}</li>
+            <li><strong>Client:</strong> ${clientAddress || 'N/A'}</li>
+            <li><strong>Uploaded by:</strong> ${uploadedBy || 'Team'}</li>
+            <li><strong>Method:</strong> ${deliveryMethod}</li>
+          </ul>
+        `
+      );
+    }
+
+    res.json({
+      success: true,
+      deliverable: {
+        id: deliverable.id,
+        name: deliverable.name,
+        category: deliverable.category,
+        fileUrl: deliverable.fileUrl,
+        createdAt: deliverable.createdAt
+      },
+      message: clientEmail ? 'Deliverable created and client notified' : 'Deliverable created'
+    });
+  } catch (error) {
+    console.error('Error creating deliverable:', error);
+    res.status(500).json({ error: 'Failed to create deliverable' });
+  }
+});
+
+// Track deliverable download
+app.post('/api/deliverables/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { address } = req.body;
+
+    const deliverable = deliverablesStore.get(id);
+
+    if (!deliverable) {
+      return res.status(404).json({ error: 'Deliverable not found' });
+    }
+
+    // Increment download count
+    deliverable.downloadCount = (deliverable.downloadCount || 0) + 1;
+    deliverable.lastDownloadedAt = new Date().toISOString();
+    deliverablesStore.set(id, deliverable);
+
+    // Log activity
+    await logActivity(address || 'Anonymous', 'Downloaded Deliverable', {
+      deliverableId: id,
+      name: deliverable.name,
+      downloadCount: deliverable.downloadCount
+    });
+
+    res.json({
+      success: true,
+      fileUrl: deliverable.fileUrl,
+      downloadCount: deliverable.downloadCount
+    });
+  } catch (error) {
+    console.error('Error tracking download:', error);
+    res.status(500).json({ error: 'Failed to track download' });
+  }
+});
+
+// Delete deliverable (Team/Admin only)
+app.delete('/api/deliverables/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userType } = req.body;
+
+    // Authorization check
+    if (!userType || !['team', 'admin', 'TEAM', 'ADMIN'].includes(userType)) {
+      return res.status(403).json({
+        error: 'Unauthorized. Only team members and admins can delete deliverables.'
+      });
+    }
+
+    const deliverable = deliverablesStore.get(id);
+
+    if (!deliverable) {
+      return res.status(404).json({ error: 'Deliverable not found' });
+    }
+
+    deliverablesStore.delete(id);
+
+    // Log activity
+    await logActivity('System', 'Deliverable Deleted', {
+      deliverableId: id,
+      name: deliverable.name
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting deliverable:', error);
+    res.status(500).json({ error: 'Failed to delete deliverable' });
   }
 });
 
