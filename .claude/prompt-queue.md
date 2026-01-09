@@ -44,8 +44,8 @@
 - [x] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
 
 ### 3.3 Project Auto-Creation
-- [ ] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
-- [ ] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier (Tier 1: Intake→Concept→Delivery, Tier 2: Intake→Draft→Review→Revisions→Final, etc.)
+- [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
+- [x] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier (Tier 1: Intake→Concept→Delivery, Tier 2: Intake→Draft→Review→Revisions→Final, etc.)
 
 ---
 
@@ -201,6 +201,8 @@
 - [x] `new-endpoint`: POST /api/auth/login - User login with JWT token response
 - [x] `new-endpoint`: GET /api/auth/me - Current user profile with client and project data
 - [x] `new-service`: clientService.ts - Atomic client creation from lead with idempotency
+- [x] `new-util`: milestoneTemplates.ts - Tier-specific milestone templates with due date calculation
+- [x] `new-service`: projectService.ts - Project creation with milestones, status management, progress tracking
 
 ---
 
