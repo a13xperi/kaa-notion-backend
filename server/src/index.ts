@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import { logger } from './logger';
 
 dotenv.config();
 
@@ -23,7 +24,7 @@ const figmaClient = new FigmaClient({
 const wss = new WebSocketServer({ port: 3002 });
 
 wss.on('connection', (ws) => {
-  console.log('Client connected to WebSocket');
+  logger.debug('Client connected to WebSocket');
 
   ws.on('message', async (message) => {
     try {
@@ -41,13 +42,13 @@ wss.on('connection', (ws) => {
         // Add more message handlers as needed
       }
     } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+      logger.error('Error handling WebSocket message:', error);
       ws.send(JSON.stringify({ type: 'error', message: 'Error processing request' }));
     }
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected from WebSocket');
+    logger.debug('Client disconnected from WebSocket');
   });
 });
 
@@ -62,13 +63,13 @@ app.get('/test', (req, res) => {
 // REST API endpoints
 app.get('/file/:fileKey', async (req, res) => {
   try {
-    console.log('Fetching file:', req.params.fileKey);
+    logger.debug('Fetching file:', req.params.fileKey);
     const fileData = await figmaClient.getFile(req.params.fileKey);
-    console.log('File data received successfully');
+    logger.debug('File data received successfully');
     res.json(fileData);
   } catch (error) {
-    console.error('Error fetching Figma file:', error);
-    res.status(500).json({ 
+    logger.error('Error fetching Figma file:', error);
+    res.status(500).json({
       error: 'Failed to fetch Figma file',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -84,8 +85,8 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
     const nodesData = await figmaClient.getFileNodes(req.params.fileKey, nodeIds.split(','));
     res.json(nodesData);
   } catch (error) {
-    console.error('Error fetching Figma nodes:', error);
-    res.status(500).json({ 
+    logger.error('Error fetching Figma nodes:', error);
+    res.status(500).json({
       error: 'Failed to fetch Figma nodes',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -96,6 +97,6 @@ app.post('/webhook', handleFigmaWebhook);
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log('Test the server at: http://localhost:3001/test');
+  logger.info(`Server running on port ${port}`);
+  logger.info('Test the server at: http://localhost:3001/test');
 }); 
