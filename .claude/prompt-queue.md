@@ -33,7 +33,7 @@
 
 ### 3.1 Stripe Integration
 - [x] `stripe-integration`: Checkout session creation for tiers 1-3 with tier-specific pricing from Stripe products
-- [ ] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with tier, lead_id, success/cancel URLs
+- [x] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with tier, lead_id, success/cancel URLs
 - [ ] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent.succeeded, payment_intent.failed
 - [x] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
 
@@ -194,6 +194,7 @@
 - [x] `new-component`: TierComparison - Side-by-side tier comparison with mobile tabs, grid view, and feature table
 - [x] `stripe-integration`: Stripe client config with tier pricing (Seedling $500, Sprout $1500, Canopy $3500)
 - [x] `new-util`: stripeHelpers.ts - Checkout session creation, webhook verification, data extraction utilities
+- [x] `new-endpoint`: POST /api/checkout/create-session - Checkout endpoint with lead validation and session status
 
 ---
 

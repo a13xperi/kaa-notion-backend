@@ -114,3 +114,15 @@ export const leadFiltersSchema = paginationSchema.extend({
 });
 
 export type LeadFiltersInput = z.infer<typeof leadFiltersSchema>;
+
+/**
+ * Checkout session creation schema
+ */
+export const createCheckoutSessionSchema = z.object({
+  leadId: z.string().uuid('Invalid lead ID'),
+  tier: z.number().int().min(1).max(3, 'Only tiers 1-3 are available for online checkout'),
+  successUrl: z.string().url('Invalid success URL'),
+  cancelUrl: z.string().url('Invalid cancel URL'),
+});
+
+export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>;

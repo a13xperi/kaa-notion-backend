@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import leadsRouter from './routes/leads';
+import checkoutRouter from './routes/checkout';
 
 dotenv.config();
 
@@ -97,6 +98,7 @@ app.post('/webhook', handleFigmaWebhook);
 
 // API Routes
 app.use('/api/leads', leadsRouter);
+app.use('/api/checkout', checkoutRouter);
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
