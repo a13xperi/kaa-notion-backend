@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   padding: 20px;
   position: relative;
   overflow: hidden;
@@ -44,9 +44,9 @@
 
 /* Back Button */
 .client-back-button {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-glass);
   border: none;
-  color: white;
+  color: var(--text-inverted);
   padding: 10px 20px;
   border-radius: 12px;
   font-size: 14px;
@@ -58,7 +58,7 @@
 }
 
 .client-back-button:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--bg-glass-hover);
   transform: translateX(-4px);
 }
 
@@ -71,14 +71,14 @@
 .client-login-icon {
   width: 80px;
   height: 80px;
-  background: white;
+  background: var(--bg-card);
   border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40px;
   margin: 0 auto 24px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px var(--shadow-heavy);
   animation: iconFloat 3s ease-in-out infinite;
 }
 
@@ -94,9 +94,9 @@
 .client-login-title {
   font-size: 36px;
   font-weight: 800;
-  color: white;
+  color: var(--text-inverted);
   margin: 0 0 12px 0;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 2px 20px var(--shadow-heavy);
 }
 
 .client-login-subtitle {
@@ -108,10 +108,10 @@
 
 /* Form */
 .client-login-form {
-  background: white;
+  background: var(--bg-card);
   border-radius: 24px;
   padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px var(--shadow-heavy);
   margin-bottom: 24px;
 }
 
@@ -120,15 +120,15 @@
 }
 
 .form-error {
-  background: #fee;
-  border: 2px solid #e53e3e;
+  background: var(--error-bg);
+  border: 2px solid var(--error-border-strong);
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #c53030;
+  color: var(--error-text-strong);
   font-size: 14px;
   font-weight: 600;
   animation: shake 0.4s ease;
@@ -149,42 +149,43 @@
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-dark);
   margin-bottom: 8px;
 }
 
 .form-input {
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   font-size: 16px;
-  color: #2d3748;
+  color: var(--text-dark);
+  background: var(--bg-card);
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
 .form-input:disabled {
-  background: #f7fafc;
+  background: var(--bg-secondary);
   cursor: not-allowed;
 }
 
 .form-hint {
   font-size: 13px;
-  color: #718096;
+  color: var(--text-light);
   margin: 8px 0 0 0;
 }
 
 .submit-button {
   width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--gradient-primary);
+  color: var(--text-inverted);
   border: none;
   border-radius: 12px;
   padding: 16px;
@@ -196,12 +197,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 20px var(--shadow-accent-hover);
 }
 
 .submit-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 6px 25px var(--shadow-accent-hover);
 }
 
 .submit-button:active:not(:disabled) {
@@ -225,7 +226,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border-top-color: var(--text-inverted);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -245,10 +246,10 @@
 .quick-access-button {
   width: 100%;
   padding: 14px 24px;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  background: var(--gradient-danger);
   border: none;
   border-radius: 12px;
-  color: white;
+  color: var(--text-inverted);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -263,7 +264,7 @@
 .quick-access-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
-  background: linear-gradient(135deg, #ff7b7b 0%, #ff6b7f 100%);
+  background: var(--gradient-danger-hover);
 }
 
 .quick-access-button:active {
@@ -282,7 +283,7 @@
 }
 
 .help-text a {
-  color: white;
+  color: var(--text-inverted);
   text-decoration: underline;
   font-weight: 600;
 }
@@ -293,7 +294,7 @@
 
 .demo-note {
   margin-top: 12px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-glass);
   padding: 12px;
   border-radius: 8px;
   backdrop-filter: blur(10px);
@@ -346,4 +347,3 @@
     padding: 14px;
   }
 }
-

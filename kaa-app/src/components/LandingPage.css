@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   padding: 20px;
   position: relative;
   overflow: hidden;
@@ -55,7 +55,7 @@
 }
 
 .landing-logo .sage-logo-image {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 4px 12px var(--shadow-heavy));
 }
 
 @keyframes fadeInDown {
@@ -72,9 +72,9 @@
 .landing-title {
   font-size: 56px;
   font-weight: 800;
-  color: white;
+  color: var(--text-inverted);
   margin: 0 0 16px 0;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 4px 20px var(--shadow-heavy);
   letter-spacing: -1px;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .portal-card {
-  background: white;
+  background: var(--bg-card);
   border: none;
   border-radius: 24px;
   padding: 48px 40px;
@@ -103,7 +103,7 @@
   text-align: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px var(--shadow-heavy);
   animation: fadeInUp 0.8s ease;
   animation-fill-mode: both;
 }
@@ -144,7 +144,7 @@
 
 .portal-card:hover {
   transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px var(--shadow-heavy);
 }
 
 .portal-card:active {
@@ -153,17 +153,17 @@
 
 /* Client Portal Accent */
 .client-portal .portal-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
 }
 
 /* Team Portal Accent */
 .team-portal .portal-icon {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: var(--gradient-team);
 }
 
 /* Demo Portal Accent */
 .demo-portal .portal-icon {
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  background: var(--gradient-demo);
 }
 
 .portal-icon {
@@ -185,20 +185,20 @@
 .portal-title {
   font-size: 28px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-dark);
   margin: 0 0 16px 0;
 }
 
 .portal-description {
   font-size: 16px;
-  color: #718096;
+  color: var(--text-light);
   line-height: 1.6;
   margin: 0 0 24px 0;
 }
 
 .portal-arrow {
   font-size: 24px;
-  color: #667eea;
+  color: var(--brand-primary);
   font-weight: bold;
   transition: transform 0.3s ease;
 }
@@ -296,11 +296,3 @@
     font-size: 20px;
   }
 }
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .landing-page {
-    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-  }
-}
-
