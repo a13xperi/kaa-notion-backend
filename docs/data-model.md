@@ -245,7 +245,7 @@ This document defines the complete data model for the SAGE MVP platform, includi
 - Milestones vary by tier
 - Tier 1: Intake → Concept → Delivery
 - Tier 2: Intake → Draft → Review → Revisions → Final
-- Tier 3: Deposit → Site Visit → Draft → Review → Final
+- Tier 3: Deposit → Site Visit + 3D Scan → Draft → Review → Final
 - Order determines display sequence
 
 ---

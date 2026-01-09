@@ -12,7 +12,7 @@ The Tier Router determines which service tier (1, 2, 3, or 4) a lead should be a
 **Tiers:**
 - **Tier 1:** The Concept (No-Touch, Fully Automated)
 - **Tier 2:** The Builder (Low-Touch, Systematized with Checkpoints)
-- **Tier 3:** The Concierge (Site Visits, Hybrid Tech + Boots on Ground)
+- **Tier 3:** The Concierge (Site Visits + 3D Scan, Hybrid Tech + Boots on Ground)
 - **Tier 4:** KAA White Glove (High-Touch, We Choose the Client)
 
 ---
@@ -92,7 +92,7 @@ START: Lead Submission
 
 ---
 
-## Tier 3: The Concierge (Site Visits)
+## Tier 3: The Concierge (Site Visits + 3D Scan)
 
 **Criteria:**
 - Budget: $Z - $W (to be defined)
