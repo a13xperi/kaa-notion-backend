@@ -1379,9 +1379,9 @@ Guidelines:
 
 ${isAskingAboutSupport ? `
 IMPORTANT: The user is asking about support agents or pricing. Include detailed information about:
-- Tier 1 (The Concept): Fully automated, no-touch, fixed pricing
-- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing
-- Tier 3 (The Concierge): Includes site visits, hybrid approach, fixed + site visit fee
+- Tier 1 (The Concept): Fully automated, no-touch service with fixed pricing - no site visit required
+- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing - no site visit required
+- Tier 3 (The Concierge): Includes site visits + 3D scan, hybrid approach with boots on the ground, fixed + site visit fee
 - Tier 4 (KAA White Glove): Premium service, we choose clients, percentage of install pricing
 ` : ''}`;
 
