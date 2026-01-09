@@ -126,21 +126,21 @@
 ## Phase 8: Security & Polish
 
 ### 8.1 Authentication Middleware
-- [ ] `new-middleware`: auth.ts - JWT verification, attach user to request, handle expired tokens
-- [ ] `new-middleware`: requireTier.ts - Check user has required tier for endpoint access
-- [ ] `new-middleware`: requireAdmin.ts - Check user is admin or team member
+- [x] `new-middleware`: auth.ts - JWT verification, attach user to request, handle expired tokens
+- [x] `new-middleware`: requireTier.ts - Check user has required tier for endpoint access
+- [x] `new-middleware`: requireAdmin.ts - Check user is admin or team member
 
 ### 8.2 Validation
-- [ ] `new-util`: validators.ts - Zod schemas for all API request bodies (lead, project, deliverable)
-- [ ] `new-middleware`: validate.ts - Middleware to validate request body against Zod schema
+- [x] `new-util`: validators.ts - Zod schemas for all API request bodies (lead, project, deliverable)
+- [x] `new-middleware`: validate.ts - Middleware to validate request body against Zod schema
 
 ### 8.3 Error Handling
-- [ ] `new-middleware`: errorHandler.ts - Global error handler with proper response formatting, logging
-- [ ] `new-util`: AppError.ts - Custom error class with code, message, statusCode, details
+- [x] `new-middleware`: errorHandler.ts - Global error handler with proper response formatting, logging
+- [x] `new-util`: AppError.ts - Custom error class with code, message, statusCode, details
 
 ### 8.4 Audit Logging
-- [ ] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
-- [ ] `audit`: Add audit logging to all state-changing endpoints
+- [x] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
+- [x] `audit`: Add audit logging to all state-changing endpoints
 
 ---
 
@@ -228,6 +228,14 @@
 - [x] `new-endpoint`: GET /api/upload/config - Get allowed file types and size limits
 - [x] `new-endpoint`: DELETE /api/upload/:id - Delete file from storage and database
 - [x] `new-component`: FileUpload - Drag-drop upload with preview, progress, validation
+- [x] `new-util`: AppError.ts - Custom error class with codes, status mapping, factory functions
+- [x] `new-middleware`: auth.ts - JWT verification, token refresh, user attachment
+- [x] `new-middleware`: requireTier.ts - Tier-based access control with feature checks
+- [x] `new-middleware`: requireAdmin.ts - Admin/team role enforcement
+- [x] `new-util`: validators.ts - Zod schemas for all API endpoints (lead, project, client, etc.)
+- [x] `new-middleware`: validate.ts - Request validation middleware for body, query, params
+- [x] `new-middleware`: errorHandler.ts - Global error handler with Prisma/Stripe error mapping
+- [x] `new-service`: auditService.ts - Centralized audit logging with query/cleanup utilities
 
 ### 2025-01-09
 - [x] Initial project setup

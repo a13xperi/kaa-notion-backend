@@ -7,7 +7,8 @@ import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter, createUploadRouter } from './routes';
-import { initNotionSyncService, initStorageService } from './services';
+import { initNotionSyncService, initStorageService, initAuditService } from './services';
+import { errorHandler, notFoundHandler } from './middleware';
 import { logger } from './logger';
 
 dotenv.config();
@@ -50,6 +51,10 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
   });
   logger.info('Storage service initialized');
 }
+
+// Initialize audit service
+initAuditService(prisma);
+logger.info('Audit service initialized');
 
 // API Routes
 app.use('/api/projects', createProjectsRouter(prisma));
@@ -212,6 +217,12 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
+
+// 404 handler for unmatched routes
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
 
 // Start the server
 const server = app.listen(port, () => {

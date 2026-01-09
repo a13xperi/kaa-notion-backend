@@ -74,3 +74,15 @@ export {
   type DeleteResult,
   type FileMetadata,
 } from './storageService';
+
+// Audit Service - Centralized audit logging
+export {
+  AuditService,
+  initAuditService,
+  getAuditService,
+  type AuditAction,
+  type ResourceType,
+  type AuditLogEntry,
+  type AuditLogRecord,
+  type AuditQueryOptions,
+} from './auditService';
