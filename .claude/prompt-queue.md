@@ -89,14 +89,14 @@
 - [x] `new-endpoint`: GET /api/admin/clients - All clients with tier, status, project count
 
 ### 5.2 Admin Components
-- [ ] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
-- [ ] `new-component`: LeadQueue - Lead management table with status, tier, actions (approve, change tier, close)
-- [ ] `new-component`: ProjectsTable - Admin project list with client, tier, status, actions
-- [ ] `new-component`: ClientsTable - Client list with tier, projects, status
+- [x] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
+- [x] `new-component`: LeadQueue - Lead management table with status, tier, actions (approve, change tier, close)
+- [x] `new-component`: ProjectsTable - Admin project list with client, tier, status, actions
+- [x] `new-component`: ClientsTable - Client list with tier, projects, status
 
 ### 5.3 Admin Actions
-- [ ] `new-component`: TierOverrideModal - Modal to change lead's recommended tier with reason
-- [ ] `new-component`: LeadReviewPanel - Detailed lead view with intake data, tier recommendation, actions
+- [x] `new-component`: TierOverrideModal - Modal to change lead's recommended tier with reason
+- [x] `new-component`: LeadReviewPanel - Detailed lead view with intake data, tier recommendation, actions
 
 ---
 
@@ -207,6 +207,13 @@
 - [x] `new-endpoint`: GET /api/admin/leads - Leads list with search, status, tier, date filters
 - [x] `new-endpoint`: GET /api/admin/projects - Projects list with progress, payment totals
 - [x] `new-endpoint`: GET /api/admin/clients - Clients list with project/payment stats
+- [x] `new-types`: admin.types.ts - TypeScript types for admin dashboard, leads, projects, clients
+- [x] `new-component`: AdminDashboard - Overview with stats cards (leads, projects, clients, revenue)
+- [x] `new-component`: LeadQueue - Lead management table with search, status/tier filters, pagination
+- [x] `new-component`: ProjectsTable - Admin project list with progress bars, payment status
+- [x] `new-component`: ClientsTable - Client list with tier, revenue, project count
+- [x] `new-component`: TierOverrideModal - Modal to change lead tier with reason input
+- [x] `new-component`: LeadReviewPanel - Slide-in panel with detailed lead view and actions
 
 ### 2025-01-09
 - [x] Initial project setup

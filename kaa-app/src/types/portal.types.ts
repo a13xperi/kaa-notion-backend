@@ -275,11 +275,36 @@ export const STATUS_COLORS: Record<ProjectStatus | MilestoneStatus, StatusColor>
   COMPLETED: 'green',
 };
 
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  ONBOARDING: 'Onboarding',
+  IN_PROGRESS: 'In Progress',
+  AWAITING_FEEDBACK: 'Awaiting Feedback',
+  REVISIONS: 'Revisions',
+  DELIVERED: 'Delivered',
+  CLOSED: 'Closed',
+};
+
+export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
+  ONBOARDING: 'status-blue',
+  IN_PROGRESS: 'status-yellow',
+  AWAITING_FEEDBACK: 'status-purple',
+  REVISIONS: 'status-orange',
+  DELIVERED: 'status-green',
+  CLOSED: 'status-gray',
+};
+
 export const TIER_NAMES: Record<number, string> = {
   1: 'The Concept',
   2: 'The Builder',
   3: 'The Concierge',
   4: 'KAA White Glove',
+};
+
+export const TIER_PRICES: Record<number, string> = {
+  1: '$299',
+  2: '$1,499',
+  3: '$4,999+',
+  4: 'By Invitation',
 };
 
 export function formatDate(dateString: string): string {
