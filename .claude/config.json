@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "project": {
+    "name": "kaa-notion-backend",
+    "description": "SAGE MVP Platform - tiered landscape architecture services with hybrid Postgres/Notion architecture",
+    "repository": "https://github.com/a13xperi/kaa-notion-backend"
+  },
+  "context": {
+    "type": "fullstack",
+    "frontend": {
+      "framework": "react",
+      "bundler": "create-react-app",
+      "language": "typescript",
+      "stateManagement": "react-query"
+    },
+    "backend": {
+      "runtime": "node",
+      "framework": "express",
+      "language": "javascript"
+    },
+    "database": {
+      "primary": "supabase-postgres",
+      "secondary": "notion-api",
+      "orm": "prisma"
+    },
+    "payments": "stripe",
+    "deployment": "vercel"
+  },
+  "businessContext": {
+    "tiers": {
+      "sage-1": {
+        "name": "Garden Guide",
+        "price": 299,
+        "type": "one-time",
+        "description": "DIY guidance package"
+      },
+      "sage-2": {
+        "name": "Design Package",
+        "price": 1499,
+        "type": "one-time",
+        "description": "Custom design plans"
+      },
+      "sage-3": {
+        "name": "Full Service",
+        "price": 4999,
+        "type": "starting-at",
+        "description": "Complete design-build"
+      },
+      "kaa-4": {
+        "name": "KAA Premium",
+        "price": "custom",
+        "type": "invitation-only",
+        "description": "White-glove luxury service"
+      }
+    },
+    "dataFlow": "postgres-source-of-truth -> notion-display-layer"
+  },
+  "paths": {
+    "frontend": "kaa-app/src",
+    "frontendComponents": "kaa-app/src/components",
+    "frontendHooks": "kaa-app/src/hooks",
+    "frontendPages": "kaa-app/src/pages",
+    "backend": "server",
+    "backendRoutes": "server/routes",
+    "backendServices": "server/services",
+    "prisma": "prisma",
+    "docs": "docs",
+    "tests": "tests"
+  },
+  "commands": {
+    "dev": "npm run dev",
+    "start": "npm start",
+    "test": "npm test",
+    "test:e2e": "npm run test:e2e",
+    "prisma:studio": "npm run prisma:studio",
+    "prisma:migrate": "npm run prisma:migrate",
+    "prisma:generate": "npm run prisma:generate"
+  },
+  "conventions": {
+    "componentNaming": "PascalCase",
+    "hookNaming": "useCamelCase",
+    "apiRoutes": "/api/resource-name",
+    "databaseNaming": "snake_case",
+    "prismaNaming": "camelCase"
+  },
+  "prompts": {
+    "new-endpoint": "Create a new API endpoint at {{method}} /api/{{path}} with request validation, error handling, response formatting, and add to appropriate router. Include Prisma queries if database access needed.",
+    "new-component": "Create a React component at kaa-app/src/components/{{name}}.tsx with TypeScript props interface, loading/error states, accessibility attributes, and responsive design using Tailwind.",
+    "new-hook": "Create a custom React hook at kaa-app/src/hooks/{{name}}.ts using React Query for data fetching with proper typing, error handling, and caching strategy.",
+    "prisma-model": "Add a new Prisma model to schema.prisma with proper relations, indexes, and field mappings. Include createdAt/updatedAt timestamps.",
+    "notion-sync": "Create or update Notion sync logic for {{entity}} that queues changes, handles rate limits, and tracks sync status.",
+    "stripe-integration": "Add Stripe integration for {{feature}} with proper webhook handling, error recovery, and idempotency."
+  },
+  "documentation": {
+    "techStack": "docs/tech-stack.md",
+    "architecture": "docs/hybrid-data-architecture.md",
+    "syncStrategy": "docs/sync-strategy.md",
+    "tierRules": "docs/tier-router-rules.md",
+    "contributing": "CONTRIBUTING.md"
+  }
+}
