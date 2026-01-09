@@ -247,3 +247,45 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+// ============================================
+// SAGE CHAT MESSAGES
+// ============================================
+
+model Conversation {
+  id            String    @id @default(uuid())
+  userId        String?   @map("user_id") // Optional for anonymous users
+  clientAddress String?   @map("client_address") // For address-based auth
+  sessionId     String    @map("session_id") // Browser session identifier
+  tier          Int? // User's tier at time of conversation
+  mode          String    @default("client") // "client" or "team"
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  messages Message[]
+
+  @@index([userId])
+  @@index([clientAddress])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  role           String // "user", "assistant", or "system"
+  content        String
+  tokenCount     Int?     @map("token_count") // Track token usage
+  tier           Int? // Tier at time of message (for analytics)
+  metadata       Json? // Additional context (currentView, onboardingStep, etc.)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
