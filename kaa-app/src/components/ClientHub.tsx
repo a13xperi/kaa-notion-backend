@@ -10,6 +10,7 @@ interface ClientHubProps {
   onUpload: () => void;
   onViewMessages: () => void;
   onViewAnalytics: () => void;
+  onViewDeliverables?: () => void;
 }
 
 interface ClientActivity {
@@ -36,13 +37,14 @@ interface RecentActivity {
   author?: string;
 }
 
-const ClientHub: React.FC<ClientHubProps> = ({ 
-  clientAddress, 
+const ClientHub: React.FC<ClientHubProps> = ({
+  clientAddress,
   onViewProjects,
-  onViewDocuments, 
+  onViewDocuments,
   onUpload,
   onViewMessages,
-  onViewAnalytics
+  onViewAnalytics,
+  onViewDeliverables
 }) => {
   const [stats, setStats] = useState({
     totalDocuments: 0,
@@ -303,7 +305,7 @@ const ClientHub: React.FC<ClientHubProps> = ({
                 <span className="action-description">Send a message</span>
               </div>
             </button>
-            <button 
+            <button
               className="action-card"
               onClick={onViewAnalytics}
             >
@@ -313,6 +315,18 @@ const ClientHub: React.FC<ClientHubProps> = ({
                 <span className="action-description">View milestones</span>
               </div>
             </button>
+            {onViewDeliverables && (
+              <button
+                className="action-card action-deliverables"
+                onClick={onViewDeliverables}
+              >
+                <div className="action-icon">📦</div>
+                <div className="action-content">
+                  <span className="action-title">Deliverables</span>
+                  <span className="action-description">Download project files</span>
+                </div>
+              </button>
+            )}
           </div>
         </div>
 

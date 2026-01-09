@@ -294,9 +294,9 @@ const MessagingSystem: React.FC<MessagingSystemProps> = ({
               `• Low-touch service with review and refinement\n` +
               `• Great balance of efficiency and personalization\n\n` +
               `**Tier 3 - The Concierge** 👟\n` +
-              `• Includes physical site visits\n` +
+              `• Includes site visits + 3D scan\n` +
               `• Hybrid of tech efficiency + boots on the ground\n` +
-              `• More hands-on support\n\n` +
+              `• More hands-on, personalized support\n\n` +
               `**Tier 4 - KAA White Glove** 💎\n` +
               `• Premium white glove service\n` +
               `• Full-service landscape architecture\n` +

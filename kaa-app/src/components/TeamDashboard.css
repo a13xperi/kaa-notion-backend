@@ -1,14 +1,14 @@
 .team-dashboard {
   min-height: 100vh;
-  background: #f8f9fa;
-  color: #333;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .team-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--gradient-primary);
+  color: var(--text-inverted);
   padding: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px var(--shadow-light);
 }
 
 .team-header-content {
@@ -28,7 +28,7 @@
 
 .team-icon {
   font-size: 2.5em;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-glass);
   padding: 15px;
   border-radius: 15px;
   backdrop-filter: blur(10px);
@@ -61,9 +61,9 @@
 }
 
 .team-nav-btn {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-glass);
   border: none;
-  color: white;
+  color: var(--text-inverted);
   padding: 12px 20px;
   border-radius: 10px;
   font-size: 14px;
@@ -75,21 +75,21 @@
 }
 
 .team-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--bg-glass-hover);
   transform: translateY(-1px);
 }
 
 .team-nav-btn.active {
   background: rgba(255, 255, 255, 0.95);
-  color: #667eea;
+  color: var(--brand-primary);
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 .team-logout-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-glass);
   border: none;
-  color: white;
+  color: var(--text-inverted);
   padding: 12px 20px;
   border-radius: 10px;
   font-size: 14px;
@@ -100,7 +100,7 @@
 }
 
 .team-logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--bg-glass-hover);
   transform: translateY(-1px);
 }
 
@@ -118,12 +118,12 @@
 }
 
 .welcome-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--gradient-primary);
+  color: var(--text-inverted);
   padding: 40px;
   border-radius: 20px;
   text-align: center;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 25px var(--shadow-accent);
 }
 
 .welcome-section h1 {
@@ -134,7 +134,7 @@
 
 .role-badge {
   display: inline-block;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-glass);
   padding: 8px 20px;
   border-radius: 25px;
   font-weight: 600;
@@ -156,11 +156,11 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
   text-align: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
   transition: transform 0.2s ease;
 }
 
@@ -171,27 +171,27 @@
 .stat-card h3 {
   font-size: 2.5em;
   margin: 0 0 10px 0;
-  color: #667eea;
+  color: var(--brand-primary);
   font-weight: 700;
 }
 
 .stat-card p {
   margin: 0;
-  color: #666;
+  color: var(--text-light);
   font-weight: 600;
   font-size: 1.1em;
 }
 
 .quick-actions-section {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .quick-actions-section h2 {
   margin: 0 0 25px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.8em;
 }
 
@@ -202,37 +202,37 @@
 }
 
 .action-card {
-  background: linear-gradient(135deg, #e0e7ff 0%, #c3dafe 100%);
+  background: var(--gradient-action);
   border: none;
   padding: 25px;
   border-radius: 12px;
   font-size: 1.1em;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-body);
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 .action-card:hover {
-  background: linear-gradient(135deg, #c3dafe 0%, #a7c0f5 100%);
+  background: var(--gradient-action-hover);
   transform: translateY(-3px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 15px var(--shadow-light);
 }
 
 .activity-section,
 .deliverables-section {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .activity-section h2,
 .deliverables-section h2 {
   margin: 0 0 25px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.8em;
 }
 
@@ -247,23 +247,23 @@
 .deliverable-item {
   display: flex;
   align-items: center;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px var(--shadow-light);
   transition: all 0.2s ease;
 }
 
 .activity-item:hover,
 .deliverable-item:hover {
-  background: #edf2f7;
+  background: var(--hover-bg);
   transform: translateY(-2px);
 }
 
 .activity-icon {
   font-size: 1.8em;
   margin-right: 15px;
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 .activity-details {
@@ -272,40 +272,40 @@
 
 .activity-title {
   font-weight: 600;
-  color: #333;
+  color: var(--text-dark);
   margin: 0 0 5px 0;
   font-size: 1.1em;
 }
 
 .activity-description {
-  color: #666;
+  color: var(--text-light);
   margin: 0 0 5px 0;
 }
 
 .activity-time {
   font-size: 0.9em;
-  color: #888;
+  color: var(--text-muted);
   margin: 0;
 }
 
 .activity-action {
   background: none;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 15px;
   cursor: pointer;
   font-size: 1.1em;
-  color: #555;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .activity-action:hover {
-  background: #eee;
-  border-color: #999;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 .deliverable-priority {
-  color: white;
+  color: var(--text-inverted);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.8em;
@@ -321,50 +321,50 @@
 
 .deliverable-title {
   font-weight: 600;
-  color: #333;
+  color: var(--text-dark);
   margin: 0 0 5px 0;
   font-size: 1.1em;
 }
 
 .deliverable-project {
-  color: #666;
+  color: var(--text-light);
   margin: 0 0 5px 0;
   font-size: 0.95em;
 }
 
 .deliverable-due {
   font-size: 0.9em;
-  color: #888;
+  color: var(--text-muted);
   margin: 0;
 }
 
 .deliverable-action {
   background: none;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 15px;
   cursor: pointer;
   font-size: 1.1em;
-  color: #555;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
 }
 
 .deliverable-action:hover {
-  background: #eee;
-  border-color: #999;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 /* Projects View */
 .projects-view {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .projects-view h2 {
   margin: 0 0 30px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.8em;
 }
 
@@ -375,10 +375,10 @@
 }
 
 .project-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 15px;
   padding: 25px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
   transition: transform 0.2s ease;
 }
 
@@ -395,12 +395,12 @@
 
 .project-header h3 {
   margin: 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.3em;
 }
 
 .project-status {
-  color: white;
+  color: var(--text-inverted);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.8em;
@@ -414,7 +414,7 @@
 .project-client,
 .project-activity {
   margin: 8px 0;
-  color: #666;
+  color: var(--text-light);
   font-size: 0.95em;
 }
 
@@ -425,12 +425,12 @@
 }
 
 .stat {
-  background: white;
+  background: var(--bg-card);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.9em;
-  color: #555;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: var(--text-secondary);
+  box-shadow: 0 1px 3px var(--shadow-light);
 }
 
 .project-actions {
@@ -449,34 +449,34 @@
 }
 
 .project-btn.primary {
-  background: #667eea;
-  color: white;
+  background: var(--brand-primary);
+  color: var(--text-inverted);
 }
 
 .project-btn.primary:hover {
-  background: #5a6fd8;
+  background: var(--brand-hover);
 }
 
 .project-btn.secondary {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: var(--active-bg);
+  color: var(--text-body);
 }
 
 .project-btn.secondary:hover {
-  background: #cbd5e0;
+  background: var(--border-color);
 }
 
 /* Deliverables View */
 .deliverables-view {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .deliverables-view h2 {
   margin: 0 0 30px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.8em;
 }
 
@@ -489,15 +489,15 @@
 .deliverable-row {
   display: flex;
   align-items: center;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px var(--shadow-light);
   transition: all 0.2s ease;
 }
 
 .deliverable-row:hover {
-  background: #edf2f7;
+  background: var(--hover-bg);
   transform: translateY(-2px);
 }
 
@@ -507,13 +507,13 @@
 
 .deliverable-info h4 {
   margin: 0 0 5px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.1em;
 }
 
 .deliverable-info p {
   margin: 0;
-  color: #666;
+  color: var(--text-light);
   font-size: 0.95em;
 }
 
@@ -525,7 +525,7 @@
 }
 
 .priority-badge {
-  color: white;
+  color: var(--text-inverted);
   padding: 4px 10px;
   border-radius: 15px;
   font-size: 0.8em;
@@ -533,8 +533,8 @@
 }
 
 .status-badge {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: var(--active-bg);
+  color: var(--text-body);
   padding: 4px 10px;
   border-radius: 15px;
   font-size: 0.8em;
@@ -542,7 +542,7 @@
 }
 
 .due-date {
-  color: #666;
+  color: var(--text-light);
   font-size: 0.9em;
 }
 
@@ -552,8 +552,8 @@
 }
 
 .action-btn {
-  background: #667eea;
-  color: white;
+  background: var(--brand-primary);
+  color: var(--text-inverted);
   border: none;
   padding: 8px 15px;
   border-radius: 6px;
@@ -564,20 +564,20 @@
 }
 
 .action-btn:hover {
-  background: #5a6fd8;
+  background: var(--brand-hover);
 }
 
 /* Communications View */
 .communications-view {
-  background: white;
+  background: var(--bg-card);
   padding: 30px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .communications-view h2 {
   margin: 0 0 30px 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.8em;
 }
 
@@ -588,10 +588,10 @@
 }
 
 .communication-item {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 15px;
   padding: 25px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px var(--shadow-light);
   transition: transform 0.2s ease;
 }
 
@@ -608,12 +608,12 @@
 
 .communication-header h4 {
   margin: 0;
-  color: #333;
+  color: var(--text-dark);
   font-size: 1.2em;
 }
 
 .client-address {
-  color: #666;
+  color: var(--text-light);
   font-size: 0.95em;
 }
 
@@ -624,8 +624,8 @@
 }
 
 .comm-btn {
-  background: #667eea;
-  color: white;
+  background: var(--brand-primary);
+  color: var(--text-inverted);
   border: none;
   padding: 10px 15px;
   border-radius: 8px;
@@ -636,11 +636,11 @@
 }
 
 .comm-btn:hover {
-  background: #5a6fd8;
+  background: var(--brand-hover);
 }
 
 .recent-activity {
-  color: #666;
+  color: var(--text-light);
   font-size: 0.9em;
 }
 

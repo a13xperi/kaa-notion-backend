@@ -171,7 +171,9 @@ See `env.example` for complete list of required variables.
 - Accessible, scalable services
 - Clients choose us
 - Fixed pricing packages
-- Automated to site visits
+- Tier 1: No-touch, fully automated
+- Tier 2: Low-touch with designer checkpoints
+- Tier 3: Site visits + 3D scan included
 
 **KAA (Tier 4):**
 - White-glove, luxury service
