@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { identifyUser, trackEvent } from '../utils/posthog';
 import './TeamLogin.css';
 
 interface TeamLoginProps {
@@ -28,8 +29,15 @@ const TeamLogin: React.FC<TeamLoginProps> = ({ onLogin, onBack }) => {
       };
 
       const member = demoTeamMembers[teamMember.toLowerCase()];
-      
+
       if (member && member.password === teamPassword) {
+        // Track successful login and identify team member
+        identifyUser(`team-${teamMember.toLowerCase()}`, {
+          user_type: 'team',
+          team_role: member.role,
+          team_member_name: teamMember,
+        });
+        trackEvent('team_login', { role: member.role });
         onLogin(teamMember, member.role);
       } else {
         setError('Invalid team member credentials. Try "demo" with password "demo123"');
