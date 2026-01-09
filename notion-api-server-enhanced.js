@@ -1087,28 +1087,44 @@ async function deleteFromSupabaseStorage(storagePath) {
 // DESIGN IDEAS API ROUTES
 // ============================================
 
-// In-memory storage for design ideas (in production, use database)
-const designIdeasStore = new Map();
+/**
+ * Format a design idea from Prisma to API response format
+ */
+function formatDesignIdea(idea) {
+  return {
+    id: idea.id,
+    imageUrl: idea.imageUrl,
+    title: idea.title || '',
+    description: idea.description || '',
+    source: idea.source,
+    pinterestUrl: idea.pinterestUrl || undefined,
+    tags: idea.tags || [],
+    addedAt: idea.addedAt.toISOString(),
+    clientAddress: idea.clientAddress
+  };
+}
 
-// Get all design ideas for a client
+// Get all design ideas for a client (scoped by authenticated user)
 app.get('/api/client/design-ideas/:address', async (req, res) => {
   try {
     const { address } = req.params;
     const decodedAddress = decodeURIComponent(address);
-    
-    // Get all design ideas for this client
-    const clientIdeas = Array.from(designIdeasStore.values())
-      .filter(idea => idea.clientAddress === decodedAddress)
-      .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
-    
-    res.json({ designIdeas: clientIdeas });
+
+    // Query Postgres for design ideas scoped to this client address
+    const ideas = await prisma.designIdea.findMany({
+      where: { clientAddress: decodedAddress },
+      orderBy: { addedAt: 'desc' }
+    });
+
+    const formattedIdeas = ideas.map(formatDesignIdea);
+    res.json({ designIdeas: formattedIdeas });
   } catch (error) {
     console.error('Error fetching design ideas:', error);
     res.status(500).json({ error: 'Failed to fetch design ideas' });
   }
 });
 
-// Upload design idea image
+// Upload design idea image (with Supabase Storage)
 app.post('/api/client/design-ideas/upload', upload.single('file'), async (req, res) => {
   try {
     const { address, title, description, tags } = req.body;
@@ -1118,24 +1134,49 @@ app.post('/api/client/design-ideas/upload', upload.single('file'), async (req, r
       return res.status(400).json({ error: 'File and address are required' });
     }
 
-    // For now, we'll use a placeholder URL since we can't store files directly
-    // In production, upload to Supabase Storage or S3
-    const imageUrl = `https://via.placeholder.com/400x600?text=${encodeURIComponent(title || 'Design Idea')}`;
-    
-    const designIdea = {
-      id: `di-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      imageUrl,
-      title: title?.trim() || '',
-      description: description?.trim() || '',
-      source: 'upload',
-      tags: tags ? JSON.parse(tags) : [],
-      addedAt: new Date().toISOString(),
-      clientAddress: address
-    };
+    let imageUrl;
+    let storagePath = null;
 
-    designIdeasStore.set(designIdea.id, designIdea);
+    // Upload to Supabase Storage if configured
+    if (supabase) {
+      const uploadResult = await uploadToSupabaseStorage(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        address
+      );
+      imageUrl = uploadResult.url;
+      storagePath = uploadResult.path;
+    } else {
+      // Fallback to placeholder if Supabase not configured
+      console.warn('Supabase not configured, using placeholder image');
+      imageUrl = `https://via.placeholder.com/400x600?text=${encodeURIComponent(title || 'Design Idea')}`;
+    }
 
-    res.json({ designIdea });
+    // Parse tags if they're a JSON string
+    let parsedTags = [];
+    if (tags) {
+      try {
+        parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      } catch {
+        parsedTags = [];
+      }
+    }
+
+    // Create design idea in Postgres
+    const designIdea = await prisma.designIdea.create({
+      data: {
+        clientAddress: address,
+        imageUrl,
+        storagePath,
+        title: title?.trim() || null,
+        description: description?.trim() || null,
+        source: 'upload',
+        tags: parsedTags
+      }
+    });
+
+    res.json({ designIdea: formatDesignIdea(designIdea) });
   } catch (error) {
     console.error('Error uploading design idea:', error);
     res.status(500).json({ error: 'Failed to upload design idea' });
@@ -1151,20 +1192,19 @@ app.post('/api/client/design-ideas/add', async (req, res) => {
       return res.status(400).json({ error: 'Image URL and address are required' });
     }
 
-    const designIdea = {
-      id: `di-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      imageUrl: imageUrl.trim(),
-      title: title?.trim() || '',
-      description: description?.trim() || '',
-      source: source || 'url',
-      tags: tags || [],
-      addedAt: new Date().toISOString(),
-      clientAddress: address
-    };
+    // Create design idea in Postgres
+    const designIdea = await prisma.designIdea.create({
+      data: {
+        clientAddress: address,
+        imageUrl: imageUrl.trim(),
+        title: title?.trim() || null,
+        description: description?.trim() || null,
+        source: source || 'url',
+        tags: tags || []
+      }
+    });
 
-    designIdeasStore.set(designIdea.id, designIdea);
-
-    res.json({ designIdea });
+    res.json({ designIdea: formatDesignIdea(designIdea) });
   } catch (error) {
     console.error('Error adding design idea:', error);
     res.status(500).json({ error: 'Failed to add design idea' });
@@ -1181,41 +1221,38 @@ app.post('/api/client/design-ideas/pinterest-import', async (req, res) => {
     }
 
     // TODO: Integrate with Pinterest API
-    // For now, return demo data
+    // For now, create demo data in the database
     // In production, use Pinterest API to fetch board pins
     // You'll need: PINTEREST_APP_ID and PINTEREST_APP_SECRET in .env
-    
-    const demoIdeas = [
+
+    const demoData = [
       {
-        id: `di-${Date.now()}-1`,
+        clientAddress: address,
         imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
         title: 'Modern Garden Design',
         description: 'Imported from Pinterest',
         source: 'pinterest',
         pinterestUrl: boardUrl,
-        tags: ['Modern', 'Garden'],
-        addedAt: new Date().toISOString(),
-        clientAddress: address
+        tags: ['Modern', 'Garden']
       },
       {
-        id: `di-${Date.now()}-2`,
+        clientAddress: address,
         imageUrl: 'https://images.unsplash.com/photo-1464822759844-d150ad2996e3?w=400',
         title: 'Outdoor Living Space',
         description: 'Imported from Pinterest',
         source: 'pinterest',
         pinterestUrl: boardUrl,
-        tags: ['Outdoor Living', 'Hardscape'],
-        addedAt: new Date().toISOString(),
-        clientAddress: address
+        tags: ['Outdoor Living', 'Hardscape']
       }
     ];
 
-    demoIdeas.forEach(idea => {
-      designIdeasStore.set(idea.id, idea);
-    });
+    // Create all demo ideas in Postgres
+    const createdIdeas = await prisma.$transaction(
+      demoData.map(data => prisma.designIdea.create({ data }))
+    );
 
-    res.json({ 
-      designIdeas: demoIdeas,
+    res.json({
+      designIdeas: createdIdeas.map(formatDesignIdea),
       message: 'Pinterest import feature coming soon. For now, showing demo data.'
     });
   } catch (error) {
@@ -1224,23 +1261,39 @@ app.post('/api/client/design-ideas/pinterest-import', async (req, res) => {
   }
 });
 
-// Delete design idea
+// Delete design idea (with ownership check)
 app.delete('/api/client/design-ideas/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { address } = req.body;
 
-    const idea = designIdeasStore.get(id);
-    
+    if (!address) {
+      return res.status(400).json({ error: 'Address is required for authorization' });
+    }
+
+    // Find the design idea
+    const idea = await prisma.designIdea.findUnique({
+      where: { id }
+    });
+
     if (!idea) {
       return res.status(404).json({ error: 'Design idea not found' });
     }
 
+    // Authorization: verify ownership
     if (idea.clientAddress !== address) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    designIdeasStore.delete(id);
+    // Delete from Supabase Storage if it was an uploaded file
+    if (idea.storagePath) {
+      await deleteFromSupabaseStorage(idea.storagePath);
+    }
+
+    // Delete from Postgres
+    await prisma.designIdea.delete({
+      where: { id }
+    });
 
     res.json({ success: true });
   } catch (error) {
