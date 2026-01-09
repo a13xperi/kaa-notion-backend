@@ -103,14 +103,14 @@
 ## Phase 6: Notion Sync
 
 ### 6.1 Sync Infrastructure
-- [ ] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
-- [ ] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
+- [x] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
+- [x] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
 
 ### 6.2 Entity Sync
-- [ ] `notion-sync`: Project - Create Notion page when project created, sync status updates
-- [ ] `notion-sync`: Milestone - Add milestone blocks to project page, update on status change
-- [ ] `notion-sync`: Deliverable - Create showcase page for deliverables, link from project page
-- [ ] `notion-sync`: Lead - Optional CRM sync for team visibility
+- [x] `notion-sync`: Project - Create Notion page when project created, sync status updates
+- [x] `notion-sync`: Milestone - Add milestone blocks to project page, update on status change
+- [x] `notion-sync`: Deliverable - Create showcase page for deliverables, link from project page
+- [x] `notion-sync`: Lead - Optional CRM sync for team visibility
 
 ---
 
@@ -214,6 +214,14 @@
 - [x] `new-component`: ClientsTable - Client list with tier, revenue, project count
 - [x] `new-component`: TierOverrideModal - Modal to change lead tier with reason input
 - [x] `new-component`: LeadReviewPanel - Slide-in panel with detailed lead view and actions
+- [x] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
+- [x] `new-service`: notionSync.ts - High-level Notion sync service for projects, milestones, deliverables
+- [x] `prisma-migration`: Add SyncStatus enum, syncStatus, lastSyncedAt, syncError columns
+- [x] `new-endpoint`: GET /api/notion/status - Get sync status and queue statistics
+- [x] `new-endpoint`: POST /api/notion/sync - Trigger sync for all pending entities
+- [x] `new-endpoint`: POST /api/notion/retry - Retry all failed syncs
+- [x] `new-endpoint`: POST /api/notion/sync/project/:id - Manually sync specific project
+- [x] `new-endpoint`: GET /api/notion/failed - Get list of failed syncs
 
 ### 2025-01-09
 - [x] Initial project setup

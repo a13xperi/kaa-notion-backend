@@ -6,7 +6,8 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
-import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter } from './routes';
+import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter } from './routes';
+import { initNotionSyncService } from './services';
 import { logger } from './logger';
 
 dotenv.config();
@@ -26,11 +27,25 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Initialize Notion sync service if configured
+if (process.env.NOTION_API_KEY && process.env.NOTION_PROJECTS_DATABASE_ID) {
+  initNotionSyncService(prisma, {
+    notionApiKey: process.env.NOTION_API_KEY,
+    projectsDatabaseId: process.env.NOTION_PROJECTS_DATABASE_ID,
+    rateLimitMs: 350,
+    maxRetries: 3,
+    retryDelayMs: 1000,
+    batchSize: 10,
+  });
+  logger.info('Notion sync service initialized');
+}
+
 // API Routes
 app.use('/api/projects', createProjectsRouter(prisma));
 app.use('/api', createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
 app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
@@ -173,6 +188,7 @@ app.get('/api/health', async (req, res) => {
         database: 'connected',
         figma: process.env.FIGMA_ACCESS_TOKEN ? 'configured' : 'not configured',
         stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
+        notion: process.env.NOTION_API_KEY ? 'configured' : 'not configured',
       },
     });
   } catch (error) {

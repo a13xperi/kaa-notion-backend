@@ -57,6 +57,13 @@ enum ClientStatus {
   CLOSED
 }
 
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+}
+
 // ============================================
 // TABLES
 // ============================================
@@ -140,6 +147,11 @@ model Project {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
+  // Notion sync tracking
+  syncStatus    SyncStatus    @default(PENDING) @map("sync_status")
+  lastSyncedAt  DateTime?     @map("last_synced_at")
+  syncError     String?       @map("sync_error")
+
   // Relations
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   lead         Lead?         @relation(fields: [leadId], references: [id])
@@ -150,6 +162,7 @@ model Project {
   @@index([clientId])
   @@index([tier])
   @@index([status])
+  @@index([syncStatus])
   @@map("projects")
 }
 
@@ -177,11 +190,16 @@ model Milestone {
   completedAt DateTime?       @map("completed_at")
   createdAt   DateTime        @default(now()) @map("created_at")
 
+  // Notion sync tracking
+  syncStatus   SyncStatus     @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?      @map("last_synced_at")
+
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([tier])
+  @@index([syncStatus])
   @@map("milestones")
 }
 
@@ -220,12 +238,17 @@ model Deliverable {
   uploadedById String   @map("uploaded_by_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
+  // Notion sync tracking
+  syncStatus   SyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?  @map("last_synced_at")
+
   // Relations
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   uploadedBy User    @relation(fields: [uploadedById], references: [id])
 
   @@index([projectId])
   @@index([uploadedById])
+  @@index([syncStatus])
   @@map("deliverables")
 }
 
