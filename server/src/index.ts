@@ -9,6 +9,7 @@ import checkoutRouter from './routes/checkout';
 import webhooksRouter from './routes/webhooks';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
+import milestonesRouter from './routes/milestones';
 
 dotenv.config();
 
@@ -110,6 +111,8 @@ app.use('/api/checkout', checkoutRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/projects', projectsRouter);
+app.use('/api/milestones', milestonesRouter);
+app.use('/api', milestonesRouter); // For /api/projects/:id/milestones route
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
