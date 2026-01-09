@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   padding: 20px;
   position: relative;
   overflow: hidden;
@@ -53,9 +53,9 @@
 
 /* Back Button */
 .portal-back-button {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-glass);
   border: none;
-  color: white;
+  color: var(--text-inverted);
   padding: 10px 20px;
   border-radius: 12px;
   font-size: 14px;
@@ -67,7 +67,7 @@
 }
 
 .portal-back-button:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--bg-glass-hover);
   transform: translateX(-4px);
 }
 
@@ -90,19 +90,19 @@
 }
 
 .portal-brand .sage-logo-image {
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 8px 24px var(--shadow-heavy));
 }
 
 .brand-icon {
   width: 100px;
   height: 100px;
-  background: white;
+  background: var(--bg-card);
   border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 48px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px var(--shadow-heavy);
   animation: floatIcon 3s ease-in-out infinite;
 }
 
@@ -118,9 +118,9 @@
 .brand-title {
   font-size: 48px;
   font-weight: 800;
-  color: white;
+  color: var(--text-inverted);
   margin: 0;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 4px 20px var(--shadow-heavy);
   letter-spacing: -1px;
 }
 
@@ -133,10 +133,10 @@
 
 /* Welcome Card */
 .portal-welcome-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 24px;
   padding: 48px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px var(--shadow-heavy);
   margin-bottom: 32px;
 }
 
@@ -149,7 +149,7 @@
 .welcome-title {
   font-size: 32px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-dark);
   margin: 0;
   text-align: center;
 }
@@ -157,7 +157,7 @@
 .welcome-message {
   font-size: 16px;
   line-height: 1.7;
-  color: #4a5568;
+  color: var(--text-body);
   margin: 0;
   text-align: center;
 }
@@ -174,13 +174,13 @@
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: #f7fafc;
+  background: var(--bg-secondary);
   border-radius: 12px;
   transition: all 0.2s ease;
 }
 
 .feature-item:hover {
-  background: #edf2f7;
+  background: var(--hover-bg);
   transform: translateY(-2px);
 }
 
@@ -197,20 +197,20 @@
 
 .feature-text strong {
   font-size: 15px;
-  color: #2d3748;
+  color: var(--text-dark);
   font-weight: 600;
 }
 
 .feature-text span {
   font-size: 13px;
-  color: #718096;
+  color: var(--text-light);
 }
 
 /* Login Button */
 .portal-login-button {
   width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--gradient-primary);
+  color: var(--text-inverted);
   border: none;
   border-radius: 16px;
   padding: 20px;
@@ -222,12 +222,12 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 24px var(--shadow-accent-hover);
 }
 
 .portal-login-button:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 12px 32px var(--shadow-accent-hover);
 }
 
 .portal-login-button:active {
@@ -249,23 +249,23 @@
   flex-direction: column;
   gap: 8px;
   padding: 20px;
-  background: #f7fafc;
+  background: var(--bg-secondary);
   border-radius: 12px;
   text-align: center;
 }
 
 .help-text {
   font-size: 14px;
-  color: #4a5568;
+  color: var(--text-body);
   margin: 0;
 }
 
 .help-text strong {
-  color: #2d3748;
+  color: var(--text-dark);
 }
 
 .help-text a {
-  color: #667eea;
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 600;
 }
@@ -287,8 +287,8 @@
 }
 
 .badge {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--bg-glass);
+  color: var(--text-inverted);
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -413,5 +413,3 @@
     font-size: 13px;
   }
 }
-
-

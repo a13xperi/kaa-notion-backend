@@ -115,10 +115,4 @@
   font-size: 1.2em;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .sage-logo-title,
-  .sage-logo-subtitle {
-    color: #fbbf24;
-  }
-}
+/* The logo colors remain consistent across themes */

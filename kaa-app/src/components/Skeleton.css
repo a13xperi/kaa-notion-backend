@@ -34,17 +34,6 @@
   flex-shrink: 0;
 }
 
-/* Dark mode skeleton */
-@media (prefers-color-scheme: dark) {
-  .skeleton {
-    background: linear-gradient(
-      90deg,
-      #2d3748 25%,
-      #1a202c 50%,
-      #2d3748 75%
-    );
-    background-size: 200% 100%;
-  }
-}
+/* Dark mode is handled via CSS variables (--bg-secondary, --bg-tertiary) */
 
 
