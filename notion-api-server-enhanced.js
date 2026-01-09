@@ -5,6 +5,8 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { Client } = require('@notionhq/client');
 const { OpenAI } = require('openai');
+const { createClient } = require('@supabase/supabase-js');
+const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -26,9 +28,20 @@ const upload = multer({
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
 // Initialize OpenAI client
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 }) : null;
+
+// Initialize Supabase client (for Storage)
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+
+// Initialize Prisma client (for Postgres)
+const prisma = new PrismaClient();
+
+// Supabase Storage bucket name for design ideas
+const DESIGN_IDEAS_BUCKET = 'design-ideas';
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -996,15 +1009,79 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
+    supabase_configured: !!supabase,
+    database_configured: !!prisma,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
 });
+
+// ============================================
+// SUPABASE STORAGE HELPER
+// ============================================
+
+/**
+ * Upload a file to Supabase Storage
+ * @param {Buffer} fileBuffer - The file data
+ * @param {string} fileName - Original filename
+ * @param {string} mimeType - MIME type of the file
+ * @param {string} clientAddress - Client address for folder organization
+ * @returns {Promise<{url: string, path: string}>}
+ */
+async function uploadToSupabaseStorage(fileBuffer, fileName, mimeType, clientAddress) {
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
+
+  // Create a unique file path: design-ideas/{clientAddress}/{timestamp}-{filename}
+  const sanitizedAddress = clientAddress.replace(/[^a-zA-Z0-9]/g, '_');
+  const timestamp = Date.now();
+  const ext = path.extname(fileName);
+  const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, '_');
+  const storagePath = `${sanitizedAddress}/${timestamp}-${baseName}${ext}`;
+
+  // Upload to Supabase Storage
+  const { data, error } = await supabase.storage
+    .from(DESIGN_IDEAS_BUCKET)
+    .upload(storagePath, fileBuffer, {
+      contentType: mimeType,
+      upsert: false
+    });
+
+  if (error) {
+    throw new Error(`Storage upload failed: ${error.message}`);
+  }
+
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from(DESIGN_IDEAS_BUCKET)
+    .getPublicUrl(storagePath);
+
+  return { url: publicUrl, path: storagePath };
+}
+
+/**
+ * Delete a file from Supabase Storage
+ * @param {string} storagePath - The storage path to delete
+ */
+async function deleteFromSupabaseStorage(storagePath) {
+  if (!supabase || !storagePath) {
+    return;
+  }
+
+  const { error } = await supabase.storage
+    .from(DESIGN_IDEAS_BUCKET)
+    .remove([storagePath]);
+
+  if (error) {
+    console.error('Failed to delete from storage:', error.message);
+  }
+}
 
 // ============================================
 // DESIGN IDEAS API ROUTES
@@ -1199,8 +1276,22 @@ app.listen(PORT, async () => {
     console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
   }
 
+  if (!supabase) {
+    console.log('⚠️  WARNING: Supabase not configured (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)');
+    console.log('   Design ideas uploads will not work without Supabase Storage');
+  } else {
+    console.log('✅ Supabase configured - Storage enabled');
+  }
+
+  console.log('✅ Prisma client initialized - Postgres database ready');
+
   // Initialize databases
   await initializeDatabases();
+});
+
+// Graceful shutdown
+process.on('beforeExit', async () => {
+  await prisma.$disconnect();
 });
 
 module.exports = app;
