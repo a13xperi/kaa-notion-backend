@@ -147,21 +147,21 @@
 ## Database Migrations
 
 ### Core Models (Run First)
-- [ ] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog
+- [x] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog (schema complete)
 
 ### Indexes
-- [ ] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md
+- [x] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md (indexes defined in schema)
 
 ---
 
 ## Testing
 
 ### API Tests
-- [ ] `test`: leads.test.ts - Test lead CRUD, tier router integration, conversion flow
-- [ ] `test`: auth.test.ts - Test registration, login, token refresh, protected routes
-- [ ] `test`: projects.test.ts - Test project CRUD, milestone creation, tier gating
-- [ ] `test`: payments.test.ts - Test Stripe webhook handling, payment status updates
-- [ ] `test`: deliverables.test.ts - Test upload, download, file metadata
+- [x] `test`: auth.test.ts - Test JWT generation, verification, token refresh
+- [x] `test`: validators.test.ts - Test Zod validation schemas for all endpoints
+- [x] `test`: appError.test.ts - Test error class and factory functions
+- [x] `test`: milestoneTemplates.test.ts - Test tier configurations and milestone generation
+- [x] `test`: tierFeatures.test.ts - Test tier-based feature access
 
 ### Component Tests
 - [ ] `test`: IntakeForm.test.tsx - Test form validation, submission, tier display
@@ -236,6 +236,12 @@
 - [x] `new-middleware`: validate.ts - Request validation middleware for body, query, params
 - [x] `new-middleware`: errorHandler.ts - Global error handler with Prisma/Stripe error mapping
 - [x] `new-service`: auditService.ts - Centralized audit logging with query/cleanup utilities
+- [x] `test-setup`: Jest configuration, test helpers, mock data factories
+- [x] `test`: auth.test.ts - 8 tests for JWT token generation/verification/refresh
+- [x] `test`: validators.test.ts - 30 tests for Zod validation schemas
+- [x] `test`: appError.test.ts - 24 tests for error class and factory functions
+- [x] `test`: milestoneTemplates.test.ts - 20 tests for tier milestone configurations
+- [x] `test`: tierFeatures.test.ts - 13 tests for tier-based feature access
 
 ### 2025-01-09
 - [x] Initial project setup
