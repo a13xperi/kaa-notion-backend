@@ -13,8 +13,12 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed"
   },
+  "engines": {
+    "node": ">=18.0.0 <23.0.0"
+  },
   "dependencies": {
     "@notionhq/client": "^5.1.0",
+    "@prisma/client": "^7.2.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -26,9 +30,8 @@
     "openai": "^4.104.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.2.0",
     "concurrently": "^8.2.2",
-    "prisma": "^5.22.0"
+    "prisma": "^7.2.0"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"

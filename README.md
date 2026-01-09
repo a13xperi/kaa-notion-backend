@@ -19,11 +19,13 @@
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
+- Node.js 18.x, 20.x, or 22.x (LTS recommended; see `.nvmrc`)
+- npm (v9+)
 - Supabase account
 - Notion integration
 - Stripe account (for payments)
+
+> **Tip:** Run `nvm use` to automatically switch to the correct Node version.
 
 ### Installation
 
