@@ -1,131 +1,330 @@
-# SAGE Platform - Cursor Rules
+# KAA Notion Backend - Cursor Rules
+# React + TypeScript + Node.js + Supabase + Notion
 
-## SAGE Coding Standards
+## Project Context
+You are working on the SAGE MVP Platform - a tiered landscape architecture service platform. SAGE offers Tiers 1-3 (accessible services), while KAA Premium (Tier 4) is invitation-only luxury service.
 
-### TypeScript
-- Use TypeScript everywhere
-- No `any` types unless justified with a comment explaining why
-- Prefer explicit types over inference when it improves clarity
-- Use interfaces for object shapes, types for unions/intersections
+## Business Context
+- SAGE Tier 1: DIY guidance ($299)
+- SAGE Tier 2: Design package ($1,499)
+- SAGE Tier 3: Full service ($4,999+)
+- KAA Tier 4: White-glove luxury (by invitation)
+
+## Tech Stack
+- Frontend: React (CRA) + TypeScript
+- Backend: Node.js + Express
+- Database: Supabase Postgres (transactional) + Notion (display/collaboration)
+- ORM: Prisma
+- Payments: Stripe
+- Deployment: Vercel
+
+## Architecture: Hybrid Data Model
+
+### Source of Truth: Postgres (Supabase)
+- All transactional data
+- User accounts and auth
+- Payments and subscriptions
+- Project records
+- File metadata
+
+### Display Layer: Notion
+- Client-facing project views
+- Collaborative workspaces
+- Rich content editing
+- Team collaboration
+
+### Sync Strategy
+- Postgres -> Notion: Queue-based, async
+- Notion -> Postgres: Webhook-driven
+- Conflict resolution: Postgres wins
+
+## Code Style Requirements
+
+### TypeScript (Frontend - kaa-app)
+- Strict mode enabled
+- Explicit return types on functions
+- Interface over type for objects
+- Use path aliases: `@/components`, `@/utils`, `@/hooks`
+
+```typescript
+// Good
+interface ProjectProps {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+}
+
+function ProjectCard({ id, name, status }: ProjectProps): JSX.Element {
+  return <div>{name}</div>;
+}
+
+// Bad
+const ProjectCard = (props: any) => <div>{props.name}</div>;
+```
+
+### React Components
+- Functional components only
+- Custom hooks for logic extraction
+- Props destructuring in parameters
+- Explicit children typing
+
+```typescript
+interface Props {
+  title: string;
+  children: React.ReactNode;
+}
+
+export function Card({ title, children }: Props): JSX.Element {
+  // ...
+}
+```
+
+### State Management
+- React Query for server state
+- useState/useReducer for local state
+- Context for global UI state (theme, modals)
+- No Redux unless absolutely necessary
+
+### API Calls
+- Use custom hooks with React Query
+- Handle loading, error, success states
+- Type API responses
+
+```typescript
+function useProject(id: string) {
+  return useQuery({
+    queryKey: ['project', id],
+    queryFn: () => api.getProject(id),
+  });
+}
+```
+
+## Backend (Node.js/Express)
+
+### API Structure
+```
+server/
+├── routes/
+│   ├── auth.js
+│   ├── projects.js
+│   ├── users.js
+│   └── webhooks.js
+├── middleware/
+│   ├── auth.js
+│   ├── validation.js
+│   └── errorHandler.js
+├── services/
+│   ├── notionSync.js
+│   ├── stripe.js
+│   └── email.js
+└── utils/
+```
+
+### API Response Format
+```javascript
+// Success
+res.json({
+  success: true,
+  data: { ... },
+  meta: { page: 1, total: 100 }
+});
+
+// Error
+res.status(400).json({
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Invalid input',
+    details: [...]
+  }
+});
+```
+
+### Error Handling
+- Use try/catch in async handlers
+- Pass errors to error middleware
+- Log errors with context
+- Return user-friendly messages
+
+```javascript
+app.get('/api/projects/:id', async (req, res, next) => {
+  try {
+    const project = await getProject(req.params.id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Project not found' }
+      });
+    }
+    res.json({ success: true, data: project });
+  } catch (error) {
+    next(error);
+  }
+});
+```
 
 ### Validation
-- Prefer server-side validation + client-side UX validation
-- Always validate user inputs (sanitize, length limits, type checks)
-- Validate all webhook signatures (Stripe, Zapier, etc.)
+- Use Joi or Zod for request validation
+- Validate at route level
+- Return specific error messages
 
-### Testing
-- Always add tests for new logic
-- Test error cases, not just happy paths
-- Use descriptive test names that explain what is being tested
+## Prisma Guidelines
 
-### Code Organization
-- One feature per PR
-- Small, focused commits with meaningful messages
-- Extract reusable logic into utilities
-- Keep components focused and single-purpose
+### Schema Conventions
+- Use camelCase for fields
+- Use PascalCase for models
+- Add `@map` for snake_case DB columns
+- Include `createdAt` and `updatedAt` on all models
 
-## Security Rules
+```prisma
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  status      ProjectStatus
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-### Secrets Management
-- Never log secrets, API keys, or sensitive data
-- Use environment variables for all secrets
-- Check `.env` files are in `.gitignore`
-- Use `logger` utility instead of `console.log` (filters secrets)
+  user        User     @relation(fields: [userId], references: [id])
 
-### Input Validation
-- Validate all webhooks (verify signatures)
-- Sanitize file names and user inputs
-- Use parameterized queries for database operations
-- Implement rate limiting on auth and webhook endpoints
+  @@map("projects")
+}
+```
 
-### Access Control
-- Use least-privileged database access
-- Implement Row Level Security (RLS) in Supabase
-- Verify user permissions server-side, not just client-side
-- Clients can only access their own data
+### Migrations
+- Always review generated SQL
+- Test migrations on staging first
+- Never edit migration files after applying
 
-## Product Guardrails
+## Notion Integration
 
-### Tier Gating
+### API Calls
+- Use @notionhq/client
+- Handle rate limits (retry with backoff)
+- Cache responses when appropriate
+
+```javascript
+const { Client } = require('@notionhq/client');
+
+const notion = new Client({ auth: process.env.NOTION_API_KEY });
+
+async function getPage(pageId) {
+  try {
+    return await notion.pages.retrieve({ page_id: pageId });
+  } catch (error) {
+    if (error.code === 'rate_limited') {
+      await sleep(error.headers['retry-after'] * 1000);
+      return getPage(pageId);
+    }
+    throw error;
+  }
+}
+```
+
+### Sync Queue
+- Never call Notion directly from API handlers
+- Add to sync queue, process async
+- Track sync status per record
+
+## Stripe Integration
+
+### Webhook Handling
+- Verify webhook signatures
+- Handle events idempotently
+- Log all webhook events
+
+```javascript
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle event...
+  res.json({ received: true });
+});
+```
+
+## Security Requirements
+- Validate all inputs
+- Sanitize outputs
+- Use parameterized queries (Prisma handles this)
+- Rate limit API endpoints
+- CORS configuration
+- Helmet.js for security headers
+- Never log sensitive data
+
+## Testing Requirements
+
+### Unit Tests (Jest)
+- Test utilities and services
+- Mock external APIs
+- Aim for 80% coverage on critical paths
+
+### Integration Tests
+- Test API endpoints
+- Use test database
+- Clean up after tests
+
+### E2E Tests (Playwright)
+- Critical user flows
+- Cross-browser testing
+- Mobile viewport testing
+
+## File Structure
+```
+kaa-notion-backend/
+├── kaa-app/                 # React frontend
+│   └── src/
+│       ├── components/
+│       ├── hooks/
+│       ├── pages/
+│       ├── utils/
+│       └── types/
+├── server/                  # Backend
+│   ├── routes/
+│   ├── middleware/
+│   └── services/
+├── prisma/
+│   └── schema.prisma
+├── docs/                    # Documentation
+└── tests/
+```
+
+## When Asked to Create API Endpoints
+1. Add route in appropriate router
+2. Add validation middleware
+3. Implement business logic in service
+4. Add error handling
+5. Update API documentation
+6. Add tests
+
+## When Asked to Create Components
+1. Create in appropriate directory
+2. Define TypeScript interface
+3. Handle loading/error states
+4. Make responsive
+5. Add accessibility attributes
+6. Write unit tests
+
+## Tier Gating Rules
 - Implement tier gating exactly as specified in plan
 - Use `tierGating.ts` utility functions
 - Never bypass tier restrictions in production code
 - Test tier gating for all tiers (1, 2, 3, 4)
 
-### MVP Cutline
+## MVP Focus
 - Don't ship "nice-to-have" features before MVP cutline
-- Focus on: lead capture → payment → portal access → deliverables
+- Focus on: lead capture -> payment -> portal access -> deliverables
 - Defer advanced features (analytics, complex messaging, etc.) until post-MVP
 
-### Backward Compatibility
-- Maintain existing KAA App functionality
-- Test both KAA and SAGE flows when making changes
-- Don't break existing client portal features
-
-## PR & Commit Discipline
-
-### Commits
-- One feature per PR
-- Small commits with meaningful messages
-- Format: `type: description` (e.g., `feat: Add tier routing logic`)
-- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
-
-### Pull Requests
-- Include Definition of Done checklist
-- Link to related plan items or issues
-- Describe testing approach
-- Get approval before merging
-
-## Architecture Patterns
-
-### Data Architecture
-- Postgres (Supabase) = source of truth for transactional data
-- Notion = display/collaboration layer (synced from Postgres)
-- Always write to Postgres first, then sync to Notion
-- Use Supabase Storage for file uploads
-
-### Authentication
-- Extend existing KAA auth system
-- Support both KAA (address + password) and SAGE (email-based)
-- Store auth data in Supabase `users` table
-- Use unified auth flow for both platforms
-
-### Error Handling
-- Use ErrorBoundary components for React errors
-- Implement try-catch for all async operations
-- Log errors using `logger` utility
-- Provide user-friendly error messages
-- Never expose internal errors to clients
-
-## File Organization
-
-### Components
-- Place in `kaa-app/src/components/`
-- Use PascalCase for component files
-- Co-locate CSS files with components
-- Extract reusable logic to `utils/`
-
-### Backend
-- API routes in `notion-api-server-enhanced.js`
-- Use RESTful conventions
-- Group related endpoints together
-- Add JSDoc comments for complex functions
-
-### Documentation
-- Architecture decisions → `docs/`
-- API documentation → `docs/api/`
-- Setup guides → root level or `docs/`
-
-## Performance
-
-### React
-- Use `React.memo` for expensive components
-- Use `useMemo` for expensive computations
-- Use `useCallback` for stable function references
-- Avoid unnecessary re-renders
-
-### Database
-- Add indexes for frequently queried columns
-- Use pagination for large result sets
-- Cache Notion API responses when appropriate
-- Optimize sync operations (batch when possible)
+## Common Commands
+- `npm run dev` - Start both frontend and backend
+- `npm start` - Start backend only
+- `npm test` - Run tests
+- `npm run prisma:studio` - Open Prisma Studio
+- `npm run prisma:migrate` - Run migrations
