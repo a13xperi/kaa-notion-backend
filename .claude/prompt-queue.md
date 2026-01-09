@@ -61,9 +61,9 @@
 - [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status, completed_at (admin only)
 
 ### 4.3 Deliverable Endpoints
-- [ ] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables for project
-- [ ] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable (admin only)
-- [ ] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
+- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables for project
+- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable (admin only)
+- [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL for file
 
 ### 4.4 Portal Components
 - [ ] `new-component`: ProjectDashboard - Main portal view with project list, status, quick actions
@@ -208,6 +208,9 @@
 - [x] `new-endpoint`: PATCH /api/projects/:id - Admin status update
 - [x] `new-endpoint`: GET /api/projects/:id/milestones - Milestones with progress calculation
 - [x] `new-endpoint`: PATCH /api/milestones/:id - Admin milestone status update with auto-advance
+- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Deliverables list grouped by category
+- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Admin deliverable upload with metadata
+- [x] `new-endpoint`: GET /api/deliverables/:id/download - Signed download URL generation
 
 ---
 

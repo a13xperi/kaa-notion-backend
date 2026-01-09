@@ -10,6 +10,7 @@ import webhooksRouter from './routes/webhooks';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import milestonesRouter from './routes/milestones';
+import deliverablesRouter from './routes/deliverables';
 
 dotenv.config();
 
@@ -113,6 +114,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/milestones', milestonesRouter);
 app.use('/api', milestonesRouter); // For /api/projects/:id/milestones route
+app.use('/api/deliverables', deliverablesRouter);
+app.use('/api', deliverablesRouter); // For /api/projects/:id/deliverables route
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
