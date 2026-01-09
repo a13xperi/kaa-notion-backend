@@ -9,6 +9,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Database module (Prisma client wrapper and helpers)
+const db = require('./lib/db');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -995,15 +998,61 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/api/health', async (req, res) => {
+  // Check database connectivity
+  let dbHealth = { connected: false, configured: !!process.env.DATABASE_URL };
+  if (process.env.DATABASE_URL) {
+    try {
+      dbHealth = await db.checkDbConnection();
+      dbHealth.configured = true;
+    } catch (error) {
+      dbHealth.error = error.message;
+    }
+  }
+
+  res.json({
+    status: dbHealth.connected || !process.env.DATABASE_URL ? 'ok' : 'degraded',
     notion_configured: !!process.env.NOTION_API_KEY,
     email_configured: !!process.env.EMAIL_USER,
     openai_configured: !!process.env.OPENAI_API_KEY,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
+    database: dbHealth,
     timestamp: new Date().toISOString()
   });
+});
+
+// Dedicated database health endpoint
+app.get('/api/health/db', async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({
+      status: 'not_configured',
+      message: 'DATABASE_URL environment variable is not set'
+    });
+  }
+
+  try {
+    const health = await db.checkDbConnection();
+    if (health.connected) {
+      res.json({
+        status: 'healthy',
+        latencyMs: health.latencyMs,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(503).json({
+        status: 'unhealthy',
+        error: health.error,
+        latencyMs: health.latencyMs,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // ============================================
@@ -1176,22 +1225,23 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 KAA Enhanced API Server running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
-  
+  console.log(`📋 DB Health: http://localhost:${PORT}/api/health/db`);
+
   if (!process.env.NOTION_API_KEY) {
     console.log('⚠️  WARNING: NOTION_API_KEY not set');
   } else {
     console.log('✅ Notion API key configured');
   }
-  
+
   if (!process.env.EMAIL_USER) {
     console.log('⚠️  WARNING: Email not configured (EMAIL_USER, EMAIL_PASSWORD)');
   } else {
     console.log('✅ Email configured');
   }
-  
+
   if (!process.env.OPENAI_API_KEY) {
     console.log('⚠️  WARNING: OpenAI API key not set - Sage ChatGPT features will not work');
     console.log('   Set OPENAI_API_KEY in your .env file to enable intelligent Sage conversations');
@@ -1199,9 +1249,45 @@ app.listen(PORT, async () => {
     console.log('✅ OpenAI API configured - Sage ChatGPT enabled');
   }
 
-  // Initialize databases
+  // Check database connectivity
+  if (!process.env.DATABASE_URL) {
+    console.log('⚠️  WARNING: DATABASE_URL not set - Database features disabled');
+  } else {
+    try {
+      const dbHealth = await db.checkDbConnection();
+      if (dbHealth.connected) {
+        console.log(`✅ Database connected (latency: ${dbHealth.latencyMs}ms)`);
+      } else {
+        console.log(`⚠️  WARNING: Database connection failed - ${dbHealth.error}`);
+      }
+    } catch (error) {
+      console.log(`⚠️  WARNING: Database connection error - ${error.message}`);
+    }
+  }
+
+  // Initialize Notion databases
   await initializeDatabases();
 });
 
-module.exports = app;
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  await db.disconnect();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  await db.disconnect();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+// Export app and db module for external use
+module.exports = { app, db };
 

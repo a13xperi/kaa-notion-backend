@@ -11,10 +11,12 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "postinstall": "prisma generate || echo 'Prisma generate failed - run prisma generate manually'"
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0",
+    "@prisma/client": "^4.16.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -26,9 +28,8 @@
     "openai": "^4.104.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.2.0",
     "concurrently": "^8.2.2",
-    "prisma": "^5.22.0"
+    "prisma": "^4.16.2"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
