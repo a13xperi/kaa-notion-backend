@@ -30,6 +30,7 @@ enum LeadStatus {
 }
 
 enum ProjectStatus {
+  INTAKE
   ONBOARDING
   IN_PROGRESS
   AWAITING_FEEDBACK
@@ -65,8 +66,10 @@ enum ClientStatus {
 model User {
   id           String    @id @default(uuid())
   email        String?   @unique
+  name         String?
   address      String? // For KAA clients (address-based auth)
-  passwordHash String    @map("password_hash")
+  passwordHash String?   @map("password_hash")
+  role         String    @default("CLIENT") // CLIENT, ADMIN, TEAM
   userType     UserType  @default(SAGE_CLIENT) @map("user_type")
   tier         Int? // 1, 2, 3, or 4
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -84,21 +87,25 @@ model User {
 }
 
 model Client {
-  id             String       @id @default(uuid())
-  userId         String       @unique @map("user_id")
-  tier           Int // 1, 2, 3, or 4 (required)
-  status         ClientStatus @default(ONBOARDING)
-  projectAddress String       @map("project_address")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id               String       @id @default(uuid())
+  userId           String       @unique @map("user_id")
+  leadId           String?      @unique @map("lead_id")
+  tier             Int // 1, 2, 3, or 4 (required)
+  status           ClientStatus @default(ONBOARDING)
+  projectAddress   String?      @map("project_address")
+  stripeCustomerId String?      @map("stripe_customer_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
   // Relations
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead     Lead?     @relation("ClientLead", fields: [leadId], references: [id])
   projects Project[]
-  leads    Lead[]
+  leads    Lead[]    @relation("ClientLeads")
 
   @@index([userId])
   @@index([tier])
+  @@index([stripeCustomerId])
   @@map("clients")
 }
 
@@ -120,8 +127,9 @@ model Lead {
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  client   Client?   @relation(fields: [clientId], references: [id])
-  projects Project[]
+  client        Client?   @relation("ClientLeads", fields: [clientId], references: [id])
+  convertedFrom Client?   @relation("ClientLead")
+  projects      Project[]
 
   @@index([email])
   @@index([status])
@@ -130,16 +138,17 @@ model Lead {
 }
 
 model Project {
-  id            String        @id @default(uuid())
-  clientId      String        @map("client_id")
-  leadId        String?       @map("lead_id")
-  tier          Int // 1, 2, 3, or 4 (required)
-  status        ProjectStatus @default(ONBOARDING)
-  name          String
-  notionPageId  String?       @map("notion_page_id") // Link to Notion project page
-  paymentStatus String        @default("pending") @map("payment_status") // 'pending', 'paid', 'refunded'
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id             String        @id @default(uuid())
+  clientId       String        @map("client_id")
+  leadId         String?       @map("lead_id")
+  tier           Int // 1, 2, 3, or 4 (required)
+  status         ProjectStatus @default(ONBOARDING)
+  name           String
+  projectAddress String?       @map("project_address")
+  notionPageId   String?       @map("notion_page_id") // Link to Notion project page
+  paymentStatus  String        @default("pending") @map("payment_status") // 'pending', 'paid', 'refunded'
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   // Relations
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -187,22 +196,26 @@ model Milestone {
 }
 
 model Payment {
-  id                    String        @id @default(uuid())
-  projectId             String        @map("project_id")
-  stripePaymentIntentId String        @unique @map("stripe_payment_intent_id")
-  stripeCustomerId      String        @map("stripe_customer_id")
-  amount                Int // Amount in cents
-  currency              String        @default("usd")
-  status                PaymentStatus @default(PENDING)
-  tier                  Int // Which tier was purchased
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  id                      String        @id @default(uuid())
+  projectId               String        @map("project_id")
+  stripePaymentIntentId   String        @unique @map("stripe_payment_intent_id")
+  stripeCheckoutSessionId String?       @map("stripe_checkout_session_id")
+  stripeCustomerId        String?       @map("stripe_customer_id")
+  amount                  Int // Amount in cents
+  currency                String        @default("usd")
+  status                  PaymentStatus @default(PENDING)
+  tier                    Int? // Which tier was purchased
+  paidAt                  DateTime?     @map("paid_at")
+  failureReason           String?       @map("failure_reason")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
 
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([stripePaymentIntentId])
+  @@index([stripeCheckoutSessionId])
   @@index([stripeCustomerId])
   @@map("payments")
 }

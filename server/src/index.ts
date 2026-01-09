@@ -6,6 +6,7 @@ import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import leadsRouter from './routes/leads';
 import checkoutRouter from './routes/checkout';
+import webhooksRouter from './routes/webhooks';
 
 dotenv.config();
 
@@ -14,6 +15,11 @@ const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// Stripe webhooks need raw body for signature verification
+// Must be before express.json() middleware
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // Initialize Figma client
@@ -99,6 +105,7 @@ app.post('/webhook', handleFigmaWebhook);
 // API Routes
 app.use('/api/leads', leadsRouter);
 app.use('/api/checkout', checkoutRouter);
+app.use('/api/webhooks', webhooksRouter);
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
