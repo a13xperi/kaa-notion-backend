@@ -247,3 +247,22 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_log")
 }
+
+model DesignIdea {
+  id            String   @id @default(uuid())
+  clientAddress String   @map("client_address") // Project address for scoping
+  imageUrl      String   @map("image_url") // Supabase Storage URL or external URL
+  storagePath   String?  @map("storage_path") // Supabase Storage path (for uploaded files)
+  title         String?
+  description   String?
+  source        String   @default("url") // 'upload', 'url', 'pinterest'
+  pinterestUrl  String?  @map("pinterest_url")
+  tags          String[] @default([])
+  addedAt       DateTime @default(now()) @map("added_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([clientAddress])
+  @@index([addedAt])
+  @@map("design_ideas")
+}
