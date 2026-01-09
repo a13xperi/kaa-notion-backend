@@ -32,10 +32,10 @@
 ## Phase 3: Payment & Client Creation
 
 ### 3.1 Stripe Integration
-- [ ] `stripe-integration`: Checkout session creation for tiers 1-3 with tier-specific pricing from Stripe products
+- [x] `stripe-integration`: Checkout session creation for tiers 1-3 with tier-specific pricing from Stripe products
 - [ ] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with tier, lead_id, success/cancel URLs
 - [ ] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent.succeeded, payment_intent.failed
-- [ ] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
+- [x] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
 
 ### 3.2 User & Client Creation
 - [ ] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
@@ -192,6 +192,8 @@
 - [x] `new-component`: TierRecommendation - Recommended tier display with pricing, features, confidence, factors breakdown
 - [x] `new-component`: TierCard - Reusable tier card with name, price, features, CTA, and visual states
 - [x] `new-component`: TierComparison - Side-by-side tier comparison with mobile tabs, grid view, and feature table
+- [x] `stripe-integration`: Stripe client config with tier pricing (Seedling $500, Sprout $1500, Canopy $3500)
+- [x] `new-util`: stripeHelpers.ts - Checkout session creation, webhook verification, data extraction utilities
 
 ---
 
