@@ -73,10 +73,10 @@
 - [x] `new-component`: DeliverableCard - Individual deliverable with thumbnail, name, download action
 
 ### 4.5 Portal Hooks
-- [ ] `new-hook`: useProjects - Fetch user's projects with React Query, handle loading/error
-- [ ] `new-hook`: useProject - Fetch single project with milestones and deliverables
-- [ ] `new-hook`: useMilestones - Fetch milestones by project ID
-- [ ] `new-hook`: useDeliverables - Fetch deliverables by project ID
+- [x] `new-hook`: useProjects - Fetch user's projects with React Query, handle loading/error
+- [x] `new-hook`: useProject - Fetch single project with milestones and deliverables
+- [x] `new-hook`: useMilestones - Fetch milestones by project ID
+- [x] `new-hook`: useDeliverables - Fetch deliverables by project ID
 
 ---
 
@@ -198,6 +198,11 @@
 - [x] `new-component`: DeliverableList - Grid/list view with search, category filters
 - [x] `new-component`: DeliverableCard - File card with icon, category badge, download
 - [x] `new-types`: portal.types.ts - TypeScript types for all portal components
+- [x] `new-api`: portalApi.ts - API client for projects, milestones, deliverables
+- [x] `new-hook`: useProjects - Project list with pagination, filtering, caching
+- [x] `new-hook`: useProject/useProjectWithRelations - Single project with parallel data fetching
+- [x] `new-hook`: useMilestones - Milestone list with progress helpers
+- [x] `new-hook`: useDeliverables - Deliverable list with download helpers
 
 ### 2025-01-09
 - [x] Initial project setup
