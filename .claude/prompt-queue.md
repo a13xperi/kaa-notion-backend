@@ -266,6 +266,10 @@
 - [x] `new-endpoint`: POST /api/auth/refresh - Refresh authentication token
 - [x] `new-endpoint`: POST /api/auth/logout - User logout (audit logging)
 - [x] `new-service`: clientService.ts - Create client from lead with milestones, link all entities
+- [x] `test`: auth.test.ts - 21 tests for password hashing, JWT tokens, token extraction
+- [x] `test`: stripeHelpers.test.ts - 28 tests for tier pricing, checkout validation, amount formatting
+- [x] `test`: clientService.test.ts - 22 tests for milestone configs, client CRUD, tier assignment
+- [x] `docs`: ENVIRONMENT_SETUP.md - Complete environment configuration guide
 
 ### 2025-01-09
 - [x] Initial project setup
