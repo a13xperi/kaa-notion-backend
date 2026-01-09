@@ -44,8 +44,8 @@
 - [ ] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
 
 ### 3.3 Project Auto-Creation
-- [ ] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
-- [ ] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier (Tier 1: Intake→Concept→Delivery, Tier 2: Intake→Draft→Review→Revisions→Final, etc.)
+- [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
+- [x] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier (Tier 1: Intake→Concept→Delivery, Tier 2: Intake→Draft→Review→Revisions→Final, etc.)
 
 ---
 
@@ -176,6 +176,11 @@
 
 ## Completed
 <!-- Move completed items here with date -->
+
+### 2026-01-09
+- [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
+- [x] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier
+- [x] `new-adapter`: prismaAdapter.ts - Prisma database adapter for projectService
 
 ### 2025-01-09
 - [x] Initial project setup
