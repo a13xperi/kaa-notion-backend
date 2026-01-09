@@ -285,6 +285,11 @@
 - [x] `new-component`: CheckoutSuccess - Payment success page with session verification
 - [x] `new-component`: CheckoutCancel - Payment cancelled page
 - [x] `new-styles`: CheckoutPages.css - Checkout page styles with dark mode
+- [x] `new-component`: LoginForm - User login form with validation
+- [x] `new-component`: RegisterForm - User registration with password strength indicator
+- [x] `new-styles`: AuthForms.css - Auth form styles with dark mode
+- [x] `new-component`: PricingPage - Service tier pricing page with checkout integration
+- [x] `new-styles`: PricingPage.css - Pricing page styles with responsive grid
 
 ### 2025-01-09
 - [x] Initial project setup
