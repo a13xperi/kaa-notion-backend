@@ -86,3 +86,36 @@ export {
   type AuditLogRecord,
   type AuditQueryOptions,
 } from './auditService';
+
+// Auth Service - User authentication and JWT management
+export {
+  initAuthService,
+  getAuthConfig,
+  hashPassword,
+  comparePassword,
+  generateToken,
+  verifyToken,
+  extractToken,
+  registerUser,
+  loginUser,
+  getUserProfile,
+  initiatePasswordReset,
+  completePasswordReset,
+  type AuthConfig,
+  type TokenPayload,
+  type AuthResult,
+  type RegisterInput,
+  type LoginInput,
+  type UserProfile,
+} from './authService';
+
+// Client Service - Client creation from leads
+export {
+  ClientService,
+  createClientService,
+  initClientService,
+  getClientService,
+  type CreateClientFromLeadInput,
+  type CreateClientResult,
+  type ClientWithDetails,
+} from './clientService';

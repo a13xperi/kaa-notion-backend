@@ -33,16 +33,16 @@
 ## Phase 3: Payment & Client Creation
 
 ### 3.1 Stripe Integration
-- [ ] `stripe-integration`: Checkout session creation for tiers 1-3 with tier-specific pricing from Stripe products
-- [ ] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with tier, lead_id, success/cancel URLs
-- [ ] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent.succeeded, payment_intent.failed
-- [ ] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
+- [x] `stripe-integration`: Checkout session creation for tiers 1-3 with tier-specific pricing from Stripe products
+- [x] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with tier, lead_id, success/cancel URLs
+- [x] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent.succeeded, payment_intent.failed
+- [x] `new-util`: stripeHelpers.ts - Verify webhook signatures, construct events, idempotent processing
 
 ### 3.2 User & Client Creation
-- [ ] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
-- [ ] `new-endpoint`: POST /api/auth/login - Authenticate user, return JWT token
-- [ ] `new-endpoint`: GET /api/auth/me - Get current user profile with client/tier info
-- [ ] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
+- [x] `new-endpoint`: POST /api/auth/register - Create user account (email/password for SAGE, address for KAA)
+- [x] `new-endpoint`: POST /api/auth/login - Authenticate user, return JWT token
+- [x] `new-endpoint`: GET /api/auth/me - Get current user profile with client/tier info
+- [x] `new-service`: clientService.ts - Create client from lead after payment, link user/client/lead/project
 
 ### 3.3 Project Auto-Creation
 - [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
@@ -254,6 +254,18 @@
 - [x] `test`: FileUpload.test.tsx - 28 tests for file upload component
 - [x] `e2e`: leadToClientFlow.test.ts - 14 tests for lead conversion journey
 - [x] `e2e`: clientPortalFlow.test.ts - 22 tests for client portal experience
+- [x] `new-util`: stripeHelpers.ts - Stripe helpers for checkout sessions, webhook handling, idempotent processing
+- [x] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with validation
+- [x] `new-endpoint`: GET /api/checkout/session/:sessionId - Retrieve checkout session status
+- [x] `new-endpoint`: GET /api/checkout/pricing - Get tier pricing information
+- [x] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent events
+- [x] `new-service`: authService.ts - JWT generation/verification, password hashing, user registration/login
+- [x] `new-endpoint`: POST /api/auth/register - User registration with password validation
+- [x] `new-endpoint`: POST /api/auth/login - User authentication with JWT token
+- [x] `new-endpoint`: GET /api/auth/me - Get current user profile with client info
+- [x] `new-endpoint`: POST /api/auth/refresh - Refresh authentication token
+- [x] `new-endpoint`: POST /api/auth/logout - User logout (audit logging)
+- [x] `new-service`: clientService.ts - Create client from lead with milestones, link all entities
 
 ### 2025-01-09
 - [x] Initial project setup

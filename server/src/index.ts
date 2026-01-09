@@ -6,8 +6,20 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
-import { createProjectsRouter, createMilestonesRouter, createDeliverablesRouter, createAdminRouter, createNotionRouter, createUploadRouter, createLeadsRouter } from './routes';
-import { initNotionSyncService, initStorageService, initAuditService } from './services';
+import { 
+  createProjectsRouter, 
+  createMilestonesRouter, 
+  createDeliverablesRouter, 
+  createAdminRouter, 
+  createNotionRouter, 
+  createUploadRouter, 
+  createLeadsRouter,
+  createCheckoutRouter,
+  createWebhooksRouter,
+  createAuthRouter,
+} from './routes';
+import { initNotionSyncService, initStorageService, initAuditService, initAuthService } from './services';
+import { initStripe } from './utils/stripeHelpers';
 import { errorHandler, notFoundHandler } from './middleware';
 import { logger } from './logger';
 
@@ -16,16 +28,32 @@ dotenv.config();
 // Initialize Prisma client
 const prisma = new PrismaClient();
 
-// Initialize Stripe client
+// Initialize Stripe client with helpers
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
 });
+
+// Initialize Stripe helpers for checkout and webhook handling
+if (process.env.STRIPE_SECRET_KEY) {
+  initStripe({
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    successUrl: process.env.STRIPE_SUCCESS_URL || 'http://localhost:3000/success',
+    cancelUrl: process.env.STRIPE_CANCEL_URL || 'http://localhost:3000/cancel',
+  });
+  logger.info('Stripe service initialized');
+}
 
 const app = express();
 const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// Stripe webhooks need raw body - must be before express.json()
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+
+// JSON parsing for all other routes
 app.use(express.json());
 
 // Initialize Notion sync service if configured
@@ -56,6 +84,14 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
 initAuditService(prisma);
 logger.info('Audit service initialized');
 
+// Initialize auth service
+initAuthService({
+  jwtSecret: process.env.JWT_SECRET || 'development-secret-key',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  saltRounds: 12,
+});
+logger.info('Auth service initialized');
+
 // API Routes
 app.use('/api/projects', createProjectsRouter(prisma));
 app.use('/api', createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
@@ -64,6 +100,9 @@ app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoi
 app.use('/api/notion', createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 app.use('/api/upload', createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 app.use('/api/leads', createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
+app.use('/api/checkout', createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
+app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints
+app.use('/api/auth', createAuthRouter(prisma)); // Handles /api/auth/* endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
