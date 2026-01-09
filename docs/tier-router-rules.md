@@ -1,7 +1,7 @@
 # Tier Router Rules
 
-**Last Updated:** 2024-12-28  
-**Status:** Design Phase
+**Last Updated:** 2026-01-09
+**Status:** Implemented
 
 ---
 
@@ -14,6 +14,31 @@ The Tier Router determines which service tier (1, 2, 3, or 4) a lead should be a
 - **Tier 2:** The Builder (Low-Touch, Systematized with Checkpoints)
 - **Tier 3:** The Concierge (Site Visits, Hybrid Tech + Boots on Ground)
 - **Tier 4:** KAA White Glove (High-Touch, We Choose the Client)
+
+**Implementation:**
+- Config: `kaa-app/src/config/sageTiers.ts`
+- Router: `kaa-app/src/utils/tierRouter.ts`
+
+---
+
+## Budget Thresholds
+
+| Tier | Budget Range | Label |
+|------|-------------|-------|
+| Tier 1 | $500 - $2,500 | The Concept |
+| Tier 2 | $2,500 - $10,000 | The Builder |
+| Tier 3 | $10,000 - $50,000 | The Concierge |
+| Tier 4 | $50,000+ OR % of Install | KAA White Glove |
+
+---
+
+## Timeline Thresholds
+
+| Category | Duration | Typical Tier |
+|----------|----------|--------------|
+| Fast Track | < 2 weeks | Tier 1-2 |
+| Standard | 2-8 weeks | Tier 1-3 |
+| Extended | > 8 weeks | Tier 3-4 |
 
 ---
 
@@ -33,17 +58,17 @@ The Tier Router determines which service tier (1, 2, 3, or 4) a lead should be a
 ```
 START: Lead Submission
 │
-├─ Budget < $X → Tier 1 (Automated)
+├─ Budget < $2,500 → Tier 1 (Automated)
 │
-├─ Budget $X - $Y → Tier 2 (Low-Touch)
+├─ Budget $2,500 - $10,000 → Tier 2 (Low-Touch)
 │
-├─ Budget $Y - $Z → Tier 3 (Site Visits)
+├─ Budget $10,000 - $50,000 → Tier 3 (Site Visits)
 │
-├─ Budget > $Z → Tier 4 (White Glove)
+├─ Budget > $50,000 → Tier 4 (White Glove)
 │
 ├─ Timeline < 2 weeks → Tier 1 or 2 (Fast Track)
 │
-├─ Timeline > 6 months → Tier 3 or 4 (Complex)
+├─ Timeline > 8 weeks → Tier 3 or 4 (Complex)
 │
 ├─ Has Survey + Drawings → Tier 1 or 2 (Ready to Go)
 │
@@ -57,7 +82,7 @@ START: Lead Submission
 ## Tier 1: The Concept (No-Touch)
 
 **Criteria:**
-- Budget: $X - $Y (to be defined)
+- Budget: $500 - $2,500
 - Timeline: 2-4 weeks
 - Has existing survey and/or drawings
 - Project type: Simple renovation, small addition
@@ -66,7 +91,7 @@ START: Lead Submission
 **Auto-Route:** ✅ Yes (if all criteria met)
 
 **Red Flags (→ Manual Review):**
-- Budget unclear or below minimum
+- Budget below $500 minimum
 - Timeline unrealistic (< 2 weeks)
 - Complex project type
 - No existing assets
@@ -76,7 +101,7 @@ START: Lead Submission
 ## Tier 2: The Builder (Low-Touch)
 
 **Criteria:**
-- Budget: $Y - $Z (to be defined)
+- Budget: $2,500 - $10,000
 - Timeline: 4-8 weeks
 - Has some existing assets (survey OR drawings)
 - Project type: Standard renovation, medium addition
@@ -95,7 +120,7 @@ START: Lead Submission
 ## Tier 3: The Concierge (Site Visits)
 
 **Criteria:**
-- Budget: $Z - $W (to be defined)
+- Budget: $10,000 - $50,000
 - Timeline: 8-12 weeks
 - No existing survey or drawings
 - Project type: New build, major renovation
@@ -114,7 +139,7 @@ START: Lead Submission
 ## Tier 4: KAA White Glove (We Choose)
 
 **Criteria:**
-- Budget: > $W (to be defined) OR
+- Budget: > $50,000 OR
 - Percentage of install pricing model
 - Complex, high-value projects
 - Long-term relationship potential
@@ -139,22 +164,22 @@ START: Lead Submission
 
 ### Rule 1: Budget-Based Routing
 
-**Tier 1:** $X - $Y
+**Tier 1:** $500 - $2,500
 - Lower budget range
 - Standardized packages
 - Automated delivery
 
-**Tier 2:** $Y - $Z
+**Tier 2:** $2,500 - $10,000
 - Mid-range budget
 - Some customization
 - Designer checkpoints
 
-**Tier 3:** $Z - $W
+**Tier 3:** $10,000 - $50,000
 - Higher budget
 - Site visits included
 - More customization
 
-**Tier 4:** > $W OR % of install
+**Tier 4:** > $50,000 OR % of install
 - Premium budget
 - Full-service
 - Percentage-based pricing
@@ -180,28 +205,28 @@ START: Lead Submission
 **Has Survey + Drawings:**
 - Can start immediately
 - Tier 1 or 2 likely
+- Can downgrade by 1 tier if applicable
 
 **Has Survey OR Drawings:**
 - Some work needed
-- Tier 2 or 3 likely
+- Minimum Tier 2
 
 **No Survey, No Drawings:**
 - Site visit required
-- Tier 3 or 4 likely
+- Minimum Tier 3
 
 ### Rule 4: Project Type Routing
 
-**Simple Renovation:**
-- Tier 1 or 2
-
-**Standard Addition:**
-- Tier 2 or 3
-
-**New Build:**
-- Tier 3 or 4
-
-**Complex/Multiple Properties:**
-- Tier 4 (manual review)
+| Project Type | Minimum Tier |
+|-------------|--------------|
+| Simple Renovation | 1 |
+| Small Addition | 1 |
+| Standard Renovation | 2 |
+| Medium Addition | 2 |
+| Large Addition | 3 |
+| New Build | 3 |
+| Multiple Properties | 4 |
+| Commercial | 4 |
 
 ---
 
@@ -211,99 +236,48 @@ START: Lead Submission
 
 **Location:** `kaa-app/src/utils/tierRouter.ts`
 
+**Configuration:** `kaa-app/src/config/sageTiers.ts`
+
 **Function Signature:**
 ```typescript
 interface IntakeFormData {
-  budgetRange: string; // "$X-$Y", "$Y-$Z", etc.
-  timeline: string; // "2-4 weeks", "4-8 weeks", etc.
-  projectType: string; // "renovation", "addition", "new_build", etc.
+  budgetRange: BudgetRangeValue;  // "500_2500", "2500_10000", etc.
+  timeline: TimelineValue;         // "2_4_weeks", "4_8_weeks", etc.
+  projectType: ProjectTypeValue;   // "renovation", "new_build", etc.
   hasSurvey: boolean;
   hasDrawings: boolean;
-  projectAddress: string;
+  projectAddress?: string;
 }
 
 interface TierRecommendation {
   tier: 1 | 2 | 3 | 4;
-  reason: string; // Why this tier was recommended
+  reason: string;
   confidence: 'high' | 'medium' | 'low';
   needsManualReview: boolean;
+  factors: RoutingFactor[];
+  tierDefinition: TierDefinition;
 }
 
 function recommendTier(data: IntakeFormData): TierRecommendation
 ```
 
-### Algorithm
+### Usage Example
 
 ```typescript
-function recommendTier(data: IntakeFormData): TierRecommendation {
-  let tier = 1;
-  let reasons: string[] = [];
-  let needsReview = false;
+import { recommendTier } from './utils/tierRouter';
 
-  // Budget analysis
-  if (data.budgetRange === 'high' || data.budgetRange.includes('$Z+')) {
-    tier = 4;
-    reasons.push('High budget range');
-    needsReview = true; // Always review Tier 4
-  } else if (data.budgetRange.includes('$Y-$Z')) {
-    tier = 3;
-    reasons.push('Mid-high budget range');
-  } else if (data.budgetRange.includes('$X-$Y')) {
-    tier = 2;
-    reasons.push('Mid-range budget');
-  } else {
-    tier = 1;
-    reasons.push('Standard budget range');
-  }
+const result = recommendTier({
+  budgetRange: '2500_10000',
+  timeline: '4_8_weeks',
+  projectType: 'standard_renovation',
+  hasSurvey: true,
+  hasDrawings: false,
+});
 
-  // Timeline analysis
-  if (data.timeline.includes('> 8 weeks') || data.timeline.includes('6+ months')) {
-    if (tier < 3) tier = 3;
-    reasons.push('Extended timeline requires site visits');
-  } else if (data.timeline.includes('< 2 weeks')) {
-    if (tier > 2) {
-      needsReview = true;
-      reasons.push('Tight timeline may not be feasible');
-    }
-  }
-
-  // Asset analysis
-  if (!data.hasSurvey && !data.hasDrawings) {
-    if (tier < 3) {
-      tier = 3;
-      reasons.push('Site visit required (no existing assets)');
-    }
-  } else if (data.hasSurvey && data.hasDrawings) {
-    if (tier > 2) {
-      tier = Math.max(1, tier - 1); // Can potentially downgrade
-      reasons.push('Existing assets allow for streamlined process');
-    }
-  }
-
-  // Project type analysis
-  if (data.projectType === 'new_build') {
-    if (tier < 3) {
-      tier = 3;
-      reasons.push('New build requires site visits');
-    }
-  } else if (data.projectType === 'complex' || data.projectType.includes('multiple')) {
-    tier = 4;
-    needsReview = true;
-    reasons.push('Complex project requires white-glove service');
-  }
-
-  // Determine confidence
-  let confidence: 'high' | 'medium' | 'low' = 'high';
-  if (needsReview) confidence = 'low';
-  else if (reasons.length > 3) confidence = 'medium';
-
-  return {
-    tier: tier as 1 | 2 | 3 | 4,
-    reason: reasons.join('; '),
-    confidence,
-    needsManualReview: needsReview || tier === 4
-  };
-}
+console.log(result.tier);        // 2
+console.log(result.reason);      // "$2,500 - $10,000 budget"
+console.log(result.confidence);  // "high"
+console.log(result.needsManualReview); // false
 ```
 
 ---
@@ -358,21 +332,43 @@ function recommendTier(data: IntakeFormData): TierRecommendation {
 
 ## Configuration
 
-**Budget Thresholds (to be defined):**
-- Tier 1: $X - $Y
-- Tier 2: $Y - $Z
-- Tier 3: $Z - $W
-- Tier 4: > $W OR % of install
+### Budget Thresholds
 
-**Timeline Thresholds:**
-- Fast: < 2 weeks
-- Standard: 2-8 weeks
-- Extended: > 8 weeks
+```typescript
+const BUDGET_THRESHOLDS = {
+  TIER_1_MIN: 500,
+  TIER_1_MAX: 2500,
+  TIER_2_MAX: 10000,
+  TIER_3_MAX: 50000,
+};
+```
 
-**Store in:**
-- Postgres `tiers` table (configuration)
-- Or environment variables
-- Or config file
+### Timeline Thresholds
+
+```typescript
+const TIMELINE_THRESHOLDS = {
+  FAST_TRACK: 2,     // weeks
+  STANDARD_MAX: 8,   // weeks
+  EXTENDED: 8,       // weeks
+};
+```
+
+### Stripe Price IDs
+
+Set via environment variables:
+```bash
+# Frontend (React)
+REACT_APP_STRIPE_PRICE_TIER_1=price_xxx
+REACT_APP_STRIPE_PRICE_TIER_2=price_xxx
+REACT_APP_STRIPE_PRICE_TIER_3=price_xxx
+REACT_APP_STRIPE_PRICE_TIER_4=price_xxx
+
+# Backend (Node)
+STRIPE_PRICE_TIER_1=price_xxx
+STRIPE_PRICE_TIER_2=price_xxx
+STRIPE_PRICE_TIER_3=price_xxx
+STRIPE_PRICE_TIER_4=price_xxx
+```
 
 ---
 
@@ -380,20 +376,30 @@ function recommendTier(data: IntakeFormData): TierRecommendation {
 
 ### Test Cases
 
-1. **Clear Tier 1:** Budget low, timeline standard, has assets → Tier 1
-2. **Clear Tier 2:** Budget mid, timeline standard, has some assets → Tier 2
-3. **Clear Tier 3:** Budget high, no assets, new build → Tier 3
-4. **Tier 4:** Budget very high OR complex project → Tier 4 (review)
-5. **Edge Case:** Budget mid, no timeline → Review
-6. **Edge Case:** Budget high, tight timeline → Review
+| Test Case | Input | Expected Tier | Notes |
+|-----------|-------|---------------|-------|
+| Clear Tier 1 | Budget: $500-$2,500, Timeline: 2-4 weeks, Has assets | 1 | Auto-route |
+| Clear Tier 2 | Budget: $2,500-$10,000, Timeline: 4-8 weeks | 2 | Auto-route |
+| Clear Tier 3 | Budget: $10,000-$50,000, No assets, New build | 3 | May review |
+| Tier 4 | Budget: $50,000+, OR complex project | 4 | Always review |
+| Edge: Low budget, no assets | Budget: $500-$2,500, No assets | 3 | Upgrade due to assets |
+| Edge: High budget, tight timeline | Budget: $50,000+, < 2 weeks | 4 | Review required |
 
 ### Validation
 
-- Test all budget ranges
-- Test all timeline options
-- Test all project types
-- Test asset combinations
-- Test edge cases
+```typescript
+import { validateIntakeData, recommendTier } from './utils/tierRouter';
+
+// Validate before routing
+const validation = validateIntakeData(formData);
+if (!validation.valid) {
+  console.error('Missing fields:', validation.missingFields);
+  return;
+}
+
+// Get recommendation
+const result = recommendTier(formData);
+```
 
 ---
 
@@ -404,3 +410,4 @@ function recommendTier(data: IntakeFormData): TierRecommendation {
 - **Client Feedback:** Adjust based on client satisfaction
 - **Capacity Management:** Consider team capacity in routing
 - **Seasonal Adjustments:** Adjust thresholds by season
+- **Location-Based Routing:** Factor in project address complexity
