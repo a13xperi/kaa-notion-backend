@@ -1395,15 +1395,17 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
       { role: 'user', content: message }
     ];
 
-    // Call OpenAI API
+    // Call OpenAI API with timeout
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency, can upgrade to gpt-4o if needed
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini', // Configurable model via env
       messages: messages,
       temperature: 0.7,
       max_tokens: 500,
       top_p: 1,
       frequency_penalty: 0.3,
       presence_penalty: 0.3
+    }, {
+      timeout: 30000 // 30 second timeout
     });
 
     const response = completion.choices[0]?.message?.content || 'I apologize, but I encountered an error. Please try again.';
@@ -1415,18 +1417,26 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
   } catch (error) {
     console.error('Error calling OpenAI API:', error);
-    
-    // Handle specific OpenAI errors
+
+    // Handle OpenAI SDK v4 errors (APIError)
+    if (error.status) {
+      return res.status(error.status).json({
+        error: error.error?.message || error.message || 'OpenAI API error',
+        details: error.error || error.message
+      });
+    }
+
+    // Handle legacy OpenAI SDK v3 errors
     if (error.response) {
-      return res.status(error.response.status || 500).json({ 
+      return res.status(error.response.status || 500).json({
         error: error.response.data?.error?.message || 'OpenAI API error',
         details: error.response.data
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to get response from Sage',
-      details: error.message 
+      details: error.message
     });
   }
 });
