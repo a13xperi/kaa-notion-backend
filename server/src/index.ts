@@ -2,10 +2,16 @@ import express from 'express';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
+import Stripe from 'stripe';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 
 dotenv.config();
+
+// Initialize Stripe client
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16',
+});
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -93,6 +99,54 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 });
 
 app.post('/webhook', handleFigmaWebhook);
+
+// Stripe Checkout endpoint
+app.post('/api/stripe/checkout', async (req, res) => {
+  try {
+    const { leadId, tier } = req.body;
+
+    // Validate required fields
+    if (!leadId || !tier) {
+      return res.status(400).json({ error: 'leadId and tier are required' });
+    }
+
+    // Get the price ID from environment variable based on tier
+    const priceIdEnvVar = `STRIPE_TIER${tier}_PRICE_ID`;
+    const priceId = process.env[priceIdEnvVar];
+
+    if (!priceId) {
+      return res.status(400).json({
+        error: `Price ID not configured for tier ${tier}. Expected env var: ${priceIdEnvVar}`
+      });
+    }
+
+    // Create Stripe Checkout session
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        leadId: String(leadId),
+        tier: String(tier),
+      },
+      success_url: process.env.STRIPE_SUCCESS_URL || `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: process.env.STRIPE_CANCEL_URL || `${req.headers.origin}/cancel`,
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Error creating Stripe checkout session:', error);
+    res.status(500).json({
+      error: 'Failed to create checkout session',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 // Start the server
 app.listen(port, () => {
