@@ -279,6 +279,12 @@
 - [x] `new-api`: leadsApi.ts - Frontend leads API client with helpers
 - [x] `new-context`: AuthContext.tsx - React auth context with RequireAuth, RequireAdmin, RequireTier components
 - [x] `new-api`: index.ts - Central API exports
+- [x] `test`: authApi.test.ts - 18 tests for token management, auth state
+- [x] `test`: checkoutApi.test.ts - 14 tests for pricing and tier info
+- [x] `test`: leadsApi.test.ts - 32 tests for label helpers and data validation
+- [x] `new-component`: CheckoutSuccess - Payment success page with session verification
+- [x] `new-component`: CheckoutCancel - Payment cancelled page
+- [x] `new-styles`: CheckoutPages.css - Checkout page styles with dark mode
 
 ### 2025-01-09
 - [x] Initial project setup
