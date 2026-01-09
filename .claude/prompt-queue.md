@@ -25,7 +25,7 @@
 - [x] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
 - [x] `new-component`: TierRecommendation - Display recommended tier with pricing and features after form submission
 - [x] `new-component`: TierCard - Individual tier display with name, price, features, CTA button
-- [ ] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
+- [x] `new-component`: TierComparison - Side-by-side comparison of all 4 tiers
 
 ---
 
@@ -191,6 +191,7 @@
 - [x] `new-form`: IntakeForm - 5-step form (contact, budget, timeline, project type, review) with validation
 - [x] `new-component`: TierRecommendation - Recommended tier display with pricing, features, confidence, factors breakdown
 - [x] `new-component`: TierCard - Reusable tier card with name, price, features, CTA, and visual states
+- [x] `new-component`: TierComparison - Side-by-side tier comparison with mobile tabs, grid view, and feature table
 
 ---
 
