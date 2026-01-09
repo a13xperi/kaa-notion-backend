@@ -58,14 +58,24 @@ export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 
 /**
  * Lead status update schema (admin only)
+ * All fields optional for partial updates
  */
-export const updateLeadStatusSchema = z.object({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']),
-  tierOverride: z.number().int().min(1).max(4).optional(),
-  overrideReason: z.string().optional(),
-});
+export const updateLeadSchema = z.object({
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  tierOverride: z.number().int().min(1).max(4).nullable().optional(),
+  overrideReason: z.string().nullable().optional(),
+}).refine(
+  (data) => {
+    // If tierOverride is set, overrideReason should be provided
+    if (data.tierOverride !== undefined && data.tierOverride !== null && !data.overrideReason) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'Override reason is required when setting tier override' }
+);
 
-export type UpdateLeadStatusInput = z.infer<typeof updateLeadStatusSchema>;
+export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
 
 /**
  * Pagination query params schema

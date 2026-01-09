@@ -18,7 +18,7 @@
 - [x] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
 - [x] `new-endpoint`: GET /api/leads - List leads with pagination, filtering by status and tier (admin only)
 - [x] `new-endpoint`: GET /api/leads/:id - Get single lead with tier recommendation details
-- [ ] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
+- [x] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
 - [ ] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client after payment
 
 ### 2.3 Intake Form Components
@@ -186,6 +186,7 @@
 - [x] `new-endpoint`: POST /api/leads - Create lead with validation, tier routing, and database persistence
 - [x] `new-endpoint`: GET /api/leads - List leads with pagination, status/tier/email filtering
 - [x] `new-endpoint`: GET /api/leads/:id - Single lead with full tier recommendation details
+- [x] `new-endpoint`: PATCH /api/leads/:id - Update status, tier override with reason validation
 
 ---
 

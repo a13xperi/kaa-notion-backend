@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { recommendTier } from '../utils/tierRouter';
-import { createLeadSchema, leadFiltersSchema, CreateLeadInput } from '../utils/validation';
+import { createLeadSchema, leadFiltersSchema, updateLeadSchema, CreateLeadInput } from '../utils/validation';
 
 const router = Router();
 
@@ -275,6 +275,101 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction): Prom
     });
   } catch (error) {
     console.error('Error fetching lead:', error);
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/leads/:id
+ * Update lead status, override tier recommendation (admin only)
+ */
+router.patch('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Validate request body
+    const validationResult = updateLeadSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: validationResult.error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    // Check if lead exists
+    const existingLead = await prisma.lead.findUnique({
+      where: { id },
+    });
+
+    if (!existingLead) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Lead not found',
+        },
+      });
+      return;
+    }
+
+    const data = validationResult.data;
+
+    // Build update object
+    const updateData: Record<string, unknown> = {};
+
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
+    if (data.tierOverride !== undefined) {
+      updateData.tierOverride = data.tierOverride;
+    }
+
+    if (data.overrideReason !== undefined) {
+      updateData.overrideReason = data.overrideReason;
+    }
+
+    // Update lead
+    const updatedLead = await prisma.lead.update({
+      where: { id },
+      data: updateData,
+    });
+
+    // Calculate effective tier
+    const effectiveTier = updatedLead.tierOverride ?? updatedLead.recommendedTier;
+
+    res.json({
+      success: true,
+      data: {
+        id: updatedLead.id,
+        email: updatedLead.email,
+        name: updatedLead.name,
+        projectAddress: updatedLead.projectAddress,
+        budgetRange: updatedLead.budgetRange,
+        timeline: updatedLead.timeline,
+        projectType: updatedLead.projectType,
+        hasSurvey: updatedLead.hasSurvey,
+        hasDrawings: updatedLead.hasDrawings,
+        status: updatedLead.status,
+        recommendedTier: updatedLead.recommendedTier,
+        tierOverride: updatedLead.tierOverride,
+        overrideReason: updatedLead.overrideReason,
+        effectiveTier,
+        createdAt: updatedLead.createdAt,
+        updatedAt: updatedLead.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating lead:', error);
     next(error);
   }
 });
