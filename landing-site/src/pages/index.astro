@@ -1,0 +1,352 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+---
+
+<BaseLayout title="KAA Portal - Seamless Client Collaboration">
+  <Header />
+
+  <main>
+    <!-- Hero Section -->
+    <section class="pt-24 pb-16 md:pt-32 md:pb-24 hero-gradient text-white">
+      <div class="section-container">
+        <div class="max-w-4xl mx-auto text-center">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm mb-8 animate-fade-in-up">
+            <span class="w-2 h-2 rounded-full bg-accent-secondary animate-pulse"></span>
+            <span class="text-sm font-medium">Powered by SAGE AI</span>
+          </div>
+
+          <h1 class="text-4xl md:text-6xl font-bold mb-6 animate-fade-in-up stagger-1">
+            Transform Your Client
+            <span class="block">Collaboration</span>
+          </h1>
+
+          <p class="text-lg md:text-xl text-white/80 mb-10 max-w-2xl mx-auto animate-fade-in-up stagger-2">
+            Seamlessly manage projects, documents, and communication with your clients through our intelligent portal system.
+          </p>
+
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up stagger-3">
+            <a href="/get-started" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-white text-brand-primary font-semibold hover:bg-gray-100 transition-colors shadow-lg">
+              Start Free Trial
+            </a>
+            <a href="/demo" class="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-white/30 text-white font-semibold hover:bg-white/10 transition-colors">
+              Watch Demo
+            </a>
+          </div>
+        </div>
+
+        <!-- Hero Illustration -->
+        <div class="mt-16 relative animate-fade-in-up stagger-4">
+          <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 md:p-8 shadow-2xl max-w-5xl mx-auto">
+            <div class="bg-bg-primary rounded-xl overflow-hidden shadow-inner">
+              <div class="h-8 bg-bg-secondary flex items-center gap-2 px-4 border-b border-border">
+                <div class="w-3 h-3 rounded-full bg-error"></div>
+                <div class="w-3 h-3 rounded-full bg-warning"></div>
+                <div class="w-3 h-3 rounded-full bg-success"></div>
+                <span class="text-text-muted text-sm ml-4">client-portal.kaa.com</span>
+              </div>
+              <div class="p-6 min-h-[300px] bg-bg-primary">
+                <div class="flex items-center gap-4 mb-6">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center">
+                    <span class="text-white text-xl">K</span>
+                  </div>
+                  <div>
+                    <h3 class="text-text-primary font-semibold">Welcome Back</h3>
+                    <p class="text-text-secondary text-sm">Your dashboard awaits</p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                  <div class="bg-bg-secondary rounded-lg p-4">
+                    <div class="text-2xl mb-2">12</div>
+                    <div class="text-text-secondary text-sm">Active Projects</div>
+                  </div>
+                  <div class="bg-bg-secondary rounded-lg p-4">
+                    <div class="text-2xl mb-2">48</div>
+                    <div class="text-text-secondary text-sm">Documents</div>
+                  </div>
+                  <div class="bg-bg-secondary rounded-lg p-4">
+                    <div class="text-2xl mb-2">5</div>
+                    <div class="text-text-secondary text-sm">Messages</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-16 md:py-24 bg-bg-primary dark-mode-transition">
+      <div class="section-container">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            Everything You Need
+          </h2>
+          <p class="text-text-secondary text-lg max-w-2xl mx-auto">
+            A complete suite of tools designed to streamline your client relationships
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <!-- Feature 1 -->
+          <div class="card p-8 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center mx-auto mb-6">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">Document Management</h3>
+            <p class="text-text-secondary">
+              Securely share and manage documents with version control and real-time collaboration.
+            </p>
+          </div>
+
+          <!-- Feature 2 -->
+          <div class="card p-8 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-accent-primary flex items-center justify-center mx-auto mb-6">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">SAGE AI Assistant</h3>
+            <p class="text-text-secondary">
+              Get instant answers about your projects with our intelligent AI-powered assistant.
+            </p>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="card p-8 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-secondary flex items-center justify-center mx-auto mb-6">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-3">Analytics Dashboard</h3>
+            <p class="text-text-secondary">
+              Track project progress and client engagement with comprehensive analytics.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAGE Section -->
+    <section id="sage" class="py-16 md:py-24 bg-bg-secondary dark-mode-transition">
+      <div class="section-container">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-primary/10 text-accent-primary mb-6">
+              <span class="font-semibold">SAGE AI</span>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold text-text-primary mb-6">
+              Meet Your Intelligent
+              <span class="text-gradient">Project Assistant</span>
+            </h2>
+            <p class="text-text-secondary text-lg mb-8">
+              SAGE (Smart Advisory & Guidance Engine) learns about your projects and provides instant, accurate answers to client questions - 24/7.
+            </p>
+
+            <ul class="space-y-4">
+              <li class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span class="text-text-secondary">Instant answers to project questions</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span class="text-text-secondary">Learns from your documentation</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span class="text-text-secondary">Available around the clock</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="relative">
+            <div class="card p-6">
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                  <span class="text-white font-bold">S</span>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-text-primary">SAGE</h4>
+                  <p class="text-text-muted text-xs">Online</p>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div class="bg-bg-tertiary rounded-lg p-3 max-w-[80%]">
+                  <p class="text-text-secondary text-sm">What's the status of the Henderson project?</p>
+                </div>
+                <div class="bg-gradient-primary rounded-lg p-3 max-w-[80%] ml-auto text-white">
+                  <p class="text-sm">The Henderson project is currently in Phase 2 with 68% completion. Key milestones: foundation complete, framing 85% done. Next inspection scheduled for Friday.</p>
+                </div>
+              </div>
+            </div>
+            <div class="absolute -z-10 inset-4 bg-gradient-primary/20 rounded-2xl blur-xl"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-16 md:py-24 bg-bg-primary dark-mode-transition">
+      <div class="section-container">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            Simple, Transparent Pricing
+          </h2>
+          <p class="text-text-secondary text-lg max-w-2xl mx-auto">
+            Choose the plan that fits your needs. All plans include core features.
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <!-- Starter Plan -->
+          <div class="card p-8">
+            <h3 class="text-xl font-semibold text-text-primary mb-2">Starter</h3>
+            <p class="text-text-muted mb-6">For small teams getting started</p>
+            <div class="mb-6">
+              <span class="text-4xl font-bold text-text-primary">$29</span>
+              <span class="text-text-secondary">/month</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Up to 5 clients
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Basic SAGE AI
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                1GB storage
+              </li>
+            </ul>
+            <a href="/get-started" class="btn-secondary w-full">Get Started</a>
+          </div>
+
+          <!-- Professional Plan -->
+          <div class="card p-8 border-2 border-brand-primary relative">
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-primary text-white text-sm font-semibold rounded-full">
+              Most Popular
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-2">Professional</h3>
+            <p class="text-text-muted mb-6">For growing businesses</p>
+            <div class="mb-6">
+              <span class="text-4xl font-bold text-text-primary">$79</span>
+              <span class="text-text-secondary">/month</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Up to 25 clients
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Advanced SAGE AI
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                10GB storage
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Analytics dashboard
+              </li>
+            </ul>
+            <a href="/get-started" class="btn-primary w-full">Get Started</a>
+          </div>
+
+          <!-- Enterprise Plan -->
+          <div class="card p-8">
+            <h3 class="text-xl font-semibold text-text-primary mb-2">Enterprise</h3>
+            <p class="text-text-muted mb-6">For large organizations</p>
+            <div class="mb-6">
+              <span class="text-4xl font-bold text-text-primary">Custom</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Unlimited clients
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Custom SAGE training
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Unlimited storage
+              </li>
+              <li class="flex items-center gap-2 text-text-secondary">
+                <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Dedicated support
+              </li>
+            </ul>
+            <a href="/contact" class="btn-secondary w-full">Contact Sales</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-16 md:py-24 hero-gradient text-white">
+      <div class="section-container text-center">
+        <h2 class="text-3xl md:text-4xl font-bold mb-6">
+          Ready to Transform Your Client Experience?
+        </h2>
+        <p class="text-white/80 text-lg mb-10 max-w-2xl mx-auto">
+          Join hundreds of businesses already using KAA Portal to streamline their client relationships.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="/get-started" class="px-8 py-4 rounded-xl bg-white text-brand-primary font-semibold hover:bg-gray-100 transition-colors shadow-lg">
+            Start Your Free Trial
+          </a>
+          <a href="/contact" class="px-8 py-4 rounded-xl border-2 border-white/30 text-white font-semibold hover:bg-white/10 transition-colors">
+            Talk to Sales
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>

@@ -1,0 +1,44 @@
+---
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'KAA Client Portal - Seamless collaboration powered by AI' } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#667eea" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen dark-mode-transition">
+    <slot />
+
+    <script>
+      // Dark mode initialization (matching React portal behavior)
+      function initDarkMode() {
+        const savedMode = localStorage.getItem('darkMode');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        if (savedMode === 'true' || (savedMode === null && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      }
+
+      // Initialize on load
+      initDarkMode();
+
+      // Toggle function for dark mode button
+      window.toggleDarkMode = function() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('darkMode', isDark.toString());
+      };
+    </script>
+  </body>
+</html>
