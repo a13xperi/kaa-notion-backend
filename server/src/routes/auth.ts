@@ -2,6 +2,7 @@
  * Auth Routes
  * POST /api/auth/register - Register new user
  * POST /api/auth/login - Authenticate user
+ * POST /api/auth/refresh - Refresh access token
  * GET /api/auth/me - Get current user profile
  */
 
@@ -14,9 +15,11 @@ import {
   getUserProfile,
   verifyToken,
   extractToken,
+  refreshAccessToken,
 } from '../services/authService';
 import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
+import { loginProtection, onLoginSuccess, onLoginFailure } from '../middleware';
 
 // ============================================================================
 // SCHEMAS
@@ -36,6 +39,11 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false),
+});
+
+const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
 // ============================================================================
@@ -107,6 +115,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
           data: {
             user: result.user,
             token: result.token,
+            refreshToken: result.refreshToken,
             expiresIn: result.expiresIn,
           },
         });
@@ -153,6 +162,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/login',
+    loginProtection(), // Prevent brute force attacks
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         // Validate input
@@ -166,8 +176,13 @@ export function createAuthRouter(prisma: PrismaClient): Router {
 
         const { email, password } = validation.data;
 
+        const { rememberMe } = validation.data;
+        
         // Authenticate user
-        const result = await loginUser(prisma, { email, password });
+        const result = await loginUser(prisma, { email, password, rememberMe });
+
+        // Clear failed login attempts on success
+        onLoginSuccess(req);
 
         logger.info('User logged in', { userId: result.user.id, email });
 
@@ -176,17 +191,119 @@ export function createAuthRouter(prisma: PrismaClient): Router {
           data: {
             user: result.user,
             token: result.token,
+            refreshToken: result.refreshToken,
             expiresIn: result.expiresIn,
           },
         });
       } catch (error) {
         // Handle invalid credentials
         if ((error as Error).message.includes('Invalid email or password')) {
+          // Record failed attempt
+          const { locked, attemptsRemaining } = onLoginFailure(req);
+          
+          if (locked) {
+            return res.status(429).json({
+              success: false,
+              error: {
+                code: 'ACCOUNT_LOCKED',
+                message: 'Too many failed login attempts. Please try again later.',
+              },
+            });
+          }
+
           return res.status(401).json({
             success: false,
             error: {
               code: 'INVALID_CREDENTIALS',
               message: 'Invalid email or password',
+              attemptsRemaining,
+            },
+          });
+        }
+        next(error);
+      }
+    }
+  );
+
+  // ============================================================================
+  /**
+   * @openapi
+   * /api/auth/refresh:
+   *   post:
+   *     summary: Refresh access token
+   *     description: Exchange a refresh token for a new access token
+   *     tags: [Auth]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - refreshToken
+   *             properties:
+   *               refreshToken:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Tokens refreshed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     token:
+   *                       type: string
+   *                     refreshToken:
+   *                       type: string
+   *                     expiresIn:
+   *                       type: string
+   *       401:
+   *         description: Invalid or expired refresh token
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   */
+  router.post(
+    '/refresh',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        // Validate input
+        const validation = refreshTokenSchema.safeParse(req.body);
+        if (!validation.success) {
+          throw validationError(
+            'Refresh token is required',
+            { errors: validation.error.issues }
+          );
+        }
+
+        const { refreshToken } = validation.data;
+        
+        // Refresh the tokens
+        const result = await refreshAccessToken(prisma, refreshToken);
+
+        res.json({
+          success: true,
+          data: {
+            token: result.token,
+            refreshToken: result.refreshToken,
+            expiresIn: result.expiresIn,
+          },
+        });
+      } catch (error) {
+        // Handle token errors
+        const message = (error as Error).message;
+        if (message.includes('expired') || message.includes('Invalid')) {
+          return res.status(401).json({
+            success: false,
+            error: {
+              code: 'INVALID_REFRESH_TOKEN',
+              message: 'Refresh token is invalid or expired. Please log in again.',
             },
           });
         }

@@ -36,6 +36,8 @@ import {
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
 import { initEnvironment, getFeatureFlags } from './config/environment';
+import { setupSentry, sentryErrorHandler, captureException } from './config/sentry';
+import { metricsMiddleware, createMetricsRouter } from './config/metrics';
 
 dotenv.config();
 
@@ -64,6 +66,9 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+// Setup Sentry error tracking (must be early)
+setupSentry(app);
 
 // Security middleware
 app.use(helmet({
@@ -98,6 +103,9 @@ app.use((req, res, next) => {
   }
   requestLogger(req, res, next);
 });
+
+// Prometheus metrics middleware
+app.use(metricsMiddleware);
 
 // Initialize Notion sync service if configured
 if (features.notionEnabled && process.env.NOTION_PROJECTS_DATABASE_ID) {
@@ -172,6 +180,9 @@ app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Ha
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
 app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+
+// Prometheus metrics endpoint
+app.use('/api/metrics', createMetricsRouter());
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({
@@ -338,6 +349,9 @@ app.get('/api/health/ready', async (_req, res) => {
 
 // 404 handler for unmatched routes
 app.use(notFoundHandler);
+
+// Sentry error handler (captures errors before our handler)
+app.use(sentryErrorHandler());
 
 // Global error handler (must be last)
 app.use(errorHandler);

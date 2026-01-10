@@ -14,6 +14,7 @@ import { PrismaClient, User, UserType } from '@prisma/client';
 export interface AuthConfig {
   jwtSecret: string;
   jwtExpiresIn: string;
+  refreshTokenExpiresIn: string;
   saltRounds: number;
 }
 
@@ -22,11 +23,13 @@ export interface TokenPayload {
   email: string;
   userType: UserType;
   tier?: number;
+  type: 'access' | 'refresh';
 }
 
 export interface AuthResult {
   user: Pick<User, 'id' | 'email' | 'userType' | 'tier'>;
   token: string;
+  refreshToken?: string;
   expiresIn: string;
 }
 
@@ -40,6 +43,7 @@ export interface RegisterInput {
 export interface LoginInput {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 // ============================================================================
@@ -48,7 +52,8 @@ export interface LoginInput {
 
 let authConfig: AuthConfig = {
   jwtSecret: process.env.JWT_SECRET || 'development-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m', // Short-lived access token
+  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d', // Long-lived refresh token
   saltRounds: 12,
 };
 
@@ -86,22 +91,50 @@ export async function comparePassword(
 // ============================================================================
 
 /**
- * Generate a JWT token for a user.
+ * Generate an access token for a user.
  */
-export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, authConfig.jwtSecret, {
-    expiresIn: authConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'],
-  });
+export function generateToken(payload: Omit<TokenPayload, 'type'>): string {
+  return jwt.sign(
+    { ...payload, type: 'access' },
+    authConfig.jwtSecret, 
+    { expiresIn: authConfig.jwtExpiresIn as jwt.SignOptions['expiresIn'] }
+  );
+}
+
+/**
+ * Generate a refresh token for a user.
+ */
+export function generateRefreshToken(payload: Omit<TokenPayload, 'type'>): string {
+  return jwt.sign(
+    { ...payload, type: 'refresh' },
+    authConfig.jwtSecret,
+    { expiresIn: authConfig.refreshTokenExpiresIn as jwt.SignOptions['expiresIn'] }
+  );
 }
 
 /**
  * Verify and decode a JWT token.
  */
-export function verifyToken(token: string): TokenPayload {
+export function verifyToken(token: string, expectedType: 'access' | 'refresh' = 'access'): TokenPayload {
   try {
-    return jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
+    const payload = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
+    
+    // Backward compatibility: tokens without type are treated as access tokens
+    const tokenType = payload.type || 'access';
+    
+    if (tokenType !== expectedType) {
+      throw new Error(`Invalid token type: expected ${expectedType}`);
+    }
+    
+    return payload;
   } catch (error) {
-    throw new Error('Invalid or expired token');
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new Error('Token has expired');
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      throw new Error('Invalid token');
+    }
+    throw error;
   }
 }
 
@@ -150,13 +183,16 @@ export async function registerUser(
     },
   });
 
-  // Generate token - use email we just set (we know it's not null)
-  const token = generateToken({
+  // Generate tokens - use email we just set (we know it's not null)
+  const tokenPayload = {
     userId: user.id,
     email: user.email!, // We just created this user with an email
     userType: user.userType,
     tier: user.tier || undefined,
-  });
+  };
+  
+  const token = generateToken(tokenPayload);
+  const refreshToken = generateRefreshToken(tokenPayload);
 
   return {
     user: {
@@ -166,6 +202,7 @@ export async function registerUser(
       tier: user.tier,
     },
     token,
+    refreshToken,
     expiresIn: authConfig.jwtExpiresIn,
   };
 }
@@ -196,12 +233,23 @@ export async function loginUser(
     throw new Error('Invalid email or password');
   }
 
-  // Generate token - user found by email so it exists
-  const token = generateToken({
+  // Generate tokens - user found by email so it exists
+  const tokenPayload = {
     userId: user.id,
     email: user.email!, // User was found by email, so it exists
     userType: user.userType,
     tier: user.tier || undefined,
+  };
+  
+  const token = generateToken(tokenPayload);
+  
+  // Only generate refresh token if rememberMe is enabled
+  const refreshToken = input.rememberMe ? generateRefreshToken(tokenPayload) : undefined;
+
+  // Update last login
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLogin: new Date() },
   });
 
   return {
@@ -212,6 +260,7 @@ export async function loginUser(
       tier: user.tier,
     },
     token,
+    refreshToken,
     expiresIn: authConfig.jwtExpiresIn,
   };
 }
@@ -281,6 +330,53 @@ export async function getUserProfile(
     } : null,
     projects: user.client?.projects || [],
     createdAt: user.createdAt,
+  };
+}
+
+// ============================================================================
+// TOKEN REFRESH
+// ============================================================================
+
+export interface RefreshResult {
+  token: string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
+/**
+ * Refresh an access token using a refresh token.
+ */
+export async function refreshAccessToken(
+  prisma: PrismaClient,
+  refreshToken: string
+): Promise<RefreshResult> {
+  // Verify the refresh token
+  const payload = verifyToken(refreshToken, 'refresh');
+  
+  // Verify user still exists and is active
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Generate new tokens
+  const tokenPayload = {
+    userId: user.id,
+    email: user.email!,
+    userType: user.userType,
+    tier: user.tier || undefined,
+  };
+
+  const newAccessToken = generateToken(tokenPayload);
+  const newRefreshToken = generateRefreshToken(tokenPayload);
+
+  return {
+    token: newAccessToken,
+    refreshToken: newRefreshToken,
+    expiresIn: authConfig.jwtExpiresIn,
   };
 }
 

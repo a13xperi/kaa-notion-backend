@@ -1,162 +1,195 @@
 /**
- * Loading Button Styles
+ * LoadingButton Styles
  */
+
+/* ============================================================================
+   BASE BUTTON
+   ============================================================================ */
 
 .loading-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  font-family: inherit;
+  font-weight: 500;
   border: none;
   border-radius: 8px;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  position: relative;
   white-space: nowrap;
 }
 
-.loading-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.loading-button:focus-visible {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 2px;
 }
 
-/* Sizes */
+.loading-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ============================================================================
+   SIZES
+   ============================================================================ */
+
 .loading-button--sm {
-  padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  min-height: 32px;
 }
 
 .loading-button--md {
-  padding: 0.625rem 1.25rem;
+  padding: 0.5rem 1rem;
   font-size: 0.9375rem;
+  min-height: 40px;
 }
 
 .loading-button--lg {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
+  min-height: 48px;
 }
 
-/* Full width */
-.loading-button--full {
-  width: 100%;
-}
+/* ============================================================================
+   VARIANTS
+   ============================================================================ */
 
-/* Variants */
+/* Primary */
 .loading-button--primary {
-  background: #2563eb;
+  background-color: var(--color-primary, #2563eb);
   color: white;
 }
 
 .loading-button--primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background-color: var(--color-primary-dark, #1d4ed8);
 }
 
 .loading-button--primary:active:not(:disabled) {
-  background: #1e40af;
+  background-color: var(--color-primary-darker, #1e40af);
 }
 
+/* Secondary */
 .loading-button--secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background-color: var(--color-secondary, #64748b);
+  color: white;
 }
 
 .loading-button--secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background-color: var(--color-secondary-dark, #475569);
 }
 
-.loading-button--secondary:active:not(:disabled) {
-  background: #d1d5db;
+/* Outline */
+.loading-button--outline {
+  background-color: transparent;
+  border: 2px solid var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
 }
 
+.loading-button--outline:hover:not(:disabled) {
+  background-color: var(--color-primary, #2563eb);
+  color: white;
+}
+
+/* Danger */
 .loading-button--danger {
-  background: #ef4444;
+  background-color: var(--color-danger, #dc2626);
   color: white;
 }
 
 .loading-button--danger:hover:not(:disabled) {
-  background: #dc2626;
+  background-color: var(--color-danger-dark, #b91c1c);
 }
 
-.loading-button--danger:active:not(:disabled) {
-  background: #b91c1c;
-}
-
+/* Ghost */
 .loading-button--ghost {
-  background: transparent;
-  color: #374151;
+  background-color: transparent;
+  color: var(--color-text, #1f2937);
 }
 
 .loading-button--ghost:hover:not(:disabled) {
-  background: #f3f4f6;
+  background-color: var(--color-hover, rgba(0, 0, 0, 0.05));
 }
 
-.loading-button--ghost:active:not(:disabled) {
-  background: #e5e7eb;
+/* ============================================================================
+   FULL WIDTH
+   ============================================================================ */
+
+.loading-button--full-width {
+  width: 100%;
 }
 
-/* Icon */
-.loading-button__icon {
-  display: flex;
-  align-items: center;
-  font-size: 1.125em;
+/* ============================================================================
+   LOADING STATE
+   ============================================================================ */
+
+.loading-button--loading {
+  pointer-events: none;
 }
 
-/* Spinner */
+/* ============================================================================
+   SPINNER
+   ============================================================================ */
+
 .loading-button__spinner {
-  width: 1em;
-  height: 1em;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: buttonSpin 0.8s linear infinite;
-  opacity: 0.8;
+  animation: loading-button-spin 1s linear infinite;
 }
 
-@keyframes buttonSpin {
+.loading-button__spinner-track {
+  opacity: 0.25;
+}
+
+.loading-button__spinner-head {
+  opacity: 1;
+}
+
+@keyframes loading-button-spin {
+  from {
+    transform: rotate(0deg);
+  }
   to {
     transform: rotate(360deg);
   }
 }
 
-/* Loading state */
-.loading-button--loading {
-  position: relative;
+/* ============================================================================
+   ICONS
+   ============================================================================ */
+
+.loading-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Focus ring */
-.loading-button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+.loading-button__icon--left {
+  margin-right: 0.25rem;
 }
 
-.loading-button--danger:focus-visible {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+.loading-button__icon--right {
+  margin-left: 0.25rem;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .loading-button--secondary {
-    background: #374151;
-    color: #f9fafb;
-  }
+/* ============================================================================
+   DARK MODE
+   ============================================================================ */
 
-  .loading-button--secondary:hover:not(:disabled) {
-    background: #4b5563;
-  }
+[data-theme='dark'] .loading-button--ghost {
+  color: var(--color-text-dark, #f3f4f6);
+}
 
-  .loading-button--secondary:active:not(:disabled) {
-    background: #6b7280;
-  }
+[data-theme='dark'] .loading-button--ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 
-  .loading-button--ghost {
-    color: #d1d5db;
-  }
+[data-theme='dark'] .loading-button--outline {
+  border-color: var(--color-primary-light, #60a5fa);
+  color: var(--color-primary-light, #60a5fa);
+}
 
-  .loading-button--ghost:hover:not(:disabled) {
-    background: #374151;
-  }
-
-  .loading-button--ghost:active:not(:disabled) {
-    background: #4b5563;
-  }
+[data-theme='dark'] .loading-button--outline:hover:not(:disabled) {
+  background-color: var(--color-primary-light, #60a5fa);
+  color: var(--color-background-dark, #111827);
 }

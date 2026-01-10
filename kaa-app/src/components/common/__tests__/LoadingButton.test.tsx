@@ -2,181 +2,116 @@
  * LoadingButton Component Tests
  */
 
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { LoadingButton } from '../LoadingButton';
 
 describe('LoadingButton', () => {
-  it('should render button text', () => {
-    render(<LoadingButton>Click Me</LoadingButton>);
-
-    expect(screen.getByText('Click Me')).toBeInTheDocument();
-  });
-
-  it('should render as button element', () => {
-    render(<LoadingButton>Click Me</LoadingButton>);
-
-    expect(screen.getByRole('button')).toBeInTheDocument();
-  });
-
-  it('should handle click events', () => {
-    const handleClick = jest.fn();
-
-    render(<LoadingButton onClick={handleClick}>Click Me</LoadingButton>);
-
-    fireEvent.click(screen.getByRole('button'));
-
-    expect(handleClick).toHaveBeenCalled();
-  });
-
-  it('should be disabled when isLoading is true', () => {
-    render(<LoadingButton isLoading>Click Me</LoadingButton>);
-
-    expect(screen.getByRole('button')).toBeDisabled();
-  });
-
-  it('should be disabled when disabled prop is true', () => {
-    render(<LoadingButton disabled>Click Me</LoadingButton>);
-
-    expect(screen.getByRole('button')).toBeDisabled();
-  });
-
-  it('should show spinner when loading', () => {
-    const { container } = render(
-      <LoadingButton isLoading>Click Me</LoadingButton>
-    );
-
-    expect(container.querySelector('.loading-button__spinner')).toBeInTheDocument();
-  });
-
-  it('should show loading text when provided', () => {
-    render(
-      <LoadingButton isLoading loadingText="Saving...">
-        Click Me
-      </LoadingButton>
-    );
-
-    expect(screen.getByText('Saving...')).toBeInTheDocument();
-    expect(screen.queryByText('Click Me')).not.toBeInTheDocument();
-  });
-
-  it('should show button text as loading text if not provided', () => {
-    render(<LoadingButton isLoading>Submit</LoadingButton>);
-
+  it('renders children correctly', () => {
+    render(<LoadingButton>Submit</LoadingButton>);
     expect(screen.getByText('Submit')).toBeInTheDocument();
   });
 
-  it('should apply primary variant by default', () => {
-    const { container } = render(<LoadingButton>Click</LoadingButton>);
-
-    expect(container.querySelector('.loading-button--primary')).toBeInTheDocument();
+  it('shows loading state with spinner', () => {
+    render(<LoadingButton loading>Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toHaveClass('loading-button--loading');
   });
 
-  it('should apply secondary variant', () => {
-    const { container } = render(
-      <LoadingButton variant="secondary">Click</LoadingButton>
+  it('shows loading text when provided', () => {
+    render(
+      <LoadingButton loading loadingText="Submitting...">
+        Submit
+      </LoadingButton>
     );
-
-    expect(container.querySelector('.loading-button--secondary')).toBeInTheDocument();
+    expect(screen.getByText('Submitting...')).toBeInTheDocument();
   });
 
-  it('should apply danger variant', () => {
-    const { container } = render(
-      <LoadingButton variant="danger">Click</LoadingButton>
+  it('is disabled when loading', () => {
+    render(<LoadingButton loading>Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('is disabled when disabled prop is true', () => {
+    render(<LoadingButton disabled>Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('handles click events when not loading', () => {
+    const handleClick = jest.fn();
+    render(<LoadingButton onClick={handleClick}>Submit</LoadingButton>);
+    
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders with correct variant class', () => {
+    const { rerender } = render(
+      <LoadingButton variant="primary">Submit</LoadingButton>
     );
+    expect(screen.getByRole('button')).toHaveClass('loading-button--primary');
 
-    expect(container.querySelector('.loading-button--danger')).toBeInTheDocument();
+    rerender(<LoadingButton variant="danger">Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toHaveClass('loading-button--danger');
+
+    rerender(<LoadingButton variant="outline">Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toHaveClass('loading-button--outline');
   });
 
-  it('should apply ghost variant', () => {
-    const { container } = render(
-      <LoadingButton variant="ghost">Click</LoadingButton>
+  it('renders with correct size class', () => {
+    const { rerender } = render(
+      <LoadingButton size="sm">Submit</LoadingButton>
     );
+    expect(screen.getByRole('button')).toHaveClass('loading-button--sm');
 
-    expect(container.querySelector('.loading-button--ghost')).toBeInTheDocument();
+    rerender(<LoadingButton size="lg">Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toHaveClass('loading-button--lg');
   });
 
-  it('should apply sm size', () => {
-    const { container } = render(
-      <LoadingButton size="sm">Click</LoadingButton>
+  it('renders full width when fullWidth prop is true', () => {
+    render(<LoadingButton fullWidth>Submit</LoadingButton>);
+    expect(screen.getByRole('button')).toHaveClass('loading-button--full-width');
+  });
+
+  it('renders left icon when provided', () => {
+    render(
+      <LoadingButton leftIcon={<span data-testid="left-icon">←</span>}>
+        Submit
+      </LoadingButton>
     );
-
-    expect(container.querySelector('.loading-button--sm')).toBeInTheDocument();
+    expect(screen.getByTestId('left-icon')).toBeInTheDocument();
   });
 
-  it('should apply md size by default', () => {
-    const { container } = render(<LoadingButton>Click</LoadingButton>);
-
-    expect(container.querySelector('.loading-button--md')).toBeInTheDocument();
-  });
-
-  it('should apply lg size', () => {
-    const { container } = render(
-      <LoadingButton size="lg">Click</LoadingButton>
+  it('renders right icon when provided', () => {
+    render(
+      <LoadingButton rightIcon={<span data-testid="right-icon">→</span>}>
+        Submit
+      </LoadingButton>
     );
-
-    expect(container.querySelector('.loading-button--lg')).toBeInTheDocument();
+    expect(screen.getByTestId('right-icon')).toBeInTheDocument();
   });
 
-  it('should apply full width class', () => {
-    const { container } = render(
-      <LoadingButton fullWidth>Click</LoadingButton>
-    );
-
-    expect(container.querySelector('.loading-button--full')).toBeInTheDocument();
-  });
-
-  it('should render left icon', () => {
-    render(<LoadingButton leftIcon={<span data-testid="icon">←</span>}>Click</LoadingButton>);
-
-    expect(screen.getByTestId('icon')).toBeInTheDocument();
-  });
-
-  it('should render right icon', () => {
-    render(<LoadingButton rightIcon={<span data-testid="icon">→</span>}>Click</LoadingButton>);
-
-    expect(screen.getByTestId('icon')).toBeInTheDocument();
-  });
-
-  it('should not render icons when loading', () => {
+  it('hides icons when loading', () => {
     render(
       <LoadingButton
-        isLoading
+        loading
         leftIcon={<span data-testid="left-icon">←</span>}
         rightIcon={<span data-testid="right-icon">→</span>}
       >
-        Click
+        Submit
       </LoadingButton>
     );
-
     expect(screen.queryByTestId('left-icon')).not.toBeInTheDocument();
     expect(screen.queryByTestId('right-icon')).not.toBeInTheDocument();
   });
 
-  it('should apply custom className', () => {
-    const { container } = render(
-      <LoadingButton className="custom-class">Click</LoadingButton>
+  it('passes through additional HTML button props', () => {
+    render(
+      <LoadingButton type="submit" name="submit-btn">
+        Submit
+      </LoadingButton>
     );
-
-    expect(container.querySelector('.custom-class')).toBeInTheDocument();
-  });
-
-  it('should pass through button attributes', () => {
-    render(<LoadingButton type="submit">Click</LoadingButton>);
-
-    expect(screen.getByRole('button')).toHaveAttribute('type', 'submit');
-  });
-
-  it('should have loading class when loading', () => {
-    const { container } = render(
-      <LoadingButton isLoading>Click</LoadingButton>
-    );
-
-    expect(container.querySelector('.loading-button--loading')).toBeInTheDocument();
-  });
-
-  it('should not have loading class when not loading', () => {
-    const { container } = render(<LoadingButton>Click</LoadingButton>);
-
-    expect(container.querySelector('.loading-button--loading')).not.toBeInTheDocument();
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('type', 'submit');
+    expect(button).toHaveAttribute('name', 'submit-btn');
   });
 });

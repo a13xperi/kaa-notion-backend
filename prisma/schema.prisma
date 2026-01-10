@@ -105,6 +105,9 @@ model Client {
 
   @@index([userId])
   @@index([tier])
+  @@index([status])
+  @@index([tier, status]) // Composite: filter by tier and status
+  @@index([createdAt(sort: Desc)]) // Recent clients first
   @@map("clients")
 }
 
@@ -132,6 +135,10 @@ model Lead {
   @@index([email])
   @@index([status])
   @@index([recommendedTier])
+  @@index([clientId])
+  @@index([status, recommendedTier]) // Composite: filter leads by status and tier
+  @@index([status, createdAt(sort: Desc)]) // Recent leads by status
+  @@index([createdAt(sort: Desc)]) // Recent leads first
   @@map("leads")
 }
 
@@ -148,9 +155,9 @@ model Project {
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Notion sync tracking
-  syncStatus    SyncStatus    @default(PENDING) @map("sync_status")
-  lastSyncedAt  DateTime?     @map("last_synced_at")
-  syncError     String?       @map("sync_error")
+  syncStatus   SyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?  @map("last_synced_at")
+  syncError    String?    @map("sync_error")
 
   // Relations
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -163,6 +170,12 @@ model Project {
   @@index([tier])
   @@index([status])
   @@index([syncStatus])
+  @@index([leadId])
+  @@index([clientId, status]) // Projects by client and status
+  @@index([tier, status]) // Projects by tier and status
+  @@index([paymentStatus])
+  @@index([createdAt(sort: Desc)]) // Recent projects first
+  @@index([status, createdAt(sort: Desc)]) // Recent projects by status
   @@map("projects")
 }
 
@@ -191,8 +204,8 @@ model Milestone {
   createdAt   DateTime        @default(now()) @map("created_at")
 
   // Notion sync tracking
-  syncStatus   SyncStatus     @default(PENDING) @map("sync_status")
-  lastSyncedAt DateTime?      @map("last_synced_at")
+  syncStatus   SyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?  @map("last_synced_at")
 
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -200,6 +213,10 @@ model Milestone {
   @@index([projectId])
   @@index([tier])
   @@index([syncStatus])
+  @@index([status])
+  @@index([projectId, order]) // Milestones in order for a project
+  @@index([projectId, status]) // Milestones by status for a project
+  @@index([dueDate]) // Find overdue milestones
   @@map("milestones")
 }
 
@@ -221,6 +238,10 @@ model Payment {
   @@index([projectId])
   @@index([stripePaymentIntentId])
   @@index([stripeCustomerId])
+  @@index([status])
+  @@index([projectId, status]) // Payments by project and status
+  @@index([createdAt(sort: Desc)]) // Recent payments
+  @@index([tier, status]) // Revenue by tier
   @@map("payments")
 }
 
@@ -249,6 +270,9 @@ model Deliverable {
   @@index([projectId])
   @@index([uploadedById])
   @@index([syncStatus])
+  @@index([category])
+  @@index([projectId, category]) // Deliverables by project and category
+  @@index([createdAt(sort: Desc)]) // Recent deliverables
   @@map("deliverables")
 }
 

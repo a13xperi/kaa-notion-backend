@@ -7,6 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient, LeadStatus, Prisma, UserType } from '@prisma/client';
 import { z } from 'zod';
 import { AppError, notFound, validationError, forbidden, internalError } from '../utils/AppError';
+import { recordLeadCreated } from '../config/metrics';
 
 // ============================================================================
 // TYPES
@@ -252,6 +253,9 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
           status: recommendation.needsManualReview ? 'NEEDS_REVIEW' : 'NEW',
         },
       });
+
+      // Record metrics
+      recordLeadCreated(recommendation.tier);
 
       res.status(201).json({
         success: true,

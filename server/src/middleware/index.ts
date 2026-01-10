@@ -69,3 +69,14 @@ export {
   uploadRateLimiter,
   adminRateLimiter,
 } from './rateLimit';
+
+// Login protection
+export {
+  loginProtection,
+  onLoginSuccess,
+  onLoginFailure,
+  isLockedOut,
+  getLockoutRemaining,
+  recordFailedAttempt,
+  clearFailedAttempts,
+} from './loginProtection';

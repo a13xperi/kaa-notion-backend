@@ -19,7 +19,20 @@ jest.mock('jsonwebtoken', () => ({
     email: 'test@example.com',
     userType: 'SAGE_CLIENT',
     tier: 2,
+    type: 'access',
   }),
+  TokenExpiredError: class TokenExpiredError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'TokenExpiredError';
+    }
+  },
+  JsonWebTokenError: class JsonWebTokenError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'JsonWebTokenError';
+    }
+  },
 }));
 
 // Mock bcrypt
@@ -79,7 +92,7 @@ describe('Auth Service', () => {
       expect(token).toBe('mock-jwt-token');
     });
 
-    it('should include all payload fields', () => {
+    it('should include all payload fields with access type', () => {
       const jwt = require('jsonwebtoken');
       const payload = {
         userId: 'user-456',
@@ -90,7 +103,7 @@ describe('Auth Service', () => {
       generateToken(payload);
       
       expect(jwt.sign).toHaveBeenCalledWith(
-        payload,
+        { ...payload, type: 'access' },
         expect.any(String),
         expect.objectContaining({ expiresIn: expect.any(String) })
       );
@@ -107,25 +120,28 @@ describe('Auth Service', () => {
         email: 'test@example.com',
         userType: 'SAGE_CLIENT',
         tier: 2,
+        type: 'access',
       });
     });
 
     it('should throw for invalid token', () => {
       const jwt = require('jsonwebtoken');
+      const error = new jwt.JsonWebTokenError('invalid token');
       jwt.verify.mockImplementationOnce(() => {
-        throw new Error('invalid token');
+        throw error;
       });
 
-      expect(() => verifyToken('invalid-token')).toThrow('Invalid or expired token');
+      expect(() => verifyToken('invalid-token')).toThrow('Invalid token');
     });
 
     it('should throw for expired token', () => {
       const jwt = require('jsonwebtoken');
+      const error = new jwt.TokenExpiredError('jwt expired', new Date());
       jwt.verify.mockImplementationOnce(() => {
-        throw new Error('jwt expired');
+        throw error;
       });
 
-      expect(() => verifyToken('expired-token')).toThrow('Invalid or expired token');
+      expect(() => verifyToken('expired-token')).toThrow('Token has expired');
     });
   });
 

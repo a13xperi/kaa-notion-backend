@@ -6,6 +6,7 @@
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { sendPaymentConfirmation, sendWelcomeEmail } from '../services/emailService';
+import { recordPayment } from '../config/metrics';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -327,6 +328,9 @@ export async function handleCheckoutCompleted(
           tier: tierNum,
         },
       });
+
+      // Record payment metrics
+      recordPayment(tierNum, 'success', session.amount_total || pricing.amount);
 
       return { client, project, payment };
     });
