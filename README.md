@@ -71,17 +71,7 @@ npm run install-all
 cp env.example .env
 ```
 
-Edit `.env` with your configuration:
-
-```bash
-# Required
-DATABASE_URL=postgresql://user:pass@localhost:5432/sage
-JWT_SECRET=your-64-character-secret-key
-
-# Recommended
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
+Edit `.env` with your configuration. See [ENVIRONMENT_REFERENCE.md](./docs/ENVIRONMENT_REFERENCE.md) for the full variable list and which app uses them. `env.example` is the canonical superset of required variables.
 
 ### 3. Setup Database
 
@@ -219,18 +209,7 @@ See [API_REFERENCE.md](./docs/API_REFERENCE.md) for full documentation.
 ## 🔧 Configuration
 
 ### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | 64+ character secret for tokens |
-| `STRIPE_SECRET_KEY` | ⚠️ | Stripe API key (for payments) |
-| `STRIPE_WEBHOOK_SECRET` | ⚠️ | Stripe webhook signing secret |
-| `RESEND_API_KEY` | - | Email service (or use SMTP) |
-| `NOTION_API_KEY` | - | Notion integration |
-| `SUPABASE_URL` | - | File storage |
-
-See [env.example](./env.example) for all options.
+See [ENVIRONMENT_REFERENCE.md](./docs/ENVIRONMENT_REFERENCE.md) for all environment variables and the apps that use them. The canonical template is [env.example](./env.example).
 
 ## 🔒 Security Features
 

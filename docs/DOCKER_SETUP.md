@@ -48,50 +48,13 @@ docker compose down
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root by copying the canonical template:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://postgres:postgres@db:5432/sage?schema=public
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your-secure-password
-POSTGRES_DB=sage
-
-# JWT Authentication
-JWT_SECRET=your-super-secret-jwt-key-min-32-chars
-JWT_EXPIRES_IN=7d
-
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_SUCCESS_URL=https://yourdomain.com/success
-STRIPE_CANCEL_URL=https://yourdomain.com/cancel
-
-# Email (choose one)
-RESEND_API_KEY=re_...
-# OR
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-EMAIL_FROM=SAGE <hello@sage.design>
-EMAIL_REPLY_TO=support@sage.design
-
-# Notion (optional)
-NOTION_API_KEY=ntn_...
-NOTION_PROJECTS_DATABASE_ID=...
-
-# Supabase Storage (optional)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=...
-STORAGE_BUCKET=deliverables
-
-# Frontend
-REACT_APP_API_URL=https://api.yourdomain.com/api
-FRONTEND_URL=https://yourdomain.com
+cp env.example .env
 ```
+
+For the complete list of variables (including Docker/Postgres defaults), see [ENVIRONMENT_REFERENCE.md](./ENVIRONMENT_REFERENCE.md). `env.example` remains the canonical superset of required variables.
 
 ## Architecture
 
