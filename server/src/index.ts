@@ -8,17 +8,18 @@ import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import { performHealthCheck, livenessCheck, readinessCheck } from './services/healthService';
-import { 
-  createProjectsRouter, 
-  createMilestonesRouter, 
-  createDeliverablesRouter, 
-  createAdminRouter, 
-  createNotionRouter, 
-  createUploadRouter, 
+import {
+  createProjectsRouter,
+  createMilestonesRouter,
+  createDeliverablesRouter,
+  createAdminRouter,
+  createNotionRouter,
+  createUploadRouter,
   createLeadsRouter,
   createCheckoutRouter,
   createWebhooksRouter,
   createAuthRouter,
+  createDemoRouter,
 } from './routes';
 import {
   initNotionSyncService,
@@ -30,8 +31,8 @@ import {
   shutdownRealtimeService,
 } from './services';
 import { initStripe } from './utils/stripeHelpers';
-import { 
-  errorHandler, 
+import {
+  errorHandler,
   notFoundHandler,
   apiRateLimiter,
   authRateLimiter,
@@ -40,6 +41,8 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  requireNotionService,
+  requireStorageService,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -181,24 +184,23 @@ if (features.apiDocsEnabled) {
   logger.info('Swagger API documentation available at /api/docs');
 }
 
-// API Routes with Rate Limiting
-app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+// Auth middleware for protected routes
 const apiAuth = requireAuth(prisma);
+
+// Protected API Routes (require authentication)
 app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
 app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/notion', adminRateLimiter, apiAuth, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+
+// Public API Routes (no authentication required)
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
 app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+app.use('/api/demo', apiRateLimiter, createDemoRouter(prisma)); // Handles /api/demo/* endpoints (for demo/testing)
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());
@@ -247,49 +249,6 @@ app.get('/file/:fileKey/nodes', async (req, res, next) => {
 
 app.post('/webhook', handleFigmaWebhook);
 
-// Stripe Checkout endpoint
-app.post('/api/stripe/checkout', async (req, res, next) => {
-  try {
-    const { leadId, tier } = req.body;
-
-    // Validate required fields
-    if (!leadId || !tier) {
-      return res.status(400).json({ error: 'leadId and tier are required' });
-    }
-
-    // Get the price ID from environment variable based on tier
-    const priceIdEnvVar = `STRIPE_TIER${tier}_PRICE_ID`;
-    const priceId = process.env[priceIdEnvVar];
-
-    if (!priceId) {
-      return res.status(400).json({
-        error: `Price ID not configured for tier ${tier}. Expected env var: ${priceIdEnvVar}`
-      });
-    }
-
-    // Create Stripe Checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        leadId: String(leadId),
-        tier: String(tier),
-      },
-      success_url: process.env.STRIPE_SUCCESS_URL || `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: process.env.STRIPE_CANCEL_URL || `${req.headers.origin}/cancel`,
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    next(internalError('Failed to create checkout session', error as Error));
-  }
-});
 
 // Health check endpoints
 app.get('/api/health', async (req, res, next) => {
