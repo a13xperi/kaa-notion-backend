@@ -205,3 +205,21 @@ export {
   type AvailabilityQuery,
   type WorkingHours,
 } from './calendarService';
+
+// Cache Service - Redis/Memory caching
+export {
+  initCacheService,
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  cacheInvalidateTag,
+  cacheClear,
+  cacheStats,
+  isCacheAvailable,
+  withCache,
+  CacheKeys,
+  CacheTags,
+  type CacheConfig,
+  type CacheOptions,
+  type CacheStats,
+} from './cacheService';

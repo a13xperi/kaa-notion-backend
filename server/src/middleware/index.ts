@@ -80,3 +80,29 @@ export {
   recordFailedAttempt,
   clearFailedAttempts,
 } from './loginProtection';
+
+// Cache Middleware
+export {
+  routeCache,
+  invalidateCache,
+  publicCache,
+  userCache,
+  statsCache,
+  projectListCache,
+  noCache,
+  type RouteCacheOptions,
+} from './cacheMiddleware';
+
+// Compression Middleware
+export {
+  createCompressionMiddleware,
+  compressionMiddleware,
+  jsonOptimizer,
+  etagMiddleware,
+  responseTimeMiddleware,
+  trackResponseSize,
+  getCompressionStats,
+  resetCompressionStats,
+  generateETag,
+  type CompressionConfig,
+} from './compression';
