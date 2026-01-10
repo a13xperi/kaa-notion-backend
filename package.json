@@ -2,6 +2,12 @@
   "name": "sage-mvp-platform",
   "version": "1.0.0",
   "description": "SAGE MVP Platform - Tiered landscape architecture services",
+  "private": true,
+  "workspaces": [
+    "kaa-app",
+    "server",
+    "shared"
+  ],
   "scripts": {
     "quickstart": "bash scripts/quickstart.sh",
     "dev": "concurrently \"cd server && npm run dev\" \"cd kaa-app && npm start\"",
