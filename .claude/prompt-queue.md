@@ -103,7 +103,7 @@
 ## Phase 6: Notion Sync
 
 ### 6.1 Sync Infrastructure
-- [ ] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
+- [x] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
 - [ ] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
 
 ### 6.2 Entity Sync
@@ -230,6 +230,7 @@
 - [x] `new-component`: ClientsTable - Avatar, tier badge, project count, Stripe status, view projects action
 - [x] `new-component`: TierOverrideModal - Tier selection cards, reason with suggestions, validation, submit state
 - [x] `new-component`: LeadReviewPanel - Header with status, contact info, tier card with confidence meter, intake data, status actions, convert button
+- [x] `new-service`: notionSyncQueue.ts - Queue with rate limiter, retry logic, entity sync handlers, job persistence
 
 ---
 
