@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { syncProjectToNotion } from './notionProjectSync';
+import { syncMilestoneToNotion } from './notionMilestoneSync';
 
 /**
  * Notion Sync Queue Service
@@ -425,12 +426,8 @@ class NotionSyncQueue {
     milestone: any,
     operation: SyncOperation
   ): Promise<string | undefined> {
-    // TODO: Implement Notion API call
-    // - Add/update milestone block in project page
-
-    console.log(`[NotionSync] ${operation} milestone: ${milestone.name} (${milestone.id})`);
-
-    return `notion-milestone-${milestone.id}`;
+    // Use the actual Notion sync implementation
+    return syncMilestoneToNotion(milestone.id, operation);
   }
 
   private async createOrUpdateNotionDeliverable(
