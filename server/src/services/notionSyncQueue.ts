@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma';
 import { syncProjectToNotion } from './notionProjectSync';
 import { syncMilestoneToNotion } from './notionMilestoneSync';
+import { syncDeliverableToNotion } from './notionDeliverableSync';
 
 /**
  * Notion Sync Queue Service
@@ -434,14 +435,8 @@ class NotionSyncQueue {
     deliverable: any,
     operation: SyncOperation
   ): Promise<string | undefined> {
-    // TODO: Implement Notion API call
-    // - CREATE: Create showcase page for deliverable
-    // - UPDATE: Update page properties
-    // - DELETE: Archive the page
-
-    console.log(`[NotionSync] ${operation} deliverable: ${deliverable.name} (${deliverable.id})`);
-
-    return deliverable.notionPageId || `notion-deliverable-${deliverable.id}`;
+    // Use the actual Notion sync implementation
+    return syncDeliverableToNotion(deliverable.id, operation);
   }
 
   private async createOrUpdateNotionLead(
