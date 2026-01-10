@@ -1,0 +1,162 @@
+/**
+ * Loading Button Styles
+ */
+
+.loading-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.loading-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.loading-button--sm {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+}
+
+.loading-button--md {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.loading-button--lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* Full width */
+.loading-button--full {
+  width: 100%;
+}
+
+/* Variants */
+.loading-button--primary {
+  background: #2563eb;
+  color: white;
+}
+
+.loading-button--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.loading-button--primary:active:not(:disabled) {
+  background: #1e40af;
+}
+
+.loading-button--secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.loading-button--secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.loading-button--secondary:active:not(:disabled) {
+  background: #d1d5db;
+}
+
+.loading-button--danger {
+  background: #ef4444;
+  color: white;
+}
+
+.loading-button--danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.loading-button--danger:active:not(:disabled) {
+  background: #b91c1c;
+}
+
+.loading-button--ghost {
+  background: transparent;
+  color: #374151;
+}
+
+.loading-button--ghost:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.loading-button--ghost:active:not(:disabled) {
+  background: #e5e7eb;
+}
+
+/* Icon */
+.loading-button__icon {
+  display: flex;
+  align-items: center;
+  font-size: 1.125em;
+}
+
+/* Spinner */
+.loading-button__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: buttonSpin 0.8s linear infinite;
+  opacity: 0.8;
+}
+
+@keyframes buttonSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Loading state */
+.loading-button--loading {
+  position: relative;
+}
+
+/* Focus ring */
+.loading-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+}
+
+.loading-button--danger:focus-visible {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .loading-button--secondary {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .loading-button--secondary:hover:not(:disabled) {
+    background: #4b5563;
+  }
+
+  .loading-button--secondary:active:not(:disabled) {
+    background: #6b7280;
+  }
+
+  .loading-button--ghost {
+    color: #d1d5db;
+  }
+
+  .loading-button--ghost:hover:not(:disabled) {
+    background: #374151;
+  }
+
+  .loading-button--ghost:active:not(:disabled) {
+    background: #4b5563;
+  }
+}

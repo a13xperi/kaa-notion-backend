@@ -123,6 +123,130 @@ import {
 
 ---
 
+### Modal
+
+Reusable modal dialog with overlay, customizable sizes, and keyboard support.
+
+```tsx
+import { Modal } from './components/common';
+
+const [isOpen, setIsOpen] = useState(false);
+
+<Modal
+  isOpen={isOpen}
+  onClose={() => setIsOpen(false)}
+  title="Edit Profile"
+  size="md"
+  footer={
+    <>
+      <button onClick={() => setIsOpen(false)}>Cancel</button>
+      <button onClick={handleSave}>Save</button>
+    </>
+  }
+>
+  <form>
+    {/* Modal content */}
+  </form>
+</Modal>
+```
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| isOpen | boolean | - | Controls modal visibility |
+| onClose | () => void | - | Called when modal should close |
+| title | string | - | Modal header title |
+| children | ReactNode | - | Modal body content |
+| size | 'sm' \| 'md' \| 'lg' \| 'xl' \| 'full' | 'md' | Modal size |
+| closeOnOverlay | boolean | true | Close when overlay clicked |
+| closeOnEscape | boolean | true | Close when Escape pressed |
+| showCloseButton | boolean | true | Show X button in header |
+| footer | ReactNode | - | Footer content (buttons) |
+| className | string | '' | Additional CSS class |
+
+---
+
+### ConfirmDialog
+
+Confirmation dialog with variants for different action types.
+
+```tsx
+import { ConfirmDialog } from './components/common';
+
+const [showConfirm, setShowConfirm] = useState(false);
+
+<ConfirmDialog
+  isOpen={showConfirm}
+  onClose={() => setShowConfirm(false)}
+  onConfirm={async () => {
+    await deleteItem();
+  }}
+  title="Delete Item?"
+  message="This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Keep"
+  variant="danger"
+/>
+```
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| isOpen | boolean | - | Controls dialog visibility |
+| onClose | () => void | - | Called when cancelled |
+| onConfirm | () => void \| Promise<void> | - | Called when confirmed |
+| title | string | - | Dialog title |
+| message | string | - | Confirmation message |
+| confirmText | string | 'Confirm' | Confirm button text |
+| cancelText | string | 'Cancel' | Cancel button text |
+| variant | 'info' \| 'warning' \| 'danger' | 'info' | Visual style variant |
+| isLoading | boolean | - | External loading state |
+
+---
+
+### LoadingButton
+
+Button with loading state, spinner, and multiple variants.
+
+```tsx
+import { LoadingButton } from './components/common';
+
+<LoadingButton
+  onClick={handleSubmit}
+  isLoading={isSubmitting}
+  loadingText="Saving..."
+  variant="primary"
+  size="md"
+>
+  Save Changes
+</LoadingButton>
+
+// With icons
+<LoadingButton leftIcon={<PlusIcon />}>
+  Add Item
+</LoadingButton>
+
+// Full width
+<LoadingButton fullWidth variant="primary">
+  Continue
+</LoadingButton>
+```
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| isLoading | boolean | false | Shows spinner |
+| loadingText | string | - | Text while loading |
+| variant | 'primary' \| 'secondary' \| 'danger' \| 'ghost' | 'primary' | Visual style |
+| size | 'sm' \| 'md' \| 'lg' | 'md' | Button size |
+| fullWidth | boolean | false | Full container width |
+| leftIcon | ReactNode | - | Icon before text |
+| rightIcon | ReactNode | - | Icon after text |
+| children | ReactNode | - | Button label |
+| ...props | ButtonHTMLAttributes | - | Standard button props |
+
+---
+
 ## Auth Components
 
 ### LoginForm

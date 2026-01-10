@@ -305,6 +305,13 @@
 - [x] `test`: Skeleton.test.tsx - 24 tests for all skeleton variants
 - [x] `test`: Toast.test.tsx - 22 tests for toast provider and notifications
 - [x] `test`: NotFoundPage.test.tsx - 16 tests for 404 page functionality
+- [x] `new-component`: Modal - Reusable modal dialog with overlay, sizes, keyboard/click handling
+- [x] `new-component`: ConfirmDialog - Confirmation dialog with variants (info, warning, danger)
+- [x] `new-component`: LoadingButton - Button with loading state, spinner, variants, sizes
+- [x] `new-styles`: Modal.css, ConfirmDialog.css, LoadingButton.css - Component styles
+- [x] `test`: Modal.test.tsx - 15 tests for modal open/close, keyboard, overlay behavior
+- [x] `test`: ConfirmDialog.test.tsx - 15 tests for confirm/cancel actions, variants, loading
+- [x] `test`: LoadingButton.test.tsx - 26 tests for variants, sizes, icons, loading state
 
 ### 2025-01-09
 - [x] Initial project setup

@@ -18,3 +18,6 @@ export {
   SkeletonList,
   SkeletonStats,
 } from './Skeleton';
+export { Modal } from './Modal';
+export { ConfirmDialog } from './ConfirmDialog';
+export { LoadingButton } from './LoadingButton';
