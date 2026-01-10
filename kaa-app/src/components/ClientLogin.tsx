@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import logger from '../utils/logger';
+import { identifyUser, trackEvent } from '../utils/posthog';
 import './ClientLogin.css';
 
 interface ClientLoginProps {
@@ -17,6 +18,11 @@ const ClientLogin: React.FC<ClientLoginProps> = ({ onLogin, onBack, onQuickAcces
   const handleQuickAccess = () => {
     // Bypass login and go straight to client portal
     logger.info('[ClientLogin] Quick access: Bypassing login and verification');
+
+    // Track quick access event and identify user
+    identifyUser('demo-client', { user_type: 'client', login_method: 'quick_access' });
+    trackEvent('client_quick_access');
+
     if (onQuickAccess) {
       onQuickAccess();
     } else {
@@ -34,6 +40,13 @@ const ClientLogin: React.FC<ClientLoginProps> = ({ onLogin, onBack, onQuickAcces
       // Demo mode: Auto-accept demo123 password without backend validation
       if (password.trim() === 'demo123') {
         logger.info('[ClientLogin] Demo mode: Auto-accepting credentials');
+        // Track demo login and identify user
+        identifyUser(`client-${address.trim().toLowerCase().replace(/\s+/g, '-')}`, {
+          user_type: 'client',
+          login_method: 'demo',
+          project_address: address.trim(),
+        });
+        trackEvent('client_login', { login_method: 'demo' });
         onLogin(address.trim(), password.trim());
         return;
       }
@@ -59,6 +72,13 @@ const ClientLogin: React.FC<ClientLoginProps> = ({ onLogin, onBack, onQuickAcces
         if (response.ok) {
           const data = await response.json();
           if (data.verified) {
+            // Track successful login and identify user
+            identifyUser(`client-${address.trim().toLowerCase().replace(/\s+/g, '-')}`, {
+              user_type: 'client',
+              login_method: 'production',
+              project_address: address.trim(),
+            });
+            trackEvent('client_login', { login_method: 'production' });
             onLogin(address.trim(), password.trim());
           } else {
             setError('Invalid address or password. Please try again.');
