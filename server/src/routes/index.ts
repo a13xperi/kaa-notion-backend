@@ -3,7 +3,7 @@
  * Central export point for all API route modules.
  */
 
-export { createProjectsRouter, requireAuth, requireAdmin } from './projects';
+export { createProjectsRouter } from './projects';
 export { createMilestonesRouter } from './milestones';
 export { createDeliverablesRouter } from './deliverables';
 export { createAdminRouter } from './admin';

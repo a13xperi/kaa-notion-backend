@@ -32,6 +32,7 @@ import {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  requireAuth,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -178,11 +179,12 @@ if (features.apiDocsEnabled) {
 }
 
 // API Routes with Rate Limiting
-app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+const apiAuth = requireAuth(prisma);
+app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
+app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
+app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
