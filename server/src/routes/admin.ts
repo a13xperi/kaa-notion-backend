@@ -11,7 +11,9 @@
 
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { Client as NotionClient } from '@notionhq/client';
 import { AuthenticatedRequest, requireAuth, requireAdmin } from './projects';
+import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -589,6 +591,244 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       });
     }
   });
+
+  // -------------------------------------------------------------------------
+  // GET /api/admin/sync/health - Notion-Postgres reconciliation health check
+  // -------------------------------------------------------------------------
+  router.get(
+    '/sync/health',
+    requireAuth,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const notionApiKey = process.env.NOTION_API_KEY;
+        const projectsDatabaseId = process.env.NOTION_PROJECTS_DATABASE_ID;
+
+        if (!notionApiKey) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Notion API not configured',
+            },
+          });
+        }
+
+        if (!projectsDatabaseId) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Notion projects database ID not configured',
+            },
+          });
+        }
+
+        const notion = new NotionClient({ auth: notionApiKey });
+
+        const comparison = {
+          timestamp: new Date().toISOString(),
+          projects: {
+            postgres: {
+              total: 0,
+              withNotionLink: 0,
+              withoutNotionLink: 0,
+            },
+            notion: {
+              total: 0,
+              linked: 0,
+              unlinked: 0,
+            },
+            discrepancies: [] as Array<{
+              projectId: string;
+              notionPageId: string;
+              issues: Array<{
+                field: string;
+                postgres?: string;
+                notion?: string;
+                error?: string;
+                message?: string;
+                timeDiffSeconds?: number;
+              }>;
+            }>,
+          },
+          syncStatus: 'unknown' as string,
+        };
+
+        // Get all projects from Postgres
+        const postgresProjects = await prisma.project.findMany({
+          where: {
+            notionPageId: { not: null },
+          },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            notionPageId: true,
+            updatedAt: true,
+            tier: true,
+          },
+        });
+
+        comparison.projects.postgres.total = await prisma.project.count();
+        comparison.projects.postgres.withNotionLink = postgresProjects.length;
+        comparison.projects.postgres.withoutNotionLink =
+          comparison.projects.postgres.total - postgresProjects.length;
+
+        // Compare with Notion if database ID is configured
+        try {
+          const notionPages = await (notion as any).databases.query({
+            database_id: projectsDatabaseId,
+            page_size: 100, // Limit for performance
+          });
+
+          comparison.projects.notion.total = notionPages.results.length;
+
+          // Compare each project
+          for (const project of postgresProjects) {
+            if (!project.notionPageId) continue;
+
+            try {
+              const notionPage = await notion.pages.retrieve({
+                page_id: project.notionPageId,
+              });
+              const notionTitle = getPageTitle(notionPage);
+              const properties = (notionPage as any).properties || {};
+              const notionStatus = properties.Status?.select?.name;
+              const mappedNotionStatus = mapNotionStatusToPostgres(notionStatus);
+
+              const discrepancy: {
+                projectId: string;
+                notionPageId: string;
+                issues: Array<{
+                  field: string;
+                  postgres?: string;
+                  notion?: string;
+                  timeDiffSeconds?: number;
+                  error?: string;
+                  message?: string;
+                }>;
+              } = {
+                projectId: project.id,
+                notionPageId: project.notionPageId,
+                issues: [],
+              };
+
+              // Check for name mismatch
+              if (notionTitle && notionTitle !== 'Untitled' && notionTitle !== project.name) {
+                discrepancy.issues.push({
+                  field: 'name',
+                  postgres: project.name,
+                  notion: notionTitle,
+                });
+              }
+
+              // Check for status mismatch
+              if (mappedNotionStatus && mappedNotionStatus !== project.status) {
+                discrepancy.issues.push({
+                  field: 'status',
+                  postgres: project.status,
+                  notion: mappedNotionStatus,
+                });
+              }
+
+              // Check timestamp (Notion should be newer or equal if synced)
+              const notionTimestamp = new Date((notionPage as any).last_edited_time);
+              const postgresTimestamp = new Date(project.updatedAt);
+
+              // If Notion is significantly newer (> 1 minute), might need sync
+              const timeDiff = notionTimestamp.getTime() - postgresTimestamp.getTime();
+              if (timeDiff > 60000) {
+                // 1 minute threshold
+                discrepancy.issues.push({
+                  field: 'timestamp',
+                  postgres: project.updatedAt.toISOString(),
+                  notion: (notionPage as any).last_edited_time,
+                  timeDiffSeconds: Math.floor(timeDiff / 1000),
+                });
+              }
+
+              if (discrepancy.issues.length > 0) {
+                comparison.projects.discrepancies.push(discrepancy);
+              } else {
+                comparison.projects.notion.linked++;
+              }
+            } catch (notionError) {
+              // Notion page not found or inaccessible
+              comparison.projects.discrepancies.push({
+                projectId: project.id,
+                notionPageId: project.notionPageId,
+                issues: [
+                  {
+                    field: 'notion_access',
+                    error: 'Notion page not found or inaccessible',
+                    message: (notionError as Error).message,
+                  },
+                ],
+              });
+            }
+          }
+
+          comparison.projects.notion.unlinked =
+            comparison.projects.notion.total - comparison.projects.notion.linked;
+
+          // Determine sync status
+          const discrepancyCount = comparison.projects.discrepancies.length;
+          const totalLinked = comparison.projects.notion.linked;
+          const totalWithIssues =
+            discrepancyCount + comparison.projects.postgres.withoutNotionLink;
+
+          if (totalWithIssues === 0) {
+            comparison.syncStatus = 'healthy';
+          } else if (
+            totalLinked > 0 &&
+            discrepancyCount / (totalLinked + discrepancyCount) < 0.1
+          ) {
+            comparison.syncStatus = 'mostly_synced'; // Less than 10% discrepancies
+          } else {
+            comparison.syncStatus = 'needs_attention';
+          }
+        } catch (notionError) {
+          logger.error('Error querying Notion database', {
+            error: (notionError as Error).message,
+            databaseId: projectsDatabaseId,
+          });
+          comparison.syncStatus = 'error';
+          comparison.projects.notion.total = -1; // Indicate error
+        }
+
+        // Log audit
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: 'sync_health_check',
+            resourceType: 'sync',
+            details: {
+              syncStatus: comparison.syncStatus,
+              discrepancyCount: comparison.projects.discrepancies.length,
+            },
+          },
+        });
+
+        res.json({
+          success: true,
+          data: comparison,
+        });
+      } catch (error) {
+        logger.error('Error performing sync health check', {
+          error: (error as Error).message,
+        });
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to perform sync health check',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
+    }
+  );
 
   return router;
 }

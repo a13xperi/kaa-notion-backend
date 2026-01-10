@@ -4,7 +4,7 @@
  * Uses the NotionSyncQueue for rate-limited, retry-enabled operations.
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, SyncStatus } from '@prisma/client';
 import {
   NotionSyncQueue,
   SyncOperation,
@@ -12,6 +12,7 @@ import {
   initNotionSync,
   NotionSyncConfig,
 } from './notionSyncQueue';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -85,7 +86,7 @@ export class NotionSyncService {
     await this.prisma.project.update({
       where: { id: project.id },
       data: {
-        syncStatus: 'SYNCING',
+        syncStatus: 'SYNCING' as SyncStatus,
       },
     });
 
@@ -164,7 +165,7 @@ export class NotionSyncService {
       });
 
       if (!project?.notionPageId) {
-        console.log(`Cannot sync milestone ${milestone.id}: project has no Notion page`);
+        logger.debug(`Cannot sync milestone ${milestone.id}: project has no Notion page`);
         return null;
       }
 
@@ -175,7 +176,7 @@ export class NotionSyncService {
     await this.prisma.milestone.update({
       where: { id: milestone.id },
       data: {
-        syncStatus: 'SYNCING',
+        syncStatus: 'SYNCING' as SyncStatus,
       },
     });
 
@@ -221,7 +222,7 @@ export class NotionSyncService {
     });
 
     if (!project?.notionPageId) {
-      console.log(`Cannot sync milestones: project ${projectId} has no Notion page`);
+      logger.debug(`Cannot sync milestones: project ${projectId} has no Notion page`);
       return [];
     }
 
@@ -267,7 +268,7 @@ export class NotionSyncService {
       });
 
       if (!project?.notionPageId) {
-        console.log(`Cannot sync deliverable ${deliverable.id}: project has no Notion page`);
+        logger.debug(`Cannot sync deliverable ${deliverable.id}: project has no Notion page`);
         return null;
       }
 
@@ -278,7 +279,7 @@ export class NotionSyncService {
     await this.prisma.deliverable.update({
       where: { id: deliverable.id },
       data: {
-        syncStatus: 'SYNCING',
+        syncStatus: 'SYNCING' as SyncStatus,
       },
     });
 
@@ -331,7 +332,7 @@ export class NotionSyncService {
     // Sync pending projects
     const pendingProjects = await this.prisma.project.findMany({
       where: {
-        syncStatus: 'PENDING',
+        syncStatus: 'PENDING' as SyncStatus,
         notionPageId: null,
       },
       include: {
@@ -344,13 +345,17 @@ export class NotionSyncService {
     });
 
     for (const project of pendingProjects) {
+      if (!project.client || !project.client.user) {
+        logger.warn('Project missing client or user data', { projectId: project.id });
+        continue;
+      }
       await this.onProjectCreated({
         id: project.id,
         name: project.name,
         tier: project.tier,
         status: project.status,
         notionPageId: project.notionPageId,
-        clientEmail: project.client.user.email,
+        clientEmail: project.client.user.email || '',
         projectAddress: project.client.projectAddress,
         createdAt: project.createdAt,
       });
@@ -360,7 +365,7 @@ export class NotionSyncService {
     // Sync pending milestones (only if project has Notion page)
     const pendingMilestones = await this.prisma.milestone.findMany({
       where: {
-        syncStatus: 'PENDING',
+        syncStatus: 'PENDING' as SyncStatus,
         project: {
           notionPageId: { not: null },
         },
@@ -371,6 +376,10 @@ export class NotionSyncService {
     });
 
     for (const milestone of pendingMilestones) {
+      if (!milestone.project) {
+        logger.warn('Milestone missing project data', { milestoneId: milestone.id });
+        continue;
+      }
       await this.syncMilestone({
         id: milestone.id,
         projectId: milestone.projectId,
@@ -387,7 +396,7 @@ export class NotionSyncService {
     // Sync pending deliverables
     const pendingDeliverables = await this.prisma.deliverable.findMany({
       where: {
-        syncStatus: 'PENDING',
+        syncStatus: 'PENDING' as SyncStatus,
         project: {
           notionPageId: { not: null },
         },
@@ -423,22 +432,22 @@ export class NotionSyncService {
 
     // Reset failed projects to pending
     const failedProjects = await this.prisma.project.updateMany({
-      where: { syncStatus: 'FAILED' },
-      data: { syncStatus: 'PENDING' },
+      where: { syncStatus: 'FAILED' as SyncStatus },
+      data: { syncStatus: 'PENDING' as SyncStatus },
     });
     count += failedProjects.count;
 
     // Reset failed milestones
     const failedMilestones = await this.prisma.milestone.updateMany({
-      where: { syncStatus: 'FAILED' },
-      data: { syncStatus: 'PENDING' },
+      where: { syncStatus: 'FAILED' as SyncStatus },
+      data: { syncStatus: 'PENDING' as SyncStatus },
     });
     count += failedMilestones.count;
 
     // Reset failed deliverables
     const failedDeliverables = await this.prisma.deliverable.updateMany({
-      where: { syncStatus: 'FAILED' },
-      data: { syncStatus: 'PENDING' },
+      where: { syncStatus: 'FAILED' as SyncStatus },
+      data: { syncStatus: 'PENDING' as SyncStatus },
     });
     count += failedDeliverables.count;
 
@@ -492,7 +501,7 @@ export class NotionSyncService {
     notionPageId?: string
   ): Promise<void> {
     const updateData: Record<string, unknown> = {
-      syncStatus: 'SYNCED',
+      syncStatus: 'SYNCED' as SyncStatus,
       lastSyncedAt: new Date(),
     };
 
@@ -536,7 +545,7 @@ export class NotionSyncService {
         await this.prisma.project.update({
           where: { id: entityId },
           data: {
-            syncStatus: 'FAILED',
+            syncStatus: 'FAILED' as SyncStatus,
             syncError: error,
           },
         });
@@ -545,7 +554,7 @@ export class NotionSyncService {
         await this.prisma.milestone.update({
           where: { id: entityId },
           data: {
-            syncStatus: 'FAILED',
+            syncStatus: 'FAILED' as SyncStatus,
           },
         });
         break;
@@ -553,7 +562,7 @@ export class NotionSyncService {
         await this.prisma.deliverable.update({
           where: { id: entityId },
           data: {
-            syncStatus: 'FAILED',
+            syncStatus: 'FAILED' as SyncStatus,
           },
         });
         break;

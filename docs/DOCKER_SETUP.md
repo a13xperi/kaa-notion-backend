@@ -6,92 +6,23 @@ This guide covers Docker configuration for the SAGE MVP Platform.
 
 ### Development Mode (with hot reload)
 
-```bash
-# Start all services in development mode
-docker compose -f docker-compose.dev.yml up
+Use the Docker development commands listed in [COMMANDS.md](./COMMANDS.md).
 
-# Start with database admin tools
-docker compose -f docker-compose.dev.yml --profile tools up
-
-# Run database migrations
-docker compose -f docker-compose.dev.yml exec backend npx prisma migrate dev
-
-# Seed the database
-docker compose -f docker-compose.dev.yml exec backend npx prisma db seed
-```
-
-**Access Points:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- WebSocket: ws://localhost:3002
-- Adminer (DB UI): http://localhost:8080 (with `--profile tools`)
-- MailHog (Email): http://localhost:8025 (with `--profile tools`)
+See [Development Environments](./DEV_ENVIRONMENTS.md#docker-development) for Docker dev access points and local alternatives.
 
 ### Production Mode
 
-```bash
-# Build and start all services
-docker compose up -d --build
-
-# Run migrations (first time only)
-docker compose --profile migrate up migrate
-
-# Seed demo data (optional)
-docker compose --profile seed up seed
-
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-```
+Use the Docker production commands listed in [COMMANDS.md](./COMMANDS.md).
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root by copying the canonical template:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://postgres:postgres@db:5432/sage?schema=public
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your-secure-password
-POSTGRES_DB=sage
-
-# JWT Authentication
-JWT_SECRET=your-super-secret-jwt-key-min-32-chars
-JWT_EXPIRES_IN=7d
-
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_SUCCESS_URL=https://yourdomain.com/success
-STRIPE_CANCEL_URL=https://yourdomain.com/cancel
-
-# Email (choose one)
-RESEND_API_KEY=re_...
-# OR
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-EMAIL_FROM=SAGE <hello@sage.design>
-EMAIL_REPLY_TO=support@sage.design
-
-# Notion (optional)
-NOTION_API_KEY=ntn_...
-NOTION_PROJECTS_DATABASE_ID=...
-
-# Supabase Storage (optional)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=...
-STORAGE_BUCKET=deliverables
-
-# Frontend
-REACT_APP_API_URL=https://api.yourdomain.com/api
-FRONTEND_URL=https://yourdomain.com
+cp env.example .env
 ```
+
+For the complete list of variables (including Docker/Postgres defaults), see [ENVIRONMENT_REFERENCE.md](./ENVIRONMENT_REFERENCE.md). `env.example` remains the canonical superset of required variables.
 
 ## Architecture
 
@@ -175,6 +106,7 @@ docker compose down -v
 # Clean build (no cache)
 docker compose build --no-cache
 ```
+See the common Docker operations in [COMMANDS.md](./COMMANDS.md).
 
 See [Testing Strategy](./TESTING_STRATEGY.md) for test prerequisites and command mappings.
 
@@ -182,13 +114,7 @@ See [Testing Strategy](./TESTING_STRATEGY.md) for test prerequisites and command
 
 ### 1. Build Images
 
-```bash
-# Build with production settings
-docker compose -f docker-compose.yml build
-
-# Or build for specific platform
-docker compose build --platform linux/amd64
-```
+Use the Docker build commands in [COMMANDS.md](./COMMANDS.md).
 
 ### 2. Push to Registry
 
@@ -204,66 +130,27 @@ docker push your-registry/sage-backend:v1.0.0
 
 ### 3. Deploy
 
-```bash
-# Pull and run
-docker compose pull
-docker compose up -d
-
-# Or with custom env file
-docker compose --env-file .env.production up -d
-```
+Use the Docker deploy commands in [COMMANDS.md](./COMMANDS.md).
 
 ## Health Checks
 
 All containers include health checks:
 
-```bash
-# Check container health
-docker compose ps
-
-# Manual health check
-curl http://localhost:3001/api/health
-curl http://localhost:3000/health
-```
+See the command list in [COMMANDS.md](./COMMANDS.md) for health check commands.
 
 ## Troubleshooting
 
 ### Container won't start
 
-```bash
-# Check logs
-docker compose logs backend
-
-# Check if port is in use
-lsof -i :3001
-
-# Rebuild from scratch
-docker compose down -v
-docker compose build --no-cache
-docker compose up
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for troubleshooting commands.
 
 ### Database connection issues
 
-```bash
-# Check database is healthy
-docker compose exec db pg_isready -U postgres
-
-# Reset database
-docker compose down -v
-docker compose up db -d
-docker compose --profile migrate up migrate
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for database troubleshooting commands.
 
 ### Frontend build fails
 
-```bash
-# Check build logs
-docker compose build frontend 2>&1 | tee build.log
-
-# Build with more memory
-DOCKER_BUILDKIT=1 docker compose build frontend
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for build troubleshooting commands.
 
 ## Resource Limits (Optional)
 

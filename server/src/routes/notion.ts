@@ -4,8 +4,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getNotionSyncService, NotionSyncService } from '../services';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -122,7 +123,10 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      console.error('Error getting sync status:', error);
+      logger.error('Error getting sync status', {
+        error: (error as Error).message,
+        correlationId: req.correlationId,
+      });
       return res.status(500).json({
         success: false,
         error: {
@@ -171,7 +175,10 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      console.error('Error triggering sync:', error);
+      logger.error('Error triggering sync', {
+        error: (error as Error).message,
+        correlationId: req.correlationId,
+      });
       return res.status(500).json({
         success: false,
         error: {
@@ -220,7 +227,10 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      console.error('Error retrying failed syncs:', error);
+      logger.error('Error retrying failed syncs', {
+        error: (error as Error).message,
+        correlationId: req.correlationId,
+      });
       return res.status(500).json({
         success: false,
         error: {
@@ -235,9 +245,9 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // POST /api/notion/sync/project/:id - Manually sync a specific project
   // ============================================================================
   router.post('/sync/project/:id', requireAdmin, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
     try {
-      const { id } = req.params;
-
       let syncService: NotionSyncService;
       try {
         syncService = getNotionSyncService();
@@ -299,7 +309,11 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      console.error('Error syncing project:', error);
+      logger.error('Error syncing project', {
+        error: (error as Error).message,
+        correlationId: req.correlationId,
+        projectId: id,
+      });
       return res.status(500).json({
         success: false,
         error: {
@@ -317,7 +331,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
     try {
       const [projects, milestones, deliverables] = await Promise.all([
         prisma.project.findMany({
-          where: { syncStatus: 'FAILED' },
+          where: { syncStatus: 'FAILED' as SyncStatus },
           select: {
             id: true,
             name: true,
@@ -326,7 +340,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
           },
         }),
         prisma.milestone.findMany({
-          where: { syncStatus: 'FAILED' },
+          where: { syncStatus: 'FAILED' as SyncStatus },
           select: {
             id: true,
             name: true,
@@ -334,7 +348,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
           },
         }),
         prisma.deliverable.findMany({
-          where: { syncStatus: 'FAILED' },
+          where: { syncStatus: 'FAILED' as SyncStatus },
           select: {
             id: true,
             name: true,
@@ -362,7 +376,10 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      console.error('Error getting failed syncs:', error);
+      logger.error('Error getting failed syncs', {
+        error: (error as Error).message,
+        correlationId: req.correlationId,
+      });
       return res.status(500).json({
         success: false,
         error: {
