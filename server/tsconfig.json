@@ -2,10 +2,11 @@
   "compilerOptions": {
     "target": "es2020",
     "module": "commonjs",
-    "lib": ["es2020"],
+    "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+    "noImplicitAny": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,30 +16,11 @@
     "sourceMap": true,
     "inlineSourceMap": false,
     "baseUrl": ".",
+    "types": ["node", "jest"],
     "paths": {
       "@prisma/client": ["../node_modules/@prisma/client"]
     }
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "**/*.test.ts",
-    "src/services/metricsService.ts",
-    "src/services/subscriptionService.ts",
-    "src/services/cacheService.ts",
-    "src/services/prismaAdapter.ts",
-    "src/services/notionLeadSync.ts",
-    "src/services/notionMilestoneSync.ts",
-    "src/services/notionDeliverableSync.ts",
-    "src/services/notionProjectSync.ts",
-    "src/routes/analytics.ts",
-    "src/routes/subscriptionRoutes.ts",
-    "src/routes/revisions.ts",
-    "src/routes/referralRoutes.ts",
-    "src/routes/push.ts",
-    "src/routes/portfolioRoutes.ts",
-    "src/routes/notifications.ts",
-    "src/routes/messages.ts",
-    "src/routes/passwordReset.ts"
-  ]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/__tests__/**/*"]
 } 

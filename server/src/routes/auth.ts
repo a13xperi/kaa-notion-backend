@@ -48,6 +48,11 @@ const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+// Type aliases for validated input
+type RegisterInput = z.infer<typeof registerSchema>;
+type LoginInput = z.infer<typeof loginSchema>;
+type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+
 // ============================================================================
 // INTERFACES
 // ============================================================================

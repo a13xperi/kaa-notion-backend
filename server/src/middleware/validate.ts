@@ -70,9 +70,9 @@ export function getErrorMessages(error: ZodError): string[] {
 }
 
 /**
- * Get the first error message (local copy)
+ * Get the first error message
  */
-function getFirstErrorLocal(error: ZodError): string {
+export function getFirstError(error: ZodError): string {
   const firstIssue = error.issues[0];
   if (!firstIssue) return 'Validation failed';
 
@@ -137,7 +137,7 @@ export function validateBody<T extends z.ZodSchema>(
         firstError = getFirstError(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
+        firstError = getFirstError(result.error);
       }
 
       const message = errorPrefix
@@ -181,7 +181,7 @@ export function validateQuery<T extends z.ZodSchema>(
         firstError = getFirstError(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
+        firstError = getFirstError(result.error);
       }
 
       const message = errorPrefix
@@ -225,7 +225,7 @@ export function validateParams<T extends z.ZodSchema>(
         firstError = getFirstError(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
+        firstError = getFirstError(result.error);
       }
 
       const message = errorPrefix

@@ -53,11 +53,8 @@
     "node-fetch": "^2.7.0",
     "nodemailer": "^7.0.7",
     "openai": "^4.104.0",
-<<<<<<< HEAD
+    "resend": "^6.7.0",
     "stripe": "^17.5.0"
-=======
-    "resend": "^6.7.0"
->>>>>>> origin/claude/switch-emails-gmail-resend-ujJqi
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
