@@ -2,5 +2,26 @@
   "maxIterations": 30,
   "completionPromise": "RALPH_COMPLETE",
   "model": "claude-sonnet-4-20250514",
-  "notes": "Edit PROMPT.md with your task. Run ./ralph start"
+
+  "circuitBreaker": {
+    "noProgressThreshold": 4,
+    "sameErrorThreshold": 5,
+    "testOnlyThreshold": 5,
+    "outputDeclineThreshold": 70,
+    "consecutiveFailures": 3
+  },
+
+  "safety": {
+    "createCheckpoints": true,
+    "maxCheckpoints": 10,
+    "timeoutSeconds": 300
+  },
+
+  "costs": {
+    "estimatedPerIteration": 1.50,
+    "budgetWarningAt": 50,
+    "budgetStopAt": 100
+  },
+
+  "documentation": "https://awesomeclaude.ai/ralph-wiggum"
 }

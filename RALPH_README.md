@@ -1,6 +1,6 @@
-# RALPH - Multi-Agent Platform Orchestrator
+# RALPH - Production-Grade Autonomous Loop
 
-Run autonomous AI loops across your entire platform.
+Run Claude Code autonomously with circuit breakers, error detection, and safety mechanisms.
 
 ```
   ╦═╗╔═╗╦  ╔═╗╦ ╦
@@ -8,7 +8,40 @@ Run autonomous AI loops across your entire platform.
   ╩╚═╩ ╩╩═╝╩  ╩ ╩
 ```
 
-**Your Stack:** Warp + Cursor + Claude Code + Codex
+**Stack:** Warp + Cursor + Claude Code + Codex
+
+---
+
+## Safety Features
+
+| Feature | Description |
+|---------|-------------|
+| **Circuit Breaker** | Stops loop when stuck (no progress, same error, test-only) |
+| **Two-Stage Error Detection** | Filters false positives from JSON fields |
+| **Progress Monitoring** | Tracks file changes to detect stalls |
+| **Checkpointing** | Saves state every iteration for recovery |
+| **Max Iterations** | Hard limit prevents runaway costs |
+| **Manual Stop** | `./ralph stop` or create `.ralph-stop` file |
+
+---
+
+## Quick Start
+
+```bash
+# 1. Create task
+./ralph new                  # Interactive wizard
+# OR
+./ralph zone frontend        # Quick zone prompt
+
+# 2. Customize (optional)
+./ralph edit                 # Opens in Cursor
+
+# 3. Run
+./ralph start 30             # 30 iterations max
+
+# 4. Monitor
+./ralph watch                # Live activity feed
+```
 
 ---
 
@@ -20,30 +53,7 @@ Run autonomous AI loops across your entire platform.
 | `backend` | server/ | Express, Prisma, Node.js |
 | `database` | prisma/ | PostgreSQL, Supabase |
 | `tests` | tests/ | Jest, Playwright |
-| `fullstack` | ./ | All of the above |
-
----
-
-## Quick Start
-
-### Option 1: Interactive (Recommended)
-```bash
-./ralph new
-```
-Select zone → Describe task → Start
-
-### Option 2: Quick Zone
-```bash
-./ralph zone frontend        # Generate prompt for zone
-./ralph edit                 # Customize in Cursor
-./ralph start 30             # Run 30 iterations
-```
-
-### Option 3: Parallel (Advanced)
-```bash
-./ralph parallel frontend backend
-```
-Runs both zones simultaneously in tmux.
+| `fullstack` | ./ | End-to-end features |
 
 ---
 
@@ -52,16 +62,16 @@ Runs both zones simultaneously in tmux.
 ```
 TASK CREATION
   ./ralph new              Interactive wizard
-  ./ralph zone <zone>      Quick: frontend|backend|database|tests|fullstack
+  ./ralph zone <zone>      Quick zone prompt
   ./ralph edit             Edit PROMPT.md in Cursor
 
 EXECUTION
   ./ralph start [N]        Start with N iterations (default: 30)
-  ./ralph parallel <zones> Run multiple zones in parallel
+  ./ralph parallel <zones> Run zones in parallel (tmux)
   ./ralph stop             Stop gracefully
 
 MONITORING
-  ./ralph status           Current state
+  ./ralph status           Current state + circuit breaker info
   ./ralph watch            Live activity feed
   ./ralph logs [N]         Last N log entries
   ./ralph dashboard        Auto-refresh status
@@ -73,100 +83,136 @@ UTILITIES
 
 ---
 
-## Workflows
+## Circuit Breaker
 
-### Single Zone
+The circuit breaker prevents infinite loops and wasted API costs.
 
-**Frontend:**
-```bash
-./ralph zone frontend
-# Edit PROMPT.md: "Build user profile page with avatar upload"
-./ralph start 25
-```
+### Thresholds (configurable in `.ralph.json`)
 
-**Backend:**
-```bash
-./ralph zone backend
-# Edit: "Create CRUD endpoints for milestones"
-./ralph start 20
-```
+| Threshold | Default | Triggers When |
+|-----------|---------|---------------|
+| `noProgressThreshold` | 4 | No file changes for N iterations |
+| `sameErrorThreshold` | 5 | Same error repeated N times |
+| `testOnlyThreshold` | 5 | Only running tests, no code changes |
+| `consecutiveFailures` | 3 | Response quality declining |
 
-**Full-Stack:**
-```bash
-./ralph new
-# Select: fullstack
-# Describe: "Add notifications with email + in-app"
-./ralph start 50
-```
+### When Circuit Breaker Trips
 
-### Parallel Zones
+Ralph stops and provides detailed guidance:
+- What triggered the breaker
+- Suggested recovery actions
+- Option to output `RALPH_COMPLETE` if truly done
 
-```bash
-# Run frontend and backend simultaneously
-./ralph parallel frontend backend
+### Configure Thresholds
 
-# Attach to see both panes
-tmux attach -t ralph-parallel-*
-
-# tmux controls:
-# Ctrl+B → D     Detach (keeps running)
-# Ctrl+B → ←/→   Switch panes
-# Ctrl+B → z     Zoom current pane
+```json
+{
+  "circuitBreaker": {
+    "noProgressThreshold": 4,
+    "sameErrorThreshold": 5,
+    "testOnlyThreshold": 5,
+    "consecutiveFailures": 3
+  }
+}
 ```
 
 ---
 
-## Warp + Cursor Flow
+## Best Practices
 
-### Warp Terminal 1 - Ralph
-```bash
-./ralph new           # Create task
-./ralph start 30      # Launch
+### 1. Clear Completion Criteria
+```markdown
+## Success Criteria
+- [ ] All CRUD endpoints working
+- [ ] Tests pass (npm test)
+- [ ] No TypeScript errors
+- [ ] Build succeeds (npm run build)
+
+When ALL criteria met, output: RALPH_COMPLETE
 ```
 
-### Warp Terminal 2 - Monitor
-```bash
-./ralph watch         # Live feed
+### 2. Incremental Phases
+```markdown
+## Phases
+1. Database schema (then test)
+2. API endpoints (then test)
+3. Frontend components (then test)
+
+Complete each phase before moving on.
 ```
 
-### Cursor
-- Files update in real-time as Claude works
+### 3. Self-Correction Instructions
+```markdown
+## Workflow
+1. Make a change
+2. Run tests: npm test
+3. If tests fail, fix before continuing
+4. Commit working code
+5. Move to next item
+```
+
+### 4. Escape Hatches
+```markdown
+## If Stuck
+After 3 failed attempts at the same issue:
+1. Document the blocker
+2. Try a different approach
+3. If blocked externally, output RALPH_COMPLETE with notes
+```
+
+---
+
+## Warp + Cursor Workflow
+
+**Terminal 1 (Warp) - Run:**
+```bash
+./ralph new
+./ralph start 30
+```
+
+**Terminal 2 (Warp) - Monitor:**
+```bash
+./ralph watch
+```
+
+**Cursor:**
+- Watch files update in real-time
 - Use diff view to review changes
 - AI chat for quick questions
 
 ---
 
-## Writing Good Prompts
+## Configuration
 
-### Example (Good)
-```markdown
-# Task: Add dark mode to settings
+Edit `.ralph.json`:
 
-## Objective
-Toggle that persists user preference.
+```json
+{
+  "maxIterations": 30,
+  "completionPromise": "RALPH_COMPLETE",
 
-## Requirements
-1. Toggle switch in Settings page
-2. Theme context provider
-3. Persist to localStorage
-4. Apply to all components
+  "circuitBreaker": {
+    "noProgressThreshold": 4,
+    "sameErrorThreshold": 5,
+    "testOnlyThreshold": 5,
+    "consecutiveFailures": 3
+  },
 
-## Success Criteria
-- [ ] Toggle works
-- [ ] Theme persists on refresh
-- [ ] All components styled
-- [ ] Tests pass
-
-When complete, output: RALPH_COMPLETE
+  "safety": {
+    "createCheckpoints": true,
+    "maxCheckpoints": 10
+  }
+}
 ```
 
-### Bad Examples
-```markdown
-# Too vague
-Make the app look better.
+### Environment Variables
 
-# No success criteria
-Add some features.
+Override thresholds without editing config:
+
+```bash
+export RALPH_CB_NO_PROGRESS=6      # More lenient
+export RALPH_CB_SAME_ERROR=3       # Stricter
+export RALPH_DEBUG=1               # Enable debug logging
 ```
 
 ---
@@ -177,18 +223,18 @@ Add some features.
 project/
 ├── ralph                    # CLI
 ├── PROMPT.md               # Current task
-├── .ralph.json             # Config
-├── .ralph-output.log       # Activity
+├── .ralph.json             # Configuration
+├── .ralph-output.log       # Activity log
+├── .ralph-stop             # Create to stop loop
 └── .ralph/
     ├── platform.json       # Platform config
     ├── agents/             # Agent configs
-    │   ├── claude-code.json
-    │   └── codex.json
     └── prompts/            # Zone templates
-        ├── frontend.md
-        ├── backend.md
-        ├── fullstack.md
-        └── tests.md
+
+~/.ralph/
+├── state.json              # Current state
+├── ralph.log               # Full log history
+└── checkpoints/            # State checkpoints
 ```
 
 ---
@@ -197,30 +243,46 @@ project/
 
 | Iterations | Est. Cost | Use Case |
 |------------|-----------|----------|
-| 10 | $5-15 | Small fix |
+| 10 | $5-15 | Quick fix |
 | 30 | $15-50 | Feature |
 | 50 | $25-100 | Large feature |
+| 100+ | $50-200+ | Major work |
+
+**Tip:** Start with 10-20 iterations to calibrate, then increase.
 
 ---
 
 ## Troubleshooting
 
-**Loop exits immediately:**
+### Loop exits immediately
 ```bash
-./ralph reset && ./ralph start
-```
-
-**Stuck on same error:**
-```bash
-./ralph stop
-./ralph edit  # Add more specific instructions
+./ralph reset
 ./ralph start
 ```
 
-**Check activity:**
+### Circuit breaker trips
 ```bash
-./ralph watch
-./ralph logs 100
+./ralph status              # See which threshold
+./ralph logs 20             # Check recent activity
+./ralph edit                # Adjust prompt
+./ralph reset
+./ralph start
+```
+
+### Check what's happening
+```bash
+./ralph status              # State + circuit breaker
+./ralph watch               # Live feed
+tail -f ~/.ralph/ralph.log  # Full logs
+```
+
+### Force stop
+```bash
+./ralph stop                # Graceful
+# OR
+touch .ralph-stop           # Creates stop signal
+# OR
+Ctrl+C                      # Immediate
 ```
 
 ---
@@ -228,20 +290,22 @@ project/
 ## Example Session
 
 ```bash
-# Morning
+# Morning: Start big feature
 ./ralph new
 # Zone: fullstack
-# Task: "Add project timeline with milestones"
-./ralph start 50
+# Task: "Add user authentication with JWT"
+./ralph start 40
 
 # Go to meetings...
 
-# Afternoon
+# Check progress
 ./ralph status
+# Shows: Iteration 15/40, circuit breaker: closed
 
-# Evening - Review in Cursor
+# Evening: Review
 git diff
 npm test
+git add . && git commit -m "feat: Add JWT auth"
 ```
 
 ---
@@ -249,12 +313,12 @@ npm test
 ## Quick Reference
 
 ```bash
-./ralph new                 # Create task (interactive)
-./ralph zone frontend       # Quick zone prompt
-./ralph edit                # Edit in Cursor
+./ralph new                 # Interactive wizard
+./ralph zone frontend       # Quick zone
+./ralph edit                # Edit prompt
 ./ralph start 30            # Run loop
 ./ralph parallel fe be      # Parallel zones
-./ralph status              # Check state
+./ralph status              # State + safety info
 ./ralph watch               # Live feed
 ./ralph stop                # Stop gracefully
 ./ralph reset               # Clear all
@@ -262,5 +326,15 @@ npm test
 
 ---
 
+## Sources
+
+Based on best practices from:
+- [Ralph Wiggum - Awesome Claude](https://awesomeclaude.ai/ralph-wiggum)
+- [frankbria/ralph-claude-code](https://github.com/frankbria/ralph-claude-code)
+- [AI Agent Safety: Circuit Breakers](https://www.syntaxia.com/post/ai-agent-safety-circuit-breakers-for-autonomous-systems)
+- [Claude Code Hooks Documentation](https://code.claude.com/docs/en/hooks)
+
+---
+
 *"Me fail English? That's unpossible!"*
-*Also Ralph: Ships your entire platform while you sleep.*
+*Also Ralph: Ships production code with circuit breakers.*
