@@ -8,11 +8,12 @@
  * - PATCH /api/milestones/:id - Update milestone status (admin only)
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { PrismaClient, MilestoneStatus as PrismaMilestoneStatus } from '@prisma/client';
 import { AuthenticatedRequest, requireAuth, requireAdmin } from './projects';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
+import { internalError } from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -134,7 +135,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
   router.get(
     '/projects/:projectId/milestones',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const user = req.user!;
@@ -197,15 +198,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
 
         res.json(response);
       } catch (error) {
-        logger.error('Error fetching project milestones:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to fetch milestones',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to fetch milestones', error as Error));
       }
     }
   );
@@ -216,7 +209,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
   router.get(
     '/milestones/:id',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const user = req.user!;
@@ -309,15 +302,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
           },
         });
       } catch (error) {
-        logger.error('Error fetching milestone:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to fetch milestone',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to fetch milestone', error as Error));
       }
     }
   );
@@ -329,7 +314,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
     '/milestones/:id',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const body = req.body as UpdateMilestoneBody;
@@ -478,15 +463,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
           data: toMilestoneDetail(updatedMilestone),
         });
       } catch (error) {
-        logger.error('Error updating milestone:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to update milestone',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to update milestone', error as Error));
       }
     }
   );

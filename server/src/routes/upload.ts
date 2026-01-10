@@ -3,11 +3,13 @@
  * API endpoints for file uploads with validation.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getStorageService, StorageService } from '../services/storageService';
 import { logger } from '../logger';
+import { internalError } from '../utils/AppError';
+import { recordDeliverableUploaded } from '../config/metrics';
 
 // ============================================================================
 // TYPES
@@ -188,7 +190,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     requireAdmin,
     upload.single('file'),
     handleMulterError,
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const file = req.file;
         const { projectId, category, description } = req.body;
@@ -241,10 +243,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
         });
 
         if (!uploadResult.success) {
-          return res.status(500).json({
-            success: false,
-            error: { code: 'UPLOAD_FAILED', message: uploadResult.error },
-          });
+          return next(internalError(uploadResult.error || 'Upload failed'));
         }
 
         // Create deliverable record
@@ -279,6 +278,8 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
 
+        recordDeliverableUploaded(category || 'Document');
+
         return res.status(201).json({
           success: true,
           data: {
@@ -294,14 +295,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
       } catch (error) {
-        logger.error('Upload error', {
-          error: (error as Error).message,
-          correlationId: req.correlationId,
-        });
-        return res.status(500).json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Upload failed' },
-        });
+        next(internalError('Upload failed', error as Error));
       }
     }
   );
@@ -315,7 +309,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     requireAdmin,
     upload.array('files', 10),
     handleMulterError,
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const files = req.files as Express.Multer.File[];
         const { projectId, category } = req.body;
@@ -398,6 +392,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
                 fileSize: deliverable.fileSize,
               },
             });
+            recordDeliverableUploaded(category || 'Document');
           } else {
             results.push({
               fileName: file.originalname,
@@ -424,7 +419,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
         const successCount = results.filter((r) => r.success).length;
         const failureCount = results.filter((r) => !r.success).length;
 
-        return res.status(successCount > 0 ? 201 : 500).json({
+        return res.status(successCount > 0 ? 201 : 207).json({
           success: successCount > 0,
           data: {
             uploaded: successCount,
@@ -433,14 +428,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
       } catch (error) {
-        logger.error('Multiple upload error', {
-          error: (error as Error).message,
-          correlationId: req.correlationId,
-        });
-        return res.status(500).json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Upload failed' },
-        });
+        next(internalError('Upload failed', error as Error));
       }
     }
   );
@@ -448,7 +436,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   // GET /api/upload/config - Get upload configuration (allowed types, max size)
   // ============================================================================
-  router.get('/config', async (req: Request, res: Response) => {
+  router.get('/config', async (req: Request, res: Response, next: NextFunction) => {
     try {
       let allowedTypes: string[];
       let maxSizeBytes: number;
@@ -479,10 +467,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
         },
       });
     } catch (error) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'INTERNAL_ERROR', message: 'Failed to get config' },
-      });
+      return next(internalError('Failed to get config', error as Error));
     }
   });
 
@@ -493,7 +478,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     '/:deliverableId',
     requireAuth,
     requireAdmin,
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       const { deliverableId } = req.params;
       
       try {
@@ -554,15 +539,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           data: { message: 'File deleted successfully' },
         });
       } catch (error) {
-        logger.error('Delete error', {
-          error: (error as Error).message,
-          correlationId: req.correlationId,
-          deliverableId,
-        });
-        return res.status(500).json({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: 'Delete failed' },
-        });
+        return next(internalError('Delete failed', error as Error));
       }
     }
   );

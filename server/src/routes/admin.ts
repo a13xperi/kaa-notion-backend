@@ -9,12 +9,13 @@
  * - GET /api/admin/clients - All clients with tier, status, project count
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { Client as NotionClient } from '@notionhq/client';
 import { AuthenticatedRequest, requireAuth, requireAdmin } from './projects';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
+import { internalError } from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -86,7 +87,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/dashboard - Dashboard stats
   // -------------------------------------------------------------------------
-  router.get('/dashboard', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/dashboard', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const startOfMonth = getStartOfMonth();
 
@@ -231,22 +232,14 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         data: stats,
       });
     } catch (error) {
-      logger.error('Error fetching dashboard stats:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to fetch dashboard stats',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to fetch dashboard stats', error as Error));
     }
   });
 
   // -------------------------------------------------------------------------
   // GET /api/admin/leads - All leads with filtering
   // -------------------------------------------------------------------------
-  router.get('/leads', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/leads', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, search, startDate, endDate } = req.query;
@@ -331,22 +324,14 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      logger.error('Error fetching leads:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to fetch leads',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to fetch leads', error as Error));
     }
   });
 
   // -------------------------------------------------------------------------
   // GET /api/admin/projects - All projects with filtering
   // -------------------------------------------------------------------------
-  router.get('/projects', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/projects', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, paymentStatus, search } = req.query;
@@ -453,22 +438,14 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      logger.error('Error fetching projects:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to fetch projects',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to fetch projects', error as Error));
     }
   });
 
   // -------------------------------------------------------------------------
   // GET /api/admin/clients - All clients with stats
   // -------------------------------------------------------------------------
-  router.get('/clients', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/clients', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, search } = req.query;
@@ -580,15 +557,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      logger.error('Error fetching clients:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to fetch clients',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to fetch clients', error as Error));
     }
   });
 
@@ -599,7 +568,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     '/sync/health',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const notionApiKey = process.env.NOTION_API_KEY;
         const projectsDatabaseId = process.env.NOTION_PROJECTS_DATABASE_ID;
@@ -815,17 +784,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
           data: comparison,
         });
       } catch (error) {
-        logger.error('Error performing sync health check', {
-          error: (error as Error).message,
-        });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to perform sync health check',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to perform sync health check', error as Error));
       }
     }
   );

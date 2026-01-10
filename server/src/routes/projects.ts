@@ -13,6 +13,7 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
 import { logger } from '../logger';
+import { internalError } from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -200,7 +201,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       401:
    *         $ref: '#/components/responses/UnauthorizedError'
    */
-  router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const query = req.query as ListProjectsQuery;
       const user = req.user!;
@@ -312,15 +313,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
 
       res.json(response);
     } catch (error) {
-      logger.error('Error listing projects:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to list projects',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to list projects', error as Error));
     }
   });
 
@@ -369,7 +362,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       404:
    *         $ref: '#/components/responses/NotFoundError'
    */
-  router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
       const user = req.user!;
@@ -561,15 +554,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      logger.error('Error fetching project:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to fetch project',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to fetch project', error as Error));
     }
   });
 
@@ -609,7 +594,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       404:
    *         $ref: '#/components/responses/NotFoundError'
    */
-  router.patch('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.patch('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
       const { status, paymentStatus, notionPageId } = req.body;
@@ -702,15 +687,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      logger.error('Error updating project:', error);
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'SERVER_ERROR',
-          message: 'Failed to update project',
-          details: error instanceof Error ? error.message : undefined,
-        },
-      });
+      next(internalError('Failed to update project', error as Error));
     }
   });
 

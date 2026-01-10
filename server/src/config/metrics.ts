@@ -12,6 +12,7 @@ import client, {
   collectDefaultMetrics,
 } from 'prom-client';
 import { logger } from '../logger';
+import { internalError } from '../utils/AppError';
 
 // ============================================================================
 // REGISTRY
@@ -78,6 +79,13 @@ const paymentsTotal = new Counter({
   name: 'payments_total',
   help: 'Total number of payment attempts',
   labelNames: ['tier', 'status'],
+  registers: [register],
+});
+
+const deliverablesUploadedTotal = new Counter({
+  name: 'deliverables_uploaded_total',
+  help: 'Total number of deliverables uploaded',
+  labelNames: ['category'],
   registers: [register],
 });
 
@@ -174,13 +182,13 @@ export function createMetricsRouter(): Router {
    * GET /metrics
    * Prometheus metrics endpoint
    */
-  router.get('/', async (_req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.set('Content-Type', register.contentType);
       res.end(await register.metrics());
     } catch (error) {
       logger.error('Error generating metrics', { error });
-      res.status(500).end();
+      next(internalError('Failed to generate metrics', error as Error));
     }
   });
 
@@ -188,13 +196,13 @@ export function createMetricsRouter(): Router {
    * GET /metrics/json
    * Metrics in JSON format (for debugging)
    */
-  router.get('/json', async (_req: Request, res: Response) => {
+  router.get('/json', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const metrics = await register.getMetricsAsJSON();
       res.json(metrics);
     } catch (error) {
       logger.error('Error generating JSON metrics', { error });
-      res.status(500).json({ error: 'Failed to generate metrics' });
+      next(internalError('Failed to generate metrics', error as Error));
     }
   });
 
@@ -242,6 +250,13 @@ export function recordPayment(
 }
 
 /**
+ * Record a deliverable upload
+ */
+export function recordDeliverableUploaded(category: string): void {
+  deliverablesUploadedTotal.inc({ category });
+}
+
+/**
  * Record project creation
  */
 export function recordProjectCreated(tier: number): void {
@@ -284,6 +299,7 @@ export {
   dbQueryDuration,
   dbQueryTotal,
   leadsCreatedTotal,
+  deliverablesUploadedTotal,
   paymentsTotal,
   projectsCreatedTotal,
   authAttemptsTotal,
@@ -295,6 +311,7 @@ export default {
   createMetricsRouter,
   recordDbQuery,
   recordLeadCreated,
+  recordDeliverableUploaded,
   recordPayment,
   recordProjectCreated,
   recordAuthAttempt,

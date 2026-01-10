@@ -1,7 +1,8 @@
 const http = require('http');
+const logger = require('./logger');
 
 const server = http.createServer((req, res) => {
-  console.log('Request received:', req.url);
+  logger.info('Request received:', req.url);
   
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ 
@@ -12,5 +13,5 @@ const server = http.createServer((req, res) => {
 
 const port = 3005;
 server.listen(port, '127.0.0.1', () => {
-  console.log(`Server running at http://127.0.0.1:${port}/`);
+  logger.info(`Server running at http://127.0.0.1:${port}/`);
 }); 

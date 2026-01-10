@@ -1,7 +1,8 @@
 const http = require('http');
+const logger = require('./logger');
 
 const server = http.createServer((req, res) => {
-  console.log('Request received:', {
+  logger.info('Request received:', {
     url: req.url,
     method: req.method,
     headers: req.headers
@@ -18,7 +19,7 @@ const server = http.createServer((req, res) => {
     url: req.url
   };
   
-  console.log('Sending response:', response);
+  logger.info('Sending response:', response);
   res.end(JSON.stringify(response));
 });
 
@@ -26,13 +27,13 @@ const port = 3005;
 const host = '127.0.0.1';
 
 server.on('error', (error) => {
-  console.error('Server error:', error);
+  logger.error('Server error:', error);
   if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${port} is already in use`);
+    logger.error(`Port ${port} is already in use`);
   }
 });
 
 server.listen(port, host, () => {
-  console.log(`Debug server running at http://${host}:${port}/`);
-  console.log('Press Ctrl+C to stop the server');
+  logger.info(`Debug server running at http://${host}:${port}/`);
+  logger.info('Press Ctrl+C to stop the server');
 }); 

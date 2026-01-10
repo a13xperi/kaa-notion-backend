@@ -39,6 +39,7 @@ import { initEnvironment, getFeatureFlags } from './config/environment';
 import { setupSentry, sentryErrorHandler, captureException } from './config/sentry';
 import { metricsMiddleware, createMetricsRouter } from './config/metrics';
 import { createPrismaClient, connectWithRetry, checkDatabaseHealth } from './config/database';
+import { internalError, serviceUnavailable } from './utils/AppError';
 
 dotenv.config();
 
@@ -238,22 +239,18 @@ app.get('/test', (req, res) => {
 });
 
 // REST API endpoints
-app.get('/file/:fileKey', async (req, res) => {
+app.get('/file/:fileKey', async (req, res, next) => {
   try {
     logger.debug('Fetching file:', req.params.fileKey);
     const fileData = await figmaClient.getFile(req.params.fileKey);
     logger.debug('File data received successfully');
     res.json(fileData);
   } catch (error) {
-    logger.error('Error fetching Figma file:', error);
-    res.status(500).json({
-      error: 'Failed to fetch Figma file',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    next(internalError('Failed to fetch Figma file', error as Error));
   }
 });
 
-app.get('/file/:fileKey/nodes', async (req, res) => {
+app.get('/file/:fileKey/nodes', async (req, res, next) => {
   try {
     const { nodeIds } = req.query;
     if (!nodeIds || typeof nodeIds !== 'string') {
@@ -262,18 +259,14 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
     const nodesData = await figmaClient.getFileNodes(req.params.fileKey, nodeIds.split(','));
     res.json(nodesData);
   } catch (error) {
-    logger.error('Error fetching Figma nodes:', error);
-    res.status(500).json({
-      error: 'Failed to fetch Figma nodes',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    next(internalError('Failed to fetch Figma nodes', error as Error));
   }
 });
 
 app.post('/webhook', handleFigmaWebhook);
 
 // Stripe Checkout endpoint
-app.post('/api/stripe/checkout', async (req, res) => {
+app.post('/api/stripe/checkout', async (req, res, next) => {
   try {
     const { leadId, tier } = req.body;
 
@@ -312,18 +305,12 @@ app.post('/api/stripe/checkout', async (req, res) => {
 
     res.json({ url: session.url });
   } catch (error) {
-    logger.error('Error creating Stripe checkout session', {
-      error: (error as Error).message,
-    });
-    res.status(500).json({
-      error: 'Failed to create checkout session',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    next(internalError('Failed to create checkout session', error as Error));
   }
 });
 
 // Health check endpoints
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', async (req, res, next) => {
   try {
     const detailed = req.query.detailed === 'true';
     const result = await performHealthCheck(prisma, { detailed });
@@ -337,11 +324,7 @@ app.get('/api/health', async (req, res) => {
       ...result,
     });
   } catch (error) {
-    res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    next(serviceUnavailable('health'));
   }
 });
 
