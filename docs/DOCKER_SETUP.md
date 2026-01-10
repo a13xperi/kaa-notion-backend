@@ -6,19 +6,7 @@ This guide covers Docker configuration for the SAGE MVP Platform.
 
 ### Development Mode (with hot reload)
 
-```bash
-# Start all services in development mode
-docker compose -f docker-compose.dev.yml up
-
-# Start with database admin tools
-docker compose -f docker-compose.dev.yml --profile tools up
-
-# Run database migrations
-docker compose -f docker-compose.dev.yml exec backend npx prisma migrate dev
-
-# Seed the database
-docker compose -f docker-compose.dev.yml exec backend npx prisma db seed
-```
+Use the Docker development commands listed in [COMMANDS.md](./COMMANDS.md).
 
 **Access Points:**
 - Frontend: http://localhost:3000
@@ -29,22 +17,7 @@ docker compose -f docker-compose.dev.yml exec backend npx prisma db seed
 
 ### Production Mode
 
-```bash
-# Build and start all services
-docker compose up -d --build
-
-# Run migrations (first time only)
-docker compose --profile migrate up migrate
-
-# Seed demo data (optional)
-docker compose --profile seed up seed
-
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-```
+Use the Docker production commands listed in [COMMANDS.md](./COMMANDS.md).
 
 ## Environment Variables
 
@@ -145,43 +118,13 @@ FRONTEND_URL=https://yourdomain.com
 
 ## Common Commands
 
-```bash
-# Build specific service
-docker compose build frontend
-docker compose build backend
-
-# View container logs
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# Execute command in container
-docker compose exec backend npx prisma studio
-docker compose exec backend npm test
-
-# Database operations
-docker compose exec db psql -U postgres -d sage
-
-# Restart specific service
-docker compose restart backend
-
-# Remove all containers and volumes
-docker compose down -v
-
-# Clean build (no cache)
-docker compose build --no-cache
-```
+See the common Docker operations in [COMMANDS.md](./COMMANDS.md).
 
 ## Production Deployment
 
 ### 1. Build Images
 
-```bash
-# Build with production settings
-docker compose -f docker-compose.yml build
-
-# Or build for specific platform
-docker compose build --platform linux/amd64
-```
+Use the Docker build commands in [COMMANDS.md](./COMMANDS.md).
 
 ### 2. Push to Registry
 
@@ -197,66 +140,27 @@ docker push your-registry/sage-backend:v1.0.0
 
 ### 3. Deploy
 
-```bash
-# Pull and run
-docker compose pull
-docker compose up -d
-
-# Or with custom env file
-docker compose --env-file .env.production up -d
-```
+Use the Docker deploy commands in [COMMANDS.md](./COMMANDS.md).
 
 ## Health Checks
 
 All containers include health checks:
 
-```bash
-# Check container health
-docker compose ps
-
-# Manual health check
-curl http://localhost:3001/api/health
-curl http://localhost:3000/health
-```
+See the command list in [COMMANDS.md](./COMMANDS.md) for health check commands.
 
 ## Troubleshooting
 
 ### Container won't start
 
-```bash
-# Check logs
-docker compose logs backend
-
-# Check if port is in use
-lsof -i :3001
-
-# Rebuild from scratch
-docker compose down -v
-docker compose build --no-cache
-docker compose up
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for troubleshooting commands.
 
 ### Database connection issues
 
-```bash
-# Check database is healthy
-docker compose exec db pg_isready -U postgres
-
-# Reset database
-docker compose down -v
-docker compose up db -d
-docker compose --profile migrate up migrate
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for database troubleshooting commands.
 
 ### Frontend build fails
 
-```bash
-# Check build logs
-docker compose build frontend 2>&1 | tee build.log
-
-# Build with more memory
-DOCKER_BUILDKIT=1 docker compose build frontend
-```
+Refer to [COMMANDS.md](./COMMANDS.md) for build troubleshooting commands.
 
 ## Resource Limits (Optional)
 

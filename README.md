@@ -57,13 +57,8 @@ A production-ready tiered landscape architecture service platform with automated
 
 ### 1. Clone and Install
 
-```bash
-git clone <repository-url>
-cd sage-mvp
-
-# Install all dependencies
-npm run install-all
-```
+Clone the repository and install dependencies using the commands in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### 2. Configure Environment
 
@@ -85,17 +80,12 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 
 ### 3. Setup Database
 
-```bash
-# Run migrations and seed demo data
-npm run db:setup
-```
+Follow the database setup commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### 4. Start Development
 
-```bash
-# Start both frontend and backend
-npm run dev
-```
+Start the development servers using the root scripts in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
 **Access Points:**
 - Frontend: http://localhost:3000
@@ -149,16 +139,7 @@ sage-mvp/
 
 ## 🧪 Testing
 
-```bash
-# Run all tests
-npm test
-
-# Backend tests only (262 tests)
-cd server && npm test
-
-# Frontend tests only (595 tests)
-cd kaa-app && npm test
-```
+See the root script commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 **Test Coverage:**
 
@@ -175,26 +156,11 @@ cd kaa-app && npm test
 
 ### Development
 
-```bash
-# Start with hot reload
-docker compose -f docker-compose.dev.yml up
-
-# With database tools (Adminer, MailHog)
-docker compose -f docker-compose.dev.yml --profile tools up
-```
+Use the Docker development commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### Production
 
-```bash
-# Build and start
-docker compose up -d --build
-
-# Run migrations
-docker compose --profile migrate up migrate
-
-# View logs
-docker compose logs -f
-```
+Use the Docker production commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 See [DOCKER_SETUP.md](./docs/DOCKER_SETUP.md) for detailed instructions.
 
@@ -269,30 +235,12 @@ See [DEPLOYMENT_CHECKLIST.md](./docs/DEPLOYMENT_CHECKLIST.md) for complete produ
 
 ### Quick Deploy
 
-```bash
-# 1. Set production environment
-export NODE_ENV=production
-
-# 2. Build
-npm run build
-
-# 3. Run migrations
-npx prisma migrate deploy
-
-# 4. Start
-npm start
-```
+Follow the production build and start commands in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ## 📝 Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development servers |
-| `npm run build` | Build for production |
-| `npm test` | Run all tests |
-| `npm run db:setup` | Setup database with migrations and seed |
-| `npm run db:reset` | Reset database |
-| `npm run install-all` | Install all dependencies |
+See the canonical script list in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ## 🤝 Contributing
 
