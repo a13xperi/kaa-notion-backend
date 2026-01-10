@@ -1,6 +1,6 @@
 /**
  * Upload Routes
- * API endpoints for file uploads with validation.
+ * API endpoints for file uploads with validation (JWT-authenticated).
  */
 
 import { Router, Request, Response } from 'express';
@@ -8,6 +8,7 @@ import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
+import { requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -64,64 +65,6 @@ const upload = multer({
 // ============================================================================
 
 /**
- * Require authentication
- */
-function requireAuth(req: Request, res: Response, next: Function): void {
-  const userId = req.headers['x-user-id'] as string;
-  const userType = req.headers['x-user-type'] as string;
-  const userEmail = req.headers['x-user-email'] as string;
-
-  if (!userId) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-    });
-    return;
-  }
-
-  const validTypes = ['KAA_CLIENT', 'SAGE_CLIENT', 'TEAM', 'ADMIN'];
-  if (!validTypes.includes(userType)) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Invalid user type' },
-    });
-    return;
-  }
-
-  req.user = {
-    id: userId,
-    email: userEmail || '',
-    userType: userType as 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN',
-  };
-
-  next();
-}
-
-/**
- * Require admin or team access
- */
-function requireAdmin(req: Request, res: Response, next: Function): void {
-  if (!req.user) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-    });
-    return;
-  }
-
-  const adminTypes = ['ADMIN', 'TEAM'];
-  if (!adminTypes.includes(req.user.userType)) {
-    res.status(403).json({
-      success: false,
-      error: { code: 'FORBIDDEN', message: 'Admin access required' },
-    });
-    return;
-  }
-
-  next();
-}
-
-/**
  * Handle multer errors
  */
 function handleMulterError(err: any, req: Request, res: Response, next: Function): void {
@@ -170,8 +113,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.post(
     '/',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     upload.single('file'),
     handleMulterError,
     async (req: Request, res: Response) => {
@@ -289,8 +231,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.post(
     '/multiple',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     upload.array('files', 10),
     handleMulterError,
     async (req: Request, res: Response) => {
@@ -446,8 +387,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.delete(
     '/:deliverableId',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     async (req: Request, res: Response) => {
       const { deliverableId } = req.params;
       

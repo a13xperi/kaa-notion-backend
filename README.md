@@ -57,13 +57,8 @@ A production-ready tiered landscape architecture service platform with automated
 
 ### 1. Clone and Install
 
-```bash
-git clone <repository-url>
-cd sage-mvp
-
-# Install all dependencies
-npm run install-all
-```
+Clone the repository and install dependencies using the commands in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### 2. Configure Environment
 
@@ -71,37 +66,18 @@ npm run install-all
 cp env.example .env
 ```
 
-Edit `.env` with your configuration:
-
-```bash
-# Required
-DATABASE_URL=postgresql://user:pass@localhost:5432/sage
-JWT_SECRET=your-64-character-secret-key
-
-# Recommended
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
+Edit `.env` with your configuration. See [ENVIRONMENT_REFERENCE.md](./docs/ENVIRONMENT_REFERENCE.md) for the full variable list and which app uses them. `env.example` is the canonical superset of required variables.
 
 ### 3. Setup Database
 
-```bash
-# Run migrations and seed demo data
-npm run db:setup
-```
+Follow the database setup commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### 4. Start Development
 
-```bash
-# Start both frontend and backend
-npm run dev
-```
+Start the development servers using the root scripts in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
-**Access Points:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- API Docs: http://localhost:3001/api/docs
-- Health Check: http://localhost:3001/api/health
+See [Development Environments](./docs/DEV_ENVIRONMENTS.md#local-development) for local dev access points and Docker alternatives.
 
 ## 📁 Project Structure
 
@@ -154,11 +130,14 @@ sage-mvp/
 npm test
 
 # Backend tests only (262 tests)
-cd server && npm test
+npm run test:backend
 
 # Frontend tests only (595 tests)
-cd kaa-app && npm test
+npm run test:frontend
 ```
+See the root script commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
+
+See [Testing Strategy](./docs/TESTING_STRATEGY.md) for test types, prerequisites, and E2E setup.
 
 **Test Coverage:**
 
@@ -175,26 +154,11 @@ cd kaa-app && npm test
 
 ### Development
 
-```bash
-# Start with hot reload
-docker compose -f docker-compose.dev.yml up
-
-# With database tools (Adminer, MailHog)
-docker compose -f docker-compose.dev.yml --profile tools up
-```
+Use the Docker development commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ### Production
 
-```bash
-# Build and start
-docker compose up -d --build
-
-# Run migrations
-docker compose --profile migrate up migrate
-
-# View logs
-docker compose logs -f
-```
+Use the Docker production commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 
 See [DOCKER_SETUP.md](./docs/DOCKER_SETUP.md) for detailed instructions.
 
@@ -219,18 +183,7 @@ See [API_REFERENCE.md](./docs/API_REFERENCE.md) for full documentation.
 ## 🔧 Configuration
 
 ### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | 64+ character secret for tokens |
-| `STRIPE_SECRET_KEY` | ⚠️ | Stripe API key (for payments) |
-| `STRIPE_WEBHOOK_SECRET` | ⚠️ | Stripe webhook signing secret |
-| `RESEND_API_KEY` | - | Email service (or use SMTP) |
-| `NOTION_API_KEY` | - | Notion integration |
-| `SUPABASE_URL` | - | File storage |
-
-See [env.example](./env.example) for all options.
+See [ENVIRONMENT_REFERENCE.md](./docs/ENVIRONMENT_REFERENCE.md) for all environment variables and the apps that use them. The canonical template is [env.example](./env.example).
 
 ## 🔒 Security Features
 
@@ -269,19 +222,8 @@ See [DEPLOYMENT_CHECKLIST.md](./docs/DEPLOYMENT_CHECKLIST.md) for complete produ
 
 ### Quick Deploy
 
-```bash
-# 1. Set production environment
-export NODE_ENV=production
-
-# 2. Build
-npm run build
-
-# 3. Run migrations
-npx prisma migrate deploy
-
-# 4. Start
-npm start
-```
+Follow the production build and start commands in
+[docs/COMMANDS.md](./docs/COMMANDS.md).
 
 ## 📝 Scripts
 
@@ -290,9 +232,20 @@ npm start
 | `npm run dev` | Start development servers |
 | `npm run build` | Build for production |
 | `npm test` | Run all tests |
+| `npm run lint` | Run linting checks |
 | `npm run db:setup` | Setup database with migrations and seed |
 | `npm run db:reset` | Reset database |
 | `npm run install-all` | Install all dependencies |
+See the canonical script list in [docs/COMMANDS.md](./docs/COMMANDS.md).
+
+**Workspace script mapping**
+
+| Root script | Server workspace | KAA app workspace |
+|-------------|------------------|-------------------|
+| `npm run dev` | `npm run dev` | `npm run dev` |
+| `npm run build` | `npm run build` | `npm run build` |
+| `npm test` | `npm test` | `npm test` |
+| `npm run lint` | `npm run lint` | `npm run lint` |
 
 ## 🤝 Contributing
 

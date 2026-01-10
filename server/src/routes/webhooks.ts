@@ -24,7 +24,7 @@ import { requireNotionService } from '../middleware';
 // ============================================================================
 
 interface StripeWebhookRequest extends Request {
-  rawBody?: Buffer;
+  body: Buffer;
 }
 
 interface NotionWebhookPayload {
@@ -66,7 +66,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
         }
 
         // Get raw body (should be set by express.raw middleware)
-        const rawBody = req.rawBody || req.body;
+        const rawBody = req.body;
         if (!rawBody) {
           logger.warn('Webhook received without body');
           return res.status(400).json({
@@ -444,34 +444,4 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
   );
 
   return router;
-}
-
-// ============================================================================
-// MIDDLEWARE FOR RAW BODY CAPTURE
-// ============================================================================
-
-/**
- * Middleware to capture raw body for webhook signature verification.
- * Use this before express.json() for webhook routes.
- */
-export function captureRawBody(
-  req: StripeWebhookRequest,
-  _res: Response,
-  next: NextFunction
-): void {
-  if (req.headers['stripe-signature']) {
-    let data = '';
-    req.setEncoding('utf8');
-    
-    req.on('data', (chunk) => {
-      data += chunk;
-    });
-    
-    req.on('end', () => {
-      req.rawBody = Buffer.from(data);
-      next();
-    });
-  } else {
-    next();
-  }
 }
