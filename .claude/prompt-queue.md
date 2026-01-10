@@ -178,6 +178,81 @@
 
 ---
 
+## Backlog - Next Priorities
+
+### Priority 1: CI/CD & DevOps (Critical)
+- [ ] `ci`: GitHub Actions workflow for E2E tests - Run Playwright on PRs with PostgreSQL service
+- [ ] `ci`: GitHub Actions workflow for unit tests - Run Jest tests on server and kaa-app
+- [ ] `ci`: GitHub Actions workflow for linting - ESLint, TypeScript checks on PRs
+- [ ] `ci`: GitHub Actions workflow for build validation - Ensure both apps build successfully
+- [ ] `devops`: Docker Compose for local development - PostgreSQL, Redis, app containers
+- [ ] `devops`: Environment configuration - .env.example files for server and kaa-app
+
+### Priority 2: Database & Infrastructure
+- [ ] `prisma-migrate`: Run initial migration on connected database - `npx prisma migrate dev --name init`
+- [ ] `config`: Database seeding script - Create test admin, sample data for development
+- [ ] `config`: Redis setup for session storage and rate limiting queues
+- [ ] `config`: Health check endpoints - /api/health with database connectivity check
+
+### Priority 3: Production Readiness
+- [ ] `security`: Rate limiting middleware - Protect auth endpoints from brute force
+- [ ] `security`: CORS configuration - Whitelist production domains
+- [ ] `security`: Helmet.js integration - Security headers
+- [ ] `security`: Input sanitization - XSS prevention on user inputs
+- [ ] `monitoring`: Logging infrastructure - Structured logging with request IDs
+- [ ] `monitoring`: Error tracking integration - Sentry or similar for production errors
+- [ ] `monitoring`: Performance monitoring - Response time tracking, slow query detection
+
+### Priority 4: Email & Notifications
+- [ ] `new-service`: emailService.ts - SendGrid/Resend integration for transactional emails
+- [ ] `email-template`: Welcome email - Sent after successful payment/registration
+- [ ] `email-template`: Project status update - Sent when milestone completed
+- [ ] `email-template`: Deliverable ready - Sent when new deliverable uploaded
+- [ ] `email-template`: Password reset - Password reset flow with secure tokens
+- [ ] `new-endpoint`: POST /api/auth/forgot-password - Initiate password reset
+- [ ] `new-endpoint`: POST /api/auth/reset-password - Complete password reset with token
+
+### Priority 5: Enhanced Features
+- [ ] `new-component`: NotificationCenter - In-app notifications for project updates
+- [ ] `new-endpoint`: GET /api/notifications - User notifications with read/unread status
+- [ ] `new-component`: MessageThread - Client-admin communication on projects
+- [ ] `new-endpoint`: POST /api/projects/:id/messages - Send message on project
+- [ ] `new-component`: RevisionRequest - Client revision request form with details
+- [ ] `new-endpoint`: POST /api/milestones/:id/revisions - Submit revision request
+
+### Priority 6: Analytics & Reporting
+- [ ] `new-endpoint`: GET /api/admin/analytics - Conversion rates, revenue trends, tier distribution
+- [ ] `new-component`: AnalyticsDashboard - Charts for leads, conversions, revenue over time
+- [ ] `new-service`: metricsService.ts - Track key business metrics
+- [ ] `report`: Monthly summary - Auto-generated project/revenue summary
+
+### Priority 7: Mobile & PWA
+- [ ] `pwa`: Service worker setup - Offline support for client portal
+- [ ] `pwa`: Web app manifest - Add to home screen capability
+- [ ] `pwa`: Push notifications - Browser notifications for project updates
+- [ ] `responsive`: Mobile optimization audit - Ensure all components work on mobile
+
+### Priority 8: Documentation & Onboarding
+- [ ] `docs`: API documentation - OpenAPI/Swagger spec for all endpoints
+- [ ] `docs`: Developer setup guide - README with local development instructions
+- [ ] `docs`: Deployment guide - Production deployment checklist
+- [ ] `docs`: User guide - Client portal documentation for end users
+
+### Priority 9: Performance Optimization
+- [ ] `perf`: Database query optimization - Add indexes, optimize N+1 queries
+- [ ] `perf`: Image optimization - Resize/compress uploaded images
+- [ ] `perf`: CDN integration - Serve static assets from CDN
+- [ ] `perf`: API response caching - Cache frequently accessed data
+
+### Priority 10: Future Enhancements
+- [ ] `feature`: Multi-project support - Clients with multiple active projects
+- [ ] `feature`: Subscription billing - Recurring payment option for retainer clients
+- [ ] `feature`: Team collaboration - Multiple team members on admin side
+- [ ] `feature`: Client referral system - Referral tracking and rewards
+- [ ] `feature`: Portfolio gallery - Public showcase of completed projects
+
+---
+
 ## Completed
 <!-- Move completed items here with date -->
 
