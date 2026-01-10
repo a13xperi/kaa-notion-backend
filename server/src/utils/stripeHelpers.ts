@@ -572,3 +572,176 @@ export function getTierPricing(tier: 1 | 2 | 3 | 4): TierPricing {
 export function isValidTier(tier: number): tier is 1 | 2 | 3 | 4 {
   return [1, 2, 3, 4].includes(tier);
 }
+
+/**
+ * Check if a tier is payable (not tier 4 which requires custom pricing)
+ */
+export function isPayableTier(tier: number): tier is 1 | 2 | 3 {
+  return [1, 2, 3].includes(tier);
+}
+
+// ============================================================================
+// LEGACY CHECKOUT SESSION SUPPORT
+// ============================================================================
+
+export interface CreateCheckoutSessionParams {
+  leadId: string;
+  tier: 1 | 2 | 3;
+  customerEmail: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
+}
+
+export interface CheckoutSessionResult {
+  sessionId: string;
+  url: string;
+}
+
+/**
+ * Create a Stripe Checkout session for a tier purchase (legacy interface)
+ */
+export async function createCheckoutSessionLegacy(
+  params: CreateCheckoutSessionParams
+): Promise<CheckoutSessionResult> {
+  const session = await createCheckoutSession({
+    leadId: params.leadId,
+    tier: params.tier,
+    email: params.customerEmail,
+    successUrl: params.successUrl,
+    cancelUrl: params.cancelUrl,
+    metadata: params.metadata,
+  });
+
+  if (!session.url) {
+    throw new Error('Failed to create checkout session URL');
+  }
+
+  return {
+    sessionId: session.id,
+    url: session.url,
+  };
+}
+
+// ============================================================================
+// WEBHOOK SIGNATURE VERIFICATION (LEGACY)
+// ============================================================================
+
+/**
+ * Verify Stripe webhook signature (legacy interface)
+ */
+export function verifyWebhookSignature(
+  payload: string | Buffer,
+  signature: string,
+  webhookSecret: string
+): Stripe.Event {
+  const stripe = getStripe();
+  return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+}
+
+// ============================================================================
+// DATA EXTRACTION HELPERS
+// ============================================================================
+
+export interface CheckoutCompletedData {
+  sessionId: string;
+  paymentIntentId: string;
+  customerId: string | null;
+  customerEmail: string | null;
+  leadId: string;
+  tier: 1 | 2 | 3;
+  tierName: string;
+  amountTotal: number;
+  currency: string;
+  paymentStatus: string;
+}
+
+/**
+ * Extract relevant data from checkout.session.completed event
+ */
+export function extractCheckoutCompletedData(session: Stripe.Checkout.Session): CheckoutCompletedData {
+  const metadata = session.metadata || {};
+  const tier = parseInt(metadata.tier || metadata.leadId || '0', 10);
+
+  if (!isPayableTier(tier)) {
+    throw new Error(`Invalid tier in session metadata: ${metadata.tier}`);
+  }
+
+  return {
+    sessionId: session.id,
+    paymentIntentId: typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id || '',
+    customerId: typeof session.customer === 'string'
+      ? session.customer
+      : session.customer?.id || null,
+    customerEmail: session.customer_email || session.customer_details?.email || null,
+    leadId: metadata.lead_id || metadata.leadId || '',
+    tier: tier,
+    tierName: metadata.tier_name || TIER_PRICING[tier]?.name || '',
+    amountTotal: session.amount_total || 0,
+    currency: session.currency || 'usd',
+    paymentStatus: session.payment_status,
+  };
+}
+
+export interface PaymentSucceededData {
+  paymentIntentId: string;
+  customerId: string | null;
+  amount: number;
+  currency: string;
+  leadId: string;
+  tier: 1 | 2 | 3;
+  receiptEmail: string | null;
+}
+
+/**
+ * Extract data from payment_intent.succeeded event
+ */
+export function extractPaymentSucceededData(paymentIntent: Stripe.PaymentIntent): PaymentSucceededData {
+  const metadata = paymentIntent.metadata || {};
+  const tier = parseInt(metadata.tier || '0', 10);
+
+  if (!isPayableTier(tier)) {
+    throw new Error(`Invalid tier in payment intent metadata: ${metadata.tier}`);
+  }
+
+  return {
+    paymentIntentId: paymentIntent.id,
+    customerId: typeof paymentIntent.customer === 'string'
+      ? paymentIntent.customer
+      : paymentIntent.customer?.id || null,
+    amount: paymentIntent.amount,
+    currency: paymentIntent.currency,
+    leadId: metadata.lead_id || metadata.leadId || '',
+    tier: tier,
+    receiptEmail: paymentIntent.receipt_email,
+  };
+}
+
+/**
+ * Idempotency key generator for webhook processing
+ */
+export function generateIdempotencyKey(eventId: string, action: string): string {
+  return `${eventId}_${action}`;
+}
+
+/**
+ * Create a Stripe customer from lead data
+ */
+export async function createStripeCustomer(params: {
+  email: string;
+  name?: string;
+  leadId: string;
+  metadata?: Record<string, string>;
+}): Promise<Stripe.Customer> {
+  const stripe = getStripe();
+  return stripe.customers.create({
+    email: params.email,
+    name: params.name,
+    metadata: {
+      lead_id: params.leadId,
+      ...params.metadata,
+    },
+  });
+}

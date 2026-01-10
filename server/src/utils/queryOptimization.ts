@@ -1,8 +1,10 @@
 /**
  * Query Optimization Utilities
- * Helpers for optimized Prisma queries with pagination, field selection, and caching.
+ * Helpers for efficient Prisma queries with pagination, field selection, caching,
+ * and avoiding N+1 problems.
  */
 
+import { Prisma } from '@prisma/client';
 import { cacheGet, cacheSet, cacheDel, CacheOptions } from '../services/cacheService';
 import { logger } from '../logger';
 
@@ -14,6 +16,14 @@ export interface PaginationParams {
   page?: number;
   limit?: number;
   cursor?: string;
+  maxLimit?: number;
+}
+
+export interface PaginationResult {
+  skip: number;
+  take: number;
+  page: number;
+  limit: number;
 }
 
 export interface PaginationMeta {
@@ -41,8 +51,213 @@ export interface QueryOptions extends PaginationParams, SortParams {
   search?: string;
 }
 
+export interface CursorPaginationParams {
+  cursor?: string;
+  limit?: number;
+  direction?: 'forward' | 'backward';
+}
+
+export interface CursorPaginationResult<T> {
+  items: T[];
+  nextCursor: string | null;
+  previousCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface CountByResult {
+  _count: number;
+  [key: string]: string | number;
+}
+
 // ============================================================================
-// PAGINATION
+// SELECT FIELDS - Avoid over-fetching
+// ============================================================================
+
+/**
+ * Minimal user fields for lists and references
+ */
+export const userSelectMinimal = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+} satisfies Prisma.UserSelect;
+
+/**
+ * User fields for profile views
+ */
+export const userSelectProfile = {
+  ...userSelectMinimal,
+  userType: true,
+  tier: true,
+  createdAt: true,
+  lastLogin: true,
+} satisfies Prisma.UserSelect;
+
+/**
+ * Minimal project fields for lists
+ */
+export const projectSelectMinimal = {
+  id: true,
+  name: true,
+  status: true,
+  tier: true,
+  projectAddress: true,
+  createdAt: true,
+} satisfies Prisma.ProjectSelect;
+
+/**
+ * Project fields with progress calculation data
+ */
+export const projectSelectWithProgress = {
+  ...projectSelectMinimal,
+  paymentStatus: true,
+  milestones: {
+    select: {
+      id: true,
+      status: true,
+    },
+  },
+} satisfies Prisma.ProjectSelect;
+
+/**
+ * Minimal client fields for references
+ */
+export const clientSelectMinimal = {
+  id: true,
+  tier: true,
+  status: true,
+  userId: true,
+} satisfies Prisma.ClientSelect;
+
+/**
+ * Minimal lead fields for lists
+ */
+export const leadSelectMinimal = {
+  id: true,
+  email: true,
+  name: true,
+  status: true,
+  recommendedTier: true,
+  tierOverride: true,
+  createdAt: true,
+} satisfies Prisma.LeadSelect;
+
+/**
+ * Minimal milestone fields
+ */
+export const milestoneSelectMinimal = {
+  id: true,
+  name: true,
+  order: true,
+  status: true,
+  dueDate: true,
+  completedAt: true,
+} satisfies Prisma.MilestoneSelect;
+
+/**
+ * Minimal deliverable fields
+ */
+export const deliverableSelectMinimal = {
+  id: true,
+  name: true,
+  category: true,
+  fileType: true,
+  fileSize: true,
+  createdAt: true,
+} satisfies Prisma.DeliverableSelect;
+
+/**
+ * Notification fields for lists
+ */
+export const notificationSelectList = {
+  id: true,
+  type: true,
+  title: true,
+  message: true,
+  link: true,
+  read: true,
+  createdAt: true,
+} satisfies Prisma.NotificationSelect;
+
+/**
+ * Message fields for lists
+ */
+export const messageSelectList = {
+  id: true,
+  content: true,
+  isInternal: true,
+  createdAt: true,
+  sender: {
+    select: userSelectMinimal,
+  },
+} satisfies Prisma.MessageSelect;
+
+// ============================================================================
+// INCLUDE PRESETS - Eager loading patterns
+// ============================================================================
+
+/**
+ * Project with all related data for detail view
+ */
+export const projectIncludeDetail = {
+  client: {
+    select: {
+      id: true,
+      tier: true,
+      user: {
+        select: userSelectMinimal,
+      },
+    },
+  },
+  milestones: {
+    select: milestoneSelectMinimal,
+    orderBy: { order: 'asc' as const },
+  },
+  deliverables: {
+    select: deliverableSelectMinimal,
+    orderBy: { createdAt: 'desc' as const },
+  },
+  payments: {
+    select: {
+      id: true,
+      amount: true,
+      status: true,
+      paidAt: true,
+    },
+    orderBy: { createdAt: 'desc' as const },
+  },
+} satisfies Prisma.ProjectInclude;
+
+/**
+ * Client with projects for dashboard
+ */
+export const clientIncludeDashboard = {
+  user: {
+    select: userSelectProfile,
+  },
+  projects: {
+    select: projectSelectWithProgress,
+    orderBy: { createdAt: 'desc' as const },
+    take: 10,
+  },
+} satisfies Prisma.ClientInclude;
+
+/**
+ * Lead with conversion data
+ */
+export const leadIncludeConversion = {
+  client: {
+    select: clientSelectMinimal,
+  },
+  projects: {
+    select: projectSelectMinimal,
+    take: 1,
+  },
+} satisfies Prisma.LeadInclude;
+
+// ============================================================================
+// PAGINATION HELPERS
 // ============================================================================
 
 /**
@@ -55,36 +270,51 @@ export const PAGINATION_DEFAULTS = {
 } as const;
 
 /**
- * Parse and validate pagination parameters
+ * Calculate skip and take from page/limit params
  */
-export function parsePagination(params: PaginationParams): { skip: number; take: number; page: number } {
+export function getPagination(params: PaginationParams): PaginationResult {
   const page = Math.max(1, params.page || PAGINATION_DEFAULTS.DEFAULT_PAGE);
-  const limit = Math.min(
-    PAGINATION_DEFAULTS.MAX_LIMIT,
-    Math.max(1, params.limit || PAGINATION_DEFAULTS.DEFAULT_LIMIT)
-  );
-  
-  return {
-    page,
-    take: limit,
-    skip: (page - 1) * limit,
-  };
+  const maxLimit = params.maxLimit || PAGINATION_DEFAULTS.MAX_LIMIT;
+  const limit = Math.min(Math.max(1, params.limit || PAGINATION_DEFAULTS.DEFAULT_LIMIT), maxLimit);
+  const skip = (page - 1) * limit;
+
+  return { skip, take: limit, page, limit };
 }
 
 /**
- * Build pagination metadata
+ * Parse and validate pagination parameters (alias)
+ */
+export function parsePagination(params: PaginationParams): { skip: number; take: number; page: number } {
+  const result = getPagination(params);
+  return { skip: result.skip, take: result.take, page: result.page };
+}
+
+/**
+ * Build pagination response metadata
  */
 export function buildPaginationMeta(
   total: number,
-  page: number,
-  limit: number,
+  pageOrPagination: number | PaginationResult,
+  limit?: number,
   nextCursor?: string
 ): PaginationMeta {
-  const totalPages = Math.ceil(total / limit);
-  
+  // Handle both signatures
+  let page: number;
+  let actualLimit: number;
+
+  if (typeof pageOrPagination === 'number') {
+    page = pageOrPagination;
+    actualLimit = limit || PAGINATION_DEFAULTS.DEFAULT_LIMIT;
+  } else {
+    page = pageOrPagination.page;
+    actualLimit = pageOrPagination.limit;
+  }
+
+  const totalPages = Math.ceil(total / actualLimit);
+
   return {
     page,
-    limit,
+    limit: actualLimit,
     total,
     totalPages,
     hasMore: page < totalPages,
@@ -108,6 +338,56 @@ export function paginate<T>(
 }
 
 // ============================================================================
+// CURSOR-BASED PAGINATION
+// ============================================================================
+
+/**
+ * Build cursor pagination query options
+ */
+export function buildCursorQuery(
+  params: CursorPaginationParams,
+  orderField: string = 'createdAt'
+): {
+  take: number;
+  skip: number;
+  cursor?: { id: string };
+  orderBy: Record<string, 'asc' | 'desc'>;
+} {
+  const limit = Math.min(Math.max(1, params.limit || 20), 100);
+  const direction = params.direction || 'forward';
+
+  return {
+    take: direction === 'forward' ? limit + 1 : -(limit + 1),
+    skip: params.cursor ? 1 : 0,
+    cursor: params.cursor ? { id: params.cursor } : undefined,
+    orderBy: { [orderField]: direction === 'forward' ? 'desc' : 'asc' },
+  };
+}
+
+/**
+ * Process cursor pagination results
+ */
+export function processCursorResult<T extends { id: string }>(
+  items: T[],
+  limit: number,
+  direction: 'forward' | 'backward' = 'forward'
+): CursorPaginationResult<T> {
+  const hasMore = items.length > limit;
+  const actualItems = hasMore ? items.slice(0, limit) : items;
+
+  if (direction === 'backward') {
+    actualItems.reverse();
+  }
+
+  return {
+    items: actualItems,
+    nextCursor: actualItems.length > 0 ? actualItems[actualItems.length - 1].id : null,
+    previousCursor: actualItems.length > 0 ? actualItems[0].id : null,
+    hasMore,
+  };
+}
+
+// ============================================================================
 // FIELD SELECTION
 // ============================================================================
 
@@ -117,7 +397,7 @@ export function paginate<T>(
  */
 export function buildSelect(fields?: string[]): Record<string, boolean> | undefined {
   if (!fields || fields.length === 0) return undefined;
-  
+
   const select: Record<string, boolean> = {};
   for (const field of fields) {
     // Handle nested fields (e.g., 'user.name')
@@ -130,7 +410,7 @@ export function buildSelect(fields?: string[]): Record<string, boolean> | undefi
       select[field] = true;
     }
   }
-  
+
   return select;
 }
 
@@ -140,7 +420,7 @@ export function buildSelect(fields?: string[]): Record<string, boolean> | undefi
  */
 export function buildInclude(relations?: string[]): Record<string, boolean | object> | undefined {
   if (!relations || relations.length === 0) return undefined;
-  
+
   const include: Record<string, boolean | object> = {};
   for (const relation of relations) {
     // Handle nested relations (e.g., 'projects.milestones')
@@ -152,7 +432,7 @@ export function buildInclude(relations?: string[]): Record<string, boolean | obj
       include[relation] = true;
     }
   }
-  
+
   return include;
 }
 
@@ -169,15 +449,15 @@ export function buildOrderBy(
   defaultSort?: { field: string; order: 'asc' | 'desc' }
 ): Record<string, 'asc' | 'desc'> | undefined {
   const { sortBy, sortOrder = 'asc' } = params;
-  
+
   if (sortBy && allowedFields.includes(sortBy)) {
     return { [sortBy]: sortOrder };
   }
-  
+
   if (defaultSort) {
     return { [defaultSort.field]: defaultSort.order };
   }
-  
+
   return undefined;
 }
 
@@ -193,10 +473,10 @@ export function buildSearchWhere(
   searchFields: string[]
 ): object | undefined {
   if (!search || searchFields.length === 0) return undefined;
-  
+
   const searchTerm = search.trim();
   if (!searchTerm) return undefined;
-  
+
   return {
     OR: searchFields.map((field) => ({
       [field]: {
@@ -208,65 +488,42 @@ export function buildSearchWhere(
 }
 
 // ============================================================================
-// CACHED QUERIES
+// BATCH LOADING HELPERS
 // ============================================================================
 
 /**
- * Execute a query with caching
+ * Batch load related entities to avoid N+1 queries
+ * Use this when you need to load relations for multiple items
  */
-export async function cachedQuery<T>(
-  cacheKey: string,
-  queryFn: () => Promise<T>,
-  options: CacheOptions = {}
-): Promise<T> {
-  // Try cache first
-  const cached = await cacheGet<T>(cacheKey);
-  if (cached !== null) {
-    logger.debug('Query cache hit', { key: cacheKey });
-    return cached;
+export async function batchLoad<T, K extends string | number>(
+  ids: K[],
+  loader: (ids: K[]) => Promise<Map<K, T>>
+): Promise<Map<K, T>> {
+  if (ids.length === 0) {
+    return new Map();
   }
-  
-  // Execute query
-  const result = await queryFn();
-  
-  // Cache result
-  await cacheSet(cacheKey, result as object, options);
-  logger.debug('Query cached', { key: cacheKey });
-  
-  return result;
+
+  // Deduplicate IDs
+  const uniqueIds = [...new Set(ids)];
+  return loader(uniqueIds);
 }
 
 /**
- * Invalidate cached query results
+ * Create a batch loader function for a specific entity
  */
-export async function invalidateCachedQuery(cacheKey: string): Promise<void> {
-  await cacheDel(cacheKey);
-  logger.debug('Query cache invalidated', { key: cacheKey });
-}
-
-// ============================================================================
-// QUERY BUILDERS
-// ============================================================================
-
-/**
- * Build a complete Prisma findMany query with all optimizations
- */
-export function buildFindManyArgs(options: QueryOptions, allowedSortFields: string[] = []) {
-  const { skip, take, page } = parsePagination(options);
-  
-  return {
-    skip,
-    take,
-    select: buildSelect(options.fields),
-    include: buildInclude(options.include),
-    orderBy: buildOrderBy(options, allowedSortFields),
-    _meta: { page, limit: take }, // For pagination meta
+export function createBatchLoader<T, K extends string | number>(
+  fetchFn: (ids: K[]) => Promise<T[]>,
+  getKey: (item: T) => K
+): (ids: K[]) => Promise<Map<K, T>> {
+  return async (ids: K[]) => {
+    const items = await fetchFn(ids);
+    const map = new Map<K, T>();
+    for (const item of items) {
+      map.set(getKey(item), item);
+    }
+    return map;
   };
 }
-
-// ============================================================================
-// BATCH OPERATIONS
-// ============================================================================
 
 /**
  * Chunk array for batch processing
@@ -289,12 +546,12 @@ export async function batchProcess<T, R>(
 ): Promise<R[]> {
   const results: R[] = [];
   const chunks = chunkArray(items, batchSize);
-  
+
   for (const chunk of chunks) {
     const chunkResults = await Promise.all(chunk.map(processFn));
     results.push(...chunkResults);
   }
-  
+
   return results;
 }
 
@@ -309,7 +566,7 @@ export async function batchProcessConcurrent<T, R>(
   const { batchSize = 10, concurrency = 3 } = options;
   const results: R[] = [];
   const chunks = chunkArray(items, batchSize);
-  
+
   // Process chunks with concurrency limit
   for (let i = 0; i < chunks.length; i += concurrency) {
     const concurrentChunks = chunks.slice(i, i + concurrency);
@@ -319,12 +576,83 @@ export async function batchProcessConcurrent<T, R>(
     const concurrentResults = await Promise.all(chunkPromises);
     results.push(...concurrentResults.flat());
   }
-  
+
   return results;
 }
 
 // ============================================================================
-// AGGREGATION HELPERS
+// CACHED QUERIES
+// ============================================================================
+
+/**
+ * Execute a query with caching
+ */
+export async function cachedQuery<T>(
+  cacheKey: string,
+  queryFn: () => Promise<T>,
+  options: CacheOptions = {}
+): Promise<T> {
+  // Try cache first
+  const cached = await cacheGet<T>(cacheKey);
+  if (cached !== null) {
+    logger.debug('Query cache hit', { key: cacheKey });
+    return cached;
+  }
+
+  // Execute query
+  const result = await queryFn();
+
+  // Cache result
+  await cacheSet(cacheKey, result as object, options);
+  logger.debug('Query cached', { key: cacheKey });
+
+  return result;
+}
+
+/**
+ * Invalidate cached query results
+ */
+export async function invalidateCachedQuery(cacheKey: string): Promise<void> {
+  await cacheDel(cacheKey);
+  logger.debug('Query cache invalidated', { key: cacheKey });
+}
+
+// ============================================================================
+// QUERY PERFORMANCE HELPERS
+// ============================================================================
+
+/**
+ * Log slow queries in development
+ */
+export function wrapWithTiming<T>(
+  name: string,
+  fn: () => Promise<T>,
+  thresholdMs = 100
+): Promise<T> {
+  if (process.env.NODE_ENV !== 'development') {
+    return fn();
+  }
+
+  const start = performance.now();
+  return fn().finally(() => {
+    const duration = performance.now() - start;
+    if (duration > thresholdMs) {
+      console.warn(`[SLOW QUERY] ${name}: ${duration.toFixed(2)}ms`);
+    }
+  });
+}
+
+/**
+ * Execute queries in parallel when they're independent
+ */
+export async function parallelQueries<T extends readonly unknown[]>(
+  queries: { [K in keyof T]: () => Promise<T[K]> }
+): Promise<T> {
+  return Promise.all(queries.map((q) => q())) as Promise<T>;
+}
+
+// ============================================================================
+// DATE RANGE HELPERS
 // ============================================================================
 
 /**
@@ -336,21 +664,20 @@ export function buildDateRangeWhere(
   endDate?: Date
 ): object | undefined {
   if (!startDate && !endDate) return undefined;
-  
-  const where: Record<string, object> = {};
+
   const conditions: object[] = [];
-  
+
   if (startDate) {
     conditions.push({ [field]: { gte: startDate } });
   }
   if (endDate) {
     conditions.push({ [field]: { lte: endDate } });
   }
-  
+
   if (conditions.length === 1) {
     return conditions[0];
   }
-  
+
   return { AND: conditions };
 }
 
@@ -364,7 +691,7 @@ export function getDateRange(period: 'day' | 'week' | 'month' | 'quarter' | 'yea
   const now = new Date();
   const endDate = new Date(now);
   let startDate: Date;
-  
+
   switch (period) {
     case 'day':
       startDate = new Date(now);
@@ -390,8 +717,35 @@ export function getDateRange(period: 'day' | 'week' | 'month' | 'quarter' | 'yea
       startDate = new Date(now);
       startDate.setMonth(now.getMonth() - 1);
   }
-  
+
   return { startDate, endDate };
+}
+
+// ============================================================================
+// AGGREGATION HELPERS
+// ============================================================================
+
+/**
+ * Calculate progress from milestone statuses
+ */
+export function calculateProgress(
+  milestones: Array<{ status: string }>
+): number {
+  if (milestones.length === 0) return 0;
+  const completed = milestones.filter((m) => m.status === 'COMPLETED').length;
+  return Math.round((completed / milestones.length) * 100);
+}
+
+/**
+ * Add progress to project list
+ */
+export function addProgressToProjects<
+  T extends { milestones?: Array<{ status: string }> }
+>(projects: T[]): Array<T & { progress: number }> {
+  return projects.map((project) => ({
+    ...project,
+    progress: calculateProgress(project.milestones || []),
+  }));
 }
 
 // ============================================================================
@@ -418,7 +772,7 @@ export function trackQuery(queryName: string, durationMs: number): void {
     avgDuration: 0,
     slowQueries: 0,
   };
-  
+
   existing.count++;
   existing.totalDuration += durationMs;
   existing.avgDuration = existing.totalDuration / existing.count;
@@ -426,7 +780,7 @@ export function trackQuery(queryName: string, durationMs: number): void {
     existing.slowQueries++;
     logger.warn('Slow query detected', { queryName, durationMs });
   }
-  
+
   queryMetrics.set(queryName, existing);
 }
 
@@ -460,4 +814,24 @@ export async function measureQuery<T>(
     trackQuery(queryName, Date.now() - start);
     throw error;
   }
+}
+
+// ============================================================================
+// QUERY BUILDERS
+// ============================================================================
+
+/**
+ * Build a complete Prisma findMany query with all optimizations
+ */
+export function buildFindManyArgs(options: QueryOptions, allowedSortFields: string[] = []) {
+  const { skip, take, page } = parsePagination(options);
+
+  return {
+    skip,
+    take,
+    select: buildSelect(options.fields),
+    include: buildInclude(options.include),
+    orderBy: buildOrderBy(options, allowedSortFields),
+    _meta: { page, limit: take }, // For pagination meta
+  };
 }

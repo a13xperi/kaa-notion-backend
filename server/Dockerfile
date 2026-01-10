@@ -8,8 +8,8 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apk add --no-cache libc6-compat
+# Install build dependencies for native modules and Prisma
+RUN apk add --no-cache libc6-compat openssl
 
 # Copy package files
 COPY package*.json ./
@@ -24,6 +24,9 @@ RUN npm ci
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -47,6 +50,9 @@ RUN npm prune --production
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+# Install openssl for Prisma runtime
+RUN apk add --no-cache openssl
 
 # Set production environment
 ENV NODE_ENV=production

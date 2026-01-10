@@ -21,7 +21,11 @@ const API_CACHE_PATTERNS = [
   /\/api\/notion\/pages/,
   /\/api\/notion\/databases/,
   /\/api\/client\/data/,
-  /\/api\/client\/verify/
+  /\/api\/client\/verify/,
+  /\/api\/projects/,
+  /\/api\/notifications/,
+  /\/api\/admin\/dashboard/,
+  /\/api\/admin\/analytics/
 ];
 
 // Install event - cache static files
@@ -226,52 +230,98 @@ async function syncUploads() {
 // Push notification handling
 self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received');
-  
+
+  let notificationData = {
+    title: 'SAGE Platform',
+    body: 'You have a new notification',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    tag: 'default',
+    url: '/'
+  };
+
+  // Parse push data if available
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      notificationData = {
+        title: data.title || notificationData.title,
+        body: data.body || notificationData.body,
+        icon: data.icon || notificationData.icon,
+        badge: data.badge || notificationData.badge,
+        tag: data.tag || notificationData.tag,
+        url: data.url || data.data?.url || notificationData.url,
+        ...data
+      };
+    } catch (e) {
+      // If not JSON, use as body text
+      notificationData.body = event.data.text();
+    }
+  }
+
   const options = {
-    body: 'You have a new message or notification',
-    icon: '/logo192.png',
-    badge: '/logo192.png',
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    tag: notificationData.tag,
     vibrate: [200, 100, 200],
+    requireInteraction: notificationData.requireInteraction || false,
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      url: notificationData.url,
+      ...notificationData.data
     },
-    actions: [
+    actions: notificationData.actions || [
       {
         action: 'open',
-        title: 'Open App',
-        icon: '/logo192.png'
+        title: 'Open',
       },
       {
-        action: 'close',
-        title: 'Close',
-        icon: '/logo192.png'
+        action: 'dismiss',
+        title: 'Dismiss',
       }
     ]
   };
 
-  if (event.data) {
-    const data = event.data.json();
-    options.body = data.body || options.body;
-    options.data = { ...options.data, ...data };
-  }
-
   event.waitUntil(
-    self.registration.showNotification('KAA Command Center', options)
+    self.registration.showNotification(notificationData.title, options)
   );
 });
 
 // Notification click handling
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.action);
-  
+
   event.notification.close();
 
-  if (event.action === 'open' || !event.action) {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
+  // Handle dismiss action
+  if (event.action === 'dismiss') {
+    return;
   }
+
+  // Get URL from notification data or use default
+  const urlToOpen = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        // Check if there's already a window/tab open
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            // Navigate existing window to the URL and focus it
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
+        }
+        // If no window is open, open a new one
+        return clients.openWindow(urlToOpen);
+      })
+  );
+});
+
+// Handle notification close (for analytics/cleanup)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed:', event.notification.tag);
 });
 
 // Helper functions for IndexedDB operations

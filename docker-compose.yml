@@ -5,6 +5,115 @@ version: '3.8'
 
 services:
   # ==========================================================================
+  # Database - PostgreSQL
+  # ==========================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: sage-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sage}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sage-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # Redis for caching and queues
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sage-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sage-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Backend - Node.js API Server
+  # ==========================================================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sage-backend
+    ports:
+      - "3001:3001"
+    environment:
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
+
+      # Redis
+      - REDIS_URL=redis://redis:6379
+
+      # JWT Authentication
+      - JWT_SECRET=${JWT_SECRET:-development-secret-key-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+
+      # Stripe
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL:-http://localhost:3000/success}
+      - STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL:-http://localhost:3000/cancel}
+
+      # Notion (optional)
+      - NOTION_API_KEY=${NOTION_API_KEY:-}
+      - NOTION_DATABASE_ID=${NOTION_DATABASE_ID:-}
+      - NOTION_PROJECTS_DATABASE_ID=${NOTION_PROJECTS_DATABASE_ID:-}
+
+      # Supabase Storage (optional)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-deliverables}
+
+      # Email
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - EMAIL_FROM=${EMAIL_FROM:-SAGE <hello@sage.design>}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-support@sage.design}
+
+      # Application
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sage-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
   # Frontend - React Application
   # ==========================================================================
   frontend:
@@ -27,89 +136,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
-
-  # ==========================================================================
-  # Backend - Node.js API Server
-  # ==========================================================================
-  backend:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: sage-backend
-    ports:
-      - "3001:3001"
-    environment:
-      # Database
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
-      
-      # JWT Authentication
-      - JWT_SECRET=${JWT_SECRET:-development-secret-key-change-in-production}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
-      
-      # Stripe
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
-      - STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL:-http://localhost:3000/success}
-      - STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL:-http://localhost:3000/cancel}
-      
-      # Notion (optional)
-      - NOTION_API_KEY=${NOTION_API_KEY:-}
-      - NOTION_PROJECTS_DATABASE_ID=${NOTION_PROJECTS_DATABASE_ID:-}
-      
-      # Supabase Storage (optional)
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
-      - STORAGE_BUCKET=${STORAGE_BUCKET:-deliverables}
-      
-      # Email
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
-      - EMAIL_FROM=${EMAIL_FROM:-SAGE <hello@sage.design>}
-      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-support@sage.design}
-      
-      # Application
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=3001
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - sage-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ==========================================================================
-  # Database - PostgreSQL
-  # ==========================================================================
-  db:
-    image: postgres:15-alpine
-    container_name: sage-db
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-sage}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - sage-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
       start_period: 10s
 
   # ==========================================================================
@@ -152,6 +178,28 @@ services:
     profiles:
       - seed
 
+  # ==========================================================================
+  # Prisma Studio (Database GUI)
+  # ==========================================================================
+  prisma-studio:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: builder
+    container_name: sage-prisma-studio
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npx prisma studio
+    networks:
+      - sage-network
+    profiles:
+      - tools
+
 # ==========================================================================
 # Networks
 # ==========================================================================
@@ -164,4 +212,6 @@ networks:
 # ==========================================================================
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local

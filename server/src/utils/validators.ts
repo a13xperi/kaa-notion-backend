@@ -3,7 +3,51 @@
  * Zod schemas for API request validation.
  */
 
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
+
+// ============================================================================
+// ZOD ERROR FORMATTING
+// ============================================================================
+
+/**
+ * Format Zod errors into a structured object
+ */
+export function formatZodErrors(error: ZodError): Record<string, string[]> {
+  const formatted: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const path = issue.path.join('.') || '_root';
+
+    if (!formatted[path]) {
+      formatted[path] = [];
+    }
+
+    formatted[path].push(issue.message);
+  }
+
+  return formatted;
+}
+
+/**
+ * Get the first error message from a ZodError
+ */
+export function getFirstError(error: ZodError): string {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return 'Validation failed';
+
+  const path = firstIssue.path.join('.');
+  return path ? `${path}: ${firstIssue.message}` : firstIssue.message;
+}
+
+/**
+ * Get all error messages as a flat array
+ */
+export function getAllErrors(error: ZodError): string[] {
+  return error.issues.map((issue) => {
+    const path = issue.path.join('.');
+    return path ? `${path}: ${issue.message}` : issue.message;
+  });
+}
 
 // ============================================================================
 // COMMON SCHEMAS
