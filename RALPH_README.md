@@ -145,11 +145,69 @@ Ralph stops and provides detailed guidance:
 
 ---
 
-## E2E Testing Loop
+## Comprehensive Testing Loop
 
-The E2E testing loop runs continuous test-fix-retest cycles until all tests pass.
+The comprehensive testing loop runs **all tests** across **all critical paths** and **edge cases** in a continuous improvement cycle.
 
 ### Quick Start
+
+```bash
+# Run ALL comprehensive tests
+./ralph comprehensive 50
+
+# Target specific areas
+./ralph comprehensive 30 auth      # Authentication only
+./ralph comprehensive 30 pay       # Payments only
+./ralph comprehensive 30 onboard   # Onboarding only
+./ralph comprehensive 30 msg       # Messaging only
+
+# View test coverage matrix
+./ralph test-matrix
+```
+
+### Test Phases
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: Unit Tests (100% pass required)                       │
+│  Phase 2: Integration Tests (100% pass required)                │
+│  Phase 3: E2E Critical Paths (100% pass required)               │
+│  Phase 4: E2E Full Suite (95%+ pass required)                   │
+│  Phase 5: Edge Cases (100% pass required)                       │
+│  Phase 6: Accessibility (100% pass required)                    │
+│  Phase 7: Performance (thresholds required)                     │
+│  Phase 8: Final Verification (3 consecutive passes)             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Test Coverage Areas
+
+| Area | What's Tested |
+|------|---------------|
+| **Authentication** | Login, OAuth, MFA, password reset, sessions, rate limiting |
+| **Payments** | Credit cards, 3DS, subscriptions, refunds, coupons |
+| **Onboarding** | Registration, verification, wizard, invites, data import |
+| **Messaging** | Real-time chat, notifications, file sharing, offline mode |
+| **Core Features** | Dashboard, CRUD, search, export, settings |
+| **Accessibility** | Keyboard nav, screen readers, color contrast |
+| **Performance** | Load times, API response, memory usage |
+| **Security** | XSS, CSRF, SQL injection, authorization |
+
+### Edge Cases Covered
+
+The test matrix includes comprehensive edge cases:
+
+- **Input**: Empty, max length, special chars, XSS/SQL injection
+- **State**: First-time user, session timeout, concurrent edits
+- **Network**: Offline, slow connection, timeout, reconnection
+- **Device**: Mobile, tablet, desktop, screen readers
+- **Data**: Empty list, large datasets, pagination
+
+---
+
+## E2E Testing Loop
+
+For quick E2E testing without the full comprehensive suite:
 
 ```bash
 # Web E2E (Playwright)
@@ -163,18 +221,6 @@ The E2E testing loop runs continuous test-fix-retest cycles until all tests pass
 
 # All E2E tests
 ./ralph e2e all 30
-```
-
-### How It Works
-
-```
-┌─────────────────────────────────────┐
-│  1. Run E2E tests                   │
-│  2. Analyze failures                │
-│  3. Fix the APPLICATION code        │
-│  4. Re-run tests                    │
-│  5. Repeat until all pass (3x)      │
-└─────────────────────────────────────┘
 ```
 
 ### E2E Frameworks
@@ -481,6 +527,12 @@ git add . && git commit -m "feat: Add JWT auth"
 ./ralph start 30            # Run loop
 ./ralph stop                # Stop gracefully
 ./ralph preflight           # Check environment
+
+# Comprehensive Testing
+./ralph comprehensive 50    # All test areas
+./ralph comprehensive 30 auth # Auth tests
+./ralph comprehensive 30 pay  # Payment tests
+./ralph test-matrix         # View test coverage
 
 # E2E Testing
 ./ralph e2e web 20          # Web E2E loop (Playwright)

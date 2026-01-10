@@ -1,0 +1,629 @@
+{
+  "name": "SAGE MVP Comprehensive Test Matrix",
+  "version": "1.0.0",
+  "description": "Extensive test coverage for all critical paths, edge cases, and user journeys",
+
+  "testSuites": {
+    "authentication": {
+      "name": "Authentication & Authorization",
+      "priority": "critical",
+      "scenarios": [
+        {
+          "id": "auth-001",
+          "name": "Email/Password Login",
+          "type": "e2e",
+          "steps": ["Navigate to login", "Enter valid credentials", "Submit form", "Verify redirect to dashboard"],
+          "edgeCases": ["Empty fields", "Invalid email format", "Wrong password", "Account locked", "Unverified email"]
+        },
+        {
+          "id": "auth-002",
+          "name": "Social OAuth Login",
+          "type": "e2e",
+          "providers": ["Google", "Apple", "Facebook", "Microsoft"],
+          "steps": ["Click OAuth button", "Complete OAuth flow", "Handle callback", "Create/link account"],
+          "edgeCases": ["OAuth cancelled", "Account exists with different provider", "Missing permissions"]
+        },
+        {
+          "id": "auth-003",
+          "name": "Magic Link Login",
+          "type": "e2e",
+          "steps": ["Enter email", "Send magic link", "Click link", "Verify session"],
+          "edgeCases": ["Expired link", "Already used link", "Invalid token", "Email not found"]
+        },
+        {
+          "id": "auth-004",
+          "name": "Multi-Factor Authentication",
+          "type": "e2e",
+          "methods": ["TOTP", "SMS", "Email", "Backup codes"],
+          "edgeCases": ["Wrong code", "Expired code", "Rate limiting", "Lost device recovery"]
+        },
+        {
+          "id": "auth-005",
+          "name": "Password Reset",
+          "type": "e2e",
+          "steps": ["Request reset", "Receive email", "Set new password", "Login with new password"],
+          "edgeCases": ["Expired token", "Password requirements not met", "Email not found"]
+        },
+        {
+          "id": "auth-006",
+          "name": "Session Management",
+          "type": "e2e",
+          "scenarios": ["Session expiry", "Concurrent sessions", "Force logout", "Remember me"],
+          "edgeCases": ["Token refresh", "Invalid token", "Session hijacking prevention"]
+        },
+        {
+          "id": "auth-007",
+          "name": "Role-Based Access Control",
+          "type": "e2e",
+          "roles": ["Admin", "Manager", "User", "Guest"],
+          "edgeCases": ["Unauthorized access attempt", "Role escalation prevention", "Feature flags by role"]
+        }
+      ],
+      "unitTests": [
+        "Password hashing validation",
+        "Token generation/validation",
+        "Permission checks",
+        "Rate limiting logic",
+        "Session token rotation"
+      ]
+    },
+
+    "payments": {
+      "name": "Payment Gateway & Billing",
+      "priority": "critical",
+      "scenarios": [
+        {
+          "id": "pay-001",
+          "name": "Credit Card Payment",
+          "type": "e2e",
+          "providers": ["Stripe", "PayPal"],
+          "steps": ["Select plan", "Enter card details", "Process payment", "Confirm subscription"],
+          "edgeCases": ["Declined card", "Insufficient funds", "Expired card", "3D Secure", "Network timeout"]
+        },
+        {
+          "id": "pay-002",
+          "name": "Subscription Management",
+          "type": "e2e",
+          "actions": ["Create", "Upgrade", "Downgrade", "Cancel", "Reactivate"],
+          "edgeCases": ["Proration", "Mid-cycle changes", "Grace period", "Dunning management"]
+        },
+        {
+          "id": "pay-003",
+          "name": "Invoice & Receipts",
+          "type": "e2e",
+          "steps": ["Generate invoice", "Send email", "Download PDF", "Payment history"],
+          "edgeCases": ["Failed generation", "Tax calculations", "Currency conversion"]
+        },
+        {
+          "id": "pay-004",
+          "name": "Refunds & Disputes",
+          "type": "e2e",
+          "scenarios": ["Full refund", "Partial refund", "Dispute handling", "Chargeback"],
+          "edgeCases": ["Refund window expired", "Dispute escalation", "Fraud detection"]
+        },
+        {
+          "id": "pay-005",
+          "name": "Payment Methods",
+          "type": "e2e",
+          "methods": ["Credit card", "Debit card", "ACH/Bank transfer", "Digital wallets"],
+          "edgeCases": ["Method declined", "Verification required", "Regional restrictions"]
+        },
+        {
+          "id": "pay-006",
+          "name": "Pricing & Discounts",
+          "type": "e2e",
+          "scenarios": ["Coupon codes", "Volume discounts", "Trial periods", "Promotional pricing"],
+          "edgeCases": ["Expired coupon", "Usage limits", "Stackable discounts"]
+        }
+      ],
+      "unitTests": [
+        "Price calculation accuracy",
+        "Tax calculation by region",
+        "Proration calculations",
+        "Webhook signature validation",
+        "Idempotency key handling"
+      ]
+    },
+
+    "onboarding": {
+      "name": "User Onboarding",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "onb-001",
+          "name": "New User Registration",
+          "type": "e2e",
+          "steps": ["Landing page", "Sign up form", "Email verification", "Profile setup", "Welcome tour"],
+          "edgeCases": ["Duplicate email", "Invalid data", "Verification expired", "Incomplete profile"]
+        },
+        {
+          "id": "onb-002",
+          "name": "Guided Setup Wizard",
+          "type": "e2e",
+          "steps": ["Company info", "Team invites", "Integration setup", "First project"],
+          "edgeCases": ["Skip steps", "Back navigation", "Session timeout during wizard"]
+        },
+        {
+          "id": "onb-003",
+          "name": "Team Invitation Flow",
+          "type": "e2e",
+          "steps": ["Send invite", "Accept invite", "Set password", "Join workspace"],
+          "edgeCases": ["Expired invite", "Already member", "Invalid email", "Role assignment"]
+        },
+        {
+          "id": "onb-004",
+          "name": "Feature Discovery",
+          "type": "e2e",
+          "scenarios": ["Tooltips", "Guided tours", "Help articles", "Video tutorials"],
+          "edgeCases": ["Dismiss permanently", "Resume tour", "Language variations"]
+        },
+        {
+          "id": "onb-005",
+          "name": "Data Import",
+          "type": "e2e",
+          "sources": ["CSV", "Excel", "Third-party apps", "API migration"],
+          "edgeCases": ["Large files", "Invalid format", "Duplicate detection", "Partial import"]
+        }
+      ],
+      "unitTests": [
+        "Email validation",
+        "Progress tracking logic",
+        "Onboarding state machine",
+        "Import data parsing",
+        "Invite token generation"
+      ]
+    },
+
+    "messaging": {
+      "name": "Messaging & Communication",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "msg-001",
+          "name": "Real-time Chat",
+          "type": "e2e",
+          "features": ["Send message", "Receive message", "Typing indicator", "Read receipts"],
+          "edgeCases": ["Offline mode", "Reconnection", "Message ordering", "Large messages"]
+        },
+        {
+          "id": "msg-002",
+          "name": "Notification System",
+          "type": "e2e",
+          "channels": ["In-app", "Email", "Push (web)", "Push (mobile)", "SMS"],
+          "edgeCases": ["Preferences", "Do not disturb", "Batching", "Delivery failures"]
+        },
+        {
+          "id": "msg-003",
+          "name": "Email Communications",
+          "type": "e2e",
+          "types": ["Transactional", "Marketing", "System alerts", "Digests"],
+          "edgeCases": ["Bounce handling", "Unsubscribe", "Spam filtering", "Template errors"]
+        },
+        {
+          "id": "msg-004",
+          "name": "In-App Messaging",
+          "type": "e2e",
+          "features": ["Direct messages", "Group chats", "Channels", "Threads"],
+          "edgeCases": ["Member limits", "Message editing", "Deletion", "Mentions"]
+        },
+        {
+          "id": "msg-005",
+          "name": "File Sharing",
+          "type": "e2e",
+          "features": ["Upload", "Preview", "Download", "Share links"],
+          "edgeCases": ["Large files", "Unsupported formats", "Virus scanning", "Storage limits"]
+        }
+      ],
+      "unitTests": [
+        "Message sanitization",
+        "WebSocket connection handling",
+        "Notification priority logic",
+        "Email template rendering",
+        "File type validation"
+      ]
+    },
+
+    "coreFeatures": {
+      "name": "Core Application Features",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "core-001",
+          "name": "Dashboard",
+          "type": "e2e",
+          "features": ["Data loading", "Widget rendering", "Filtering", "Date ranges"],
+          "edgeCases": ["Empty state", "Loading errors", "Stale data", "Permission-based views"]
+        },
+        {
+          "id": "core-002",
+          "name": "Search & Filtering",
+          "type": "e2e",
+          "features": ["Global search", "Advanced filters", "Sort options", "Saved searches"],
+          "edgeCases": ["No results", "Special characters", "Performance with large datasets"]
+        },
+        {
+          "id": "core-003",
+          "name": "CRUD Operations",
+          "type": "e2e",
+          "entities": ["Projects", "Tasks", "Users", "Settings"],
+          "edgeCases": ["Validation errors", "Concurrent edits", "Cascade delete", "Soft delete"]
+        },
+        {
+          "id": "core-004",
+          "name": "Data Export",
+          "type": "e2e",
+          "formats": ["CSV", "Excel", "PDF", "JSON"],
+          "edgeCases": ["Large exports", "Timeout handling", "Format errors", "Permission checks"]
+        },
+        {
+          "id": "core-005",
+          "name": "Settings & Preferences",
+          "type": "e2e",
+          "areas": ["Profile", "Security", "Notifications", "Integrations", "Billing"],
+          "edgeCases": ["Unsaved changes warning", "Validation", "Reset to defaults"]
+        }
+      ],
+      "unitTests": [
+        "Data transformation",
+        "Filter logic",
+        "Sort algorithms",
+        "Export generation",
+        "Settings validation"
+      ]
+    },
+
+    "integrations": {
+      "name": "Third-Party Integrations",
+      "priority": "medium",
+      "scenarios": [
+        {
+          "id": "int-001",
+          "name": "OAuth Connections",
+          "type": "e2e",
+          "providers": ["Google Workspace", "Microsoft 365", "Slack", "Notion"],
+          "edgeCases": ["Token refresh", "Permission changes", "Disconnect handling"]
+        },
+        {
+          "id": "int-002",
+          "name": "Webhook Management",
+          "type": "e2e",
+          "features": ["Create webhook", "Test webhook", "View logs", "Retry failed"],
+          "edgeCases": ["Invalid URL", "Timeout", "Signature validation", "Rate limiting"]
+        },
+        {
+          "id": "int-003",
+          "name": "API Access",
+          "type": "e2e",
+          "features": ["API key generation", "Usage tracking", "Rate limits", "Documentation"],
+          "edgeCases": ["Key rotation", "Quota exceeded", "Invalid requests"]
+        }
+      ],
+      "unitTests": [
+        "OAuth token management",
+        "Webhook payload construction",
+        "API rate limiting",
+        "Retry logic with backoff"
+      ]
+    },
+
+    "accessibility": {
+      "name": "Accessibility & Compliance",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "a11y-001",
+          "name": "Keyboard Navigation",
+          "type": "e2e",
+          "areas": ["Forms", "Modals", "Menus", "Tables", "Actions"],
+          "edgeCases": ["Focus trapping", "Skip links", "Custom components"]
+        },
+        {
+          "id": "a11y-002",
+          "name": "Screen Reader Compatibility",
+          "type": "e2e",
+          "features": ["ARIA labels", "Live regions", "Landmark roles", "Alt text"],
+          "edgeCases": ["Dynamic content", "Error announcements", "Loading states"]
+        },
+        {
+          "id": "a11y-003",
+          "name": "Visual Accessibility",
+          "type": "e2e",
+          "features": ["Color contrast", "Text scaling", "Focus indicators", "Motion reduction"],
+          "edgeCases": ["Dark mode", "High contrast mode", "Custom themes"]
+        }
+      ],
+      "unitTests": [
+        "ARIA attribute validation",
+        "Color contrast calculations",
+        "Focus management logic"
+      ]
+    },
+
+    "performance": {
+      "name": "Performance & Reliability",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "perf-001",
+          "name": "Page Load Performance",
+          "type": "e2e",
+          "metrics": ["FCP", "LCP", "TTI", "CLS"],
+          "thresholds": {"FCP": 1500, "LCP": 2500, "TTI": 3500, "CLS": 0.1}
+        },
+        {
+          "id": "perf-002",
+          "name": "API Response Times",
+          "type": "e2e",
+          "endpoints": ["Critical paths", "Data-heavy endpoints", "Search"],
+          "thresholds": {"p50": 200, "p95": 500, "p99": 1000}
+        },
+        {
+          "id": "perf-003",
+          "name": "Concurrent Users",
+          "type": "load",
+          "scenarios": ["Normal load", "Peak load", "Stress test"],
+          "edgeCases": ["Connection pooling", "Cache invalidation", "Queue overflow"]
+        }
+      ],
+      "unitTests": [
+        "Query optimization",
+        "Cache hit rates",
+        "Memory leak detection"
+      ]
+    },
+
+    "security": {
+      "name": "Security Testing",
+      "priority": "critical",
+      "scenarios": [
+        {
+          "id": "sec-001",
+          "name": "Input Validation",
+          "type": "e2e",
+          "attacks": ["XSS", "SQL Injection", "Command Injection", "Path Traversal"],
+          "areas": ["Forms", "URLs", "File uploads", "API endpoints"]
+        },
+        {
+          "id": "sec-002",
+          "name": "Authentication Security",
+          "type": "e2e",
+          "tests": ["Brute force protection", "Session fixation", "CSRF protection", "JWT validation"],
+          "edgeCases": ["Token leakage", "Cookie security", "Logout completeness"]
+        },
+        {
+          "id": "sec-003",
+          "name": "Authorization Testing",
+          "type": "e2e",
+          "tests": ["Horizontal privilege escalation", "Vertical privilege escalation", "IDOR"],
+          "edgeCases": ["Direct object references", "Hidden endpoints", "API bypass"]
+        },
+        {
+          "id": "sec-004",
+          "name": "Data Protection",
+          "type": "e2e",
+          "tests": ["PII handling", "Encryption at rest", "Encryption in transit", "Data retention"],
+          "edgeCases": ["Export restrictions", "Audit logging", "GDPR compliance"]
+        }
+      ],
+      "unitTests": [
+        "Input sanitization functions",
+        "Encryption/decryption",
+        "Permission check utilities",
+        "Rate limiting accuracy"
+      ]
+    },
+
+    "errorHandling": {
+      "name": "Error Handling & Recovery",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "err-001",
+          "name": "Network Failures",
+          "type": "e2e",
+          "scenarios": ["API timeout", "Connection lost", "Slow connection"],
+          "edgeCases": ["Retry logic", "Offline mode", "Data sync on reconnect"]
+        },
+        {
+          "id": "err-002",
+          "name": "Form Validation Errors",
+          "type": "e2e",
+          "scenarios": ["Field-level errors", "Form-level errors", "Server validation"],
+          "edgeCases": ["Error clearing", "Focus management", "Error persistence"]
+        },
+        {
+          "id": "err-003",
+          "name": "404 & Error Pages",
+          "type": "e2e",
+          "pages": ["Not found", "Server error", "Maintenance mode", "Permission denied"],
+          "edgeCases": ["Deep links", "Navigation recovery", "Error reporting"]
+        },
+        {
+          "id": "err-004",
+          "name": "Data Integrity",
+          "type": "e2e",
+          "scenarios": ["Concurrent edits", "Optimistic updates", "Rollback on failure"],
+          "edgeCases": ["Conflict resolution", "Stale data warning", "Force refresh"]
+        }
+      ],
+      "unitTests": [
+        "Error boundary logic",
+        "Retry mechanism",
+        "Error message formatting",
+        "Logging accuracy"
+      ]
+    },
+
+    "mobile": {
+      "name": "Mobile-Specific Testing",
+      "priority": "high",
+      "scenarios": [
+        {
+          "id": "mob-001",
+          "name": "Responsive Design",
+          "type": "e2e",
+          "breakpoints": ["320px", "375px", "414px", "768px", "1024px", "1440px"],
+          "edgeCases": ["Orientation change", "Safe areas", "Notch handling"]
+        },
+        {
+          "id": "mob-002",
+          "name": "Touch Interactions",
+          "type": "e2e",
+          "gestures": ["Tap", "Long press", "Swipe", "Pinch zoom", "Pull to refresh"],
+          "edgeCases": ["Multi-touch", "Gesture conflicts", "Touch target sizes"]
+        },
+        {
+          "id": "mob-003",
+          "name": "Native Features",
+          "type": "e2e",
+          "features": ["Camera", "Location", "Push notifications", "Biometrics"],
+          "edgeCases": ["Permission denied", "Feature unavailable", "Background mode"]
+        },
+        {
+          "id": "mob-004",
+          "name": "Offline Functionality",
+          "type": "e2e",
+          "features": ["Offline viewing", "Queue actions", "Sync on connect"],
+          "edgeCases": ["Storage limits", "Conflict resolution", "Partial sync"]
+        }
+      ],
+      "unitTests": [
+        "Responsive breakpoint logic",
+        "Gesture detection",
+        "Offline queue management",
+        "Sync conflict resolution"
+      ]
+    }
+  },
+
+  "testingStrategy": {
+    "continuous": {
+      "description": "Continuous testing loop that runs until all tests pass",
+      "phases": [
+        {
+          "phase": 1,
+          "name": "Unit Tests",
+          "command": "npm test",
+          "passThreshold": "100%",
+          "retries": 3
+        },
+        {
+          "phase": 2,
+          "name": "Integration Tests",
+          "command": "npm run test:integration",
+          "passThreshold": "100%",
+          "retries": 3
+        },
+        {
+          "phase": 3,
+          "name": "E2E Critical Path",
+          "command": "npx playwright test --grep @critical",
+          "passThreshold": "100%",
+          "retries": 3
+        },
+        {
+          "phase": 4,
+          "name": "E2E Full Suite",
+          "command": "npx playwright test",
+          "passThreshold": "95%",
+          "retries": 2
+        },
+        {
+          "phase": 5,
+          "name": "Visual Regression",
+          "command": "npx playwright test --grep @visual",
+          "passThreshold": "100%",
+          "retries": 1
+        },
+        {
+          "phase": 6,
+          "name": "Accessibility Audit",
+          "command": "npx playwright test --grep @a11y",
+          "passThreshold": "100%",
+          "retries": 1
+        },
+        {
+          "phase": 7,
+          "name": "Performance Audit",
+          "command": "npx playwright test --grep @performance",
+          "passThreshold": "90%",
+          "retries": 1
+        }
+      ]
+    },
+    "parallelization": {
+      "shards": 4,
+      "workers": "50%",
+      "retryFailedTests": true
+    },
+    "reporting": {
+      "formats": ["html", "json", "junit"],
+      "screenshots": "only-on-failure",
+      "video": "retain-on-failure",
+      "trace": "retain-on-failure"
+    }
+  },
+
+  "edgeCaseCategories": {
+    "input": [
+      "Empty input",
+      "Maximum length input",
+      "Special characters",
+      "Unicode characters",
+      "Script injection attempts",
+      "SQL injection attempts",
+      "Whitespace only",
+      "Numeric overflow",
+      "Negative numbers",
+      "Decimal precision",
+      "Date edge cases (leap year, DST)",
+      "Future/past dates",
+      "File size limits",
+      "Unsupported file types"
+    ],
+    "state": [
+      "First-time user",
+      "Returning user",
+      "Multiple tabs/windows",
+      "Concurrent sessions",
+      "Session timeout",
+      "Token expiry",
+      "Cache miss",
+      "Stale cache",
+      "Race conditions",
+      "Optimistic update conflicts"
+    ],
+    "network": [
+      "Slow connection (3G)",
+      "Intermittent connection",
+      "Complete offline",
+      "Request timeout",
+      "Server error (500)",
+      "Rate limited (429)",
+      "Not found (404)",
+      "Unauthorized (401)",
+      "Forbidden (403)"
+    ],
+    "device": [
+      "Small screen (320px)",
+      "Large screen (4K)",
+      "Touch device",
+      "Mouse device",
+      "Keyboard only",
+      "Screen reader",
+      "High DPI display",
+      "Low memory device",
+      "Older browser"
+    ],
+    "data": [
+      "Empty list",
+      "Single item",
+      "Maximum items",
+      "Paginated results",
+      "Sorted/filtered",
+      "Real-time updates",
+      "Deleted items",
+      "Orphaned references"
+    ]
+  }
+}
