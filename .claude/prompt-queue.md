@@ -333,6 +333,11 @@
 - [x] `new-hooks`: index.ts - Central hook exports
 - [x] `integration`: React Query - QueryClientProvider setup in App.tsx
 - [x] `update`: PortalPages.tsx - Connected to API with mock data fallback
+- [x] `new-script`: start-dev.sh - Development startup script with env validation
+- [x] `update`: App.tsx - Added global ErrorBoundary wrapper
+- [x] `update`: env.example - Added REACT_APP_API_URL documentation
+- [x] `verify`: Backend build and 186 tests passing
+- [x] `verify`: Frontend build successful
 
 ### 2025-01-09
 - [x] Initial project setup

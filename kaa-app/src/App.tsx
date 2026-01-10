@@ -46,6 +46,7 @@ import InstallPrompt from './components/InstallPrompt';
 
 // Legacy Components (for backward compatibility)
 import FeatureDemo from './components/FeatureDemo';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // ============================================================================
 // REACT QUERY CLIENT
@@ -188,12 +189,16 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <DarkModeProvider>
-          <AuthProvider>
-            <ToastProvider position="top-right" maxToasts={5}>
-            <Routes>
+    <ErrorBoundary
+      fallbackTitle="Application Error"
+      fallbackMessage="Something went wrong with the SAGE platform. Please try refreshing the page."
+    >
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <DarkModeProvider>
+            <AuthProvider>
+              <ToastProvider position="top-right" maxToasts={5}>
+              <Routes>
               {/* ============ PUBLIC ROUTES ============ */}
               
               {/* Landing */}
@@ -324,11 +329,12 @@ function App() {
             {/* Global Components */}
             <OfflineIndicator />
             <InstallPrompt />
-            </ToastProvider>
-          </AuthProvider>
-        </DarkModeProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </DarkModeProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
