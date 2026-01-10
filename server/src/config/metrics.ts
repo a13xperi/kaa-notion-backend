@@ -245,7 +245,7 @@ export function recordLeadCreated(tier: number, source = 'web'): void {
  * Record a payment
  */
 export function recordPayment(
-  tier: number,
+  tier: number | string,
   status: 'success' | 'failed',
   amount?: number,
   currency = 'usd'
