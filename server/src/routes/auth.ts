@@ -8,6 +8,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient, UserType } from '@prisma/client';
+import { z } from 'zod';
 import {
   registerUser,
   loginUser,
@@ -18,7 +19,7 @@ import {
 } from '../services/authService';
 import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
-import { loginProtection, onLoginSuccess, onLoginFailure } from '../middleware';
+import { loginProtection, onLoginSuccess, onLoginFailure, validateBody } from '../middleware';
 import { recordAuthAttempt } from '../config/metrics';
 
 // ============================================================================
@@ -45,6 +46,11 @@ const loginSchema = z.object({
 const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
+
+// Type aliases for validated input
+type RegisterInput = z.infer<typeof registerSchema>;
+type LoginInput = z.infer<typeof loginSchema>;
+type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 
 // ============================================================================
 // INTERFACES

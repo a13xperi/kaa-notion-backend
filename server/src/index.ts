@@ -30,8 +30,8 @@ import {
   shutdownRealtimeService,
 } from './services';
 import { initStripe } from './utils/stripeHelpers';
-import { 
-  errorHandler, 
+import {
+  errorHandler,
   notFoundHandler,
   apiRateLimiter,
   authRateLimiter,
@@ -40,6 +40,8 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  requireNotionService,
+  requireStorageService,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -66,8 +68,9 @@ const prisma = createPrismaClient({
 });
 
 // Initialize Stripe helpers for checkout and webhook handling
+let stripe: ReturnType<typeof initStripe> | null = null;
 if (process.env.STRIPE_SECRET_KEY) {
-  initStripe({
+  stripe = initStripe({
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     successUrl: process.env.STRIPE_SUCCESS_URL || 'http://localhost:3000/success',

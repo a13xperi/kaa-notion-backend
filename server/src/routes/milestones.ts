@@ -14,6 +14,7 @@ import { AuthenticatedRequest } from './projects';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { requireAuth, requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES

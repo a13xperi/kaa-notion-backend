@@ -89,7 +89,7 @@ router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Resp
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
@@ -296,7 +296,7 @@ router.patch('/revisions/:id', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }

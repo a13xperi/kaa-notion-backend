@@ -604,6 +604,43 @@ export async function sendDeliverableNotification(data: {
   });
 }
 
+/**
+ * Send password reset email
+ */
+export async function sendPasswordResetEmail(data: {
+  to: string;
+  name: string;
+  resetUrl: string;
+  expiresIn?: string;
+}): Promise<EmailResult> {
+  const expiresIn = data.expiresIn || '1 hour';
+
+  return sendEmail({
+    to: data.to,
+    subject: 'Reset Your Password - SAGE by KAA',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #1a1a1a;">Reset Your Password</h1>
+        <p>Hi ${data.name},</p>
+        <p>We received a request to reset your password. Click the button below to create a new password:</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${data.resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link will expire in ${expiresIn}.</p>
+        <p>If you didn't request a password reset, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 20px 0;" />
+        <p style="color: #666; font-size: 12px;">
+          SAGE by Aitken Associates Landscape Architecture
+        </p>
+      </div>
+    `,
+    text: `Reset Your Password\n\nHi ${data.name},\n\nWe received a request to reset your password. Visit this link to create a new password:\n\n${data.resetUrl}\n\nThis link will expire in ${expiresIn}.\n\nIf you didn't request a password reset, you can safely ignore this email.`,
+    tags: ['password-reset', 'auth'],
+  });
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -615,5 +652,6 @@ export default {
   sendPaymentConfirmation,
   sendMilestoneNotification,
   sendDeliverableNotification,
+  sendPasswordResetEmail,
   EmailTemplates,
 };

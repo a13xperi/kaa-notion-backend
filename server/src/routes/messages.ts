@@ -76,7 +76,7 @@ router.get('/', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
@@ -187,7 +187,7 @@ router.post('/', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
