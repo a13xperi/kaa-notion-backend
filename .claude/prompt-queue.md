@@ -326,6 +326,13 @@
 - [x] `new-page`: AdminPages.tsx - AdminDashboardPage, placeholder admin pages
 - [x] `update`: App.tsx - Complete router setup with protected/admin routes
 - [x] `update`: LandingPage.tsx - Added CTA buttons for Get Started and Pricing
+- [x] `new-config`: api.ts - Centralized API configuration, endpoints, client utilities
+- [x] `new-hook`: useAuth.ts - React Query authentication hooks (login, register, logout)
+- [x] `new-hook`: useProjects.ts - React Query project fetching hooks
+- [x] `new-hook`: useLeads.ts - React Query lead management hooks
+- [x] `new-hooks`: index.ts - Central hook exports
+- [x] `integration`: React Query - QueryClientProvider setup in App.tsx
+- [x] `update`: PortalPages.tsx - Connected to API with mock data fallback
 
 ### 2025-01-09
 - [x] Initial project setup

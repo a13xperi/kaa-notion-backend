@@ -1,7 +1,7 @@
 /**
  * Portal Pages
  * Page components that wrap portal components with data fetching.
- * These will be connected to the API later.
+ * Uses React Query hooks with fallback to mock data.
  */
 
 import React from 'react';
@@ -10,9 +10,10 @@ import ProjectDashboard from '../components/ProjectDashboard';
 import ProjectDetail from '../components/ProjectDetail';
 import { ProjectSummary, ProjectDetail as ProjectDetailType } from '../types/portal.types';
 import { NotFoundPage, EmptyProjects, Skeleton, SkeletonCard } from '../components/common';
+import { useProjects, useProject } from '../hooks';
 
 // ============================================================================
-// MOCK DATA (will be replaced with API calls)
+// MOCK DATA (fallback when API unavailable)
 // ============================================================================
 
 const MOCK_PROJECTS: ProjectSummary[] = [
@@ -130,17 +131,13 @@ function getMockProjectDetail(id: string): ProjectDetailType | null {
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [projects, setProjects] = React.useState<ProjectSummary[]>([]);
-
-  React.useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setProjects(MOCK_PROJECTS);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  
+  // Try to fetch from API
+  const { data, isLoading, error } = useProjects();
+  
+  // Use API data or fall back to mock data if API fails
+  const projects = data?.projects || (error ? MOCK_PROJECTS : []);
+  const showMockData = !!error;
 
   if (isLoading) {
     return (
@@ -156,7 +153,7 @@ export function ProjectsPage() {
     );
   }
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && !showMockData) {
     return (
       <EmptyProjects 
         action={
@@ -180,11 +177,25 @@ export function ProjectsPage() {
   }
 
   return (
-    <ProjectDashboard
-      projects={projects}
-      onProjectClick={(id) => navigate(`/portal/projects/${id}`)}
-      onCreateProject={() => navigate('/get-started')}
-    />
+    <>
+      {showMockData && (
+        <div style={{ 
+          background: '#fef3c7', 
+          color: '#92400e',
+          padding: '0.75rem 1rem', 
+          marginBottom: '1rem',
+          borderRadius: '8px',
+          fontSize: '0.875rem',
+        }}>
+          ⚠️ API unavailable - showing demo data
+        </div>
+      )}
+      <ProjectDashboard
+        projects={projects}
+        onProjectClick={(id) => navigate(`/portal/projects/${id}`)}
+        onCreateProject={() => navigate('/get-started')}
+      />
+    </>
   );
 }
 
@@ -195,19 +206,13 @@ export function ProjectsPage() {
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [project, setProject] = React.useState<ProjectDetailType | null>(null);
-
-  React.useEffect(() => {
-    if (!projectId) return;
-    
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setProject(getMockProjectDetail(projectId));
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [projectId]);
+  
+  // Try to fetch from API
+  const { data: project, isLoading, error } = useProject(projectId);
+  
+  // Fall back to mock data if API fails
+  const displayProject = project || (error && projectId ? getMockProjectDetail(projectId) : null);
+  const showMockData = !!error && !!displayProject;
 
   if (!projectId) {
     return <NotFoundPage title="Project Not Found" />;
@@ -227,7 +232,7 @@ export function ProjectDetailPage() {
     );
   }
 
-  if (!project) {
+  if (!displayProject) {
     return (
       <NotFoundPage 
         title="Project Not Found"
@@ -237,10 +242,24 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <ProjectDetail
-      project={project}
-      onBack={() => navigate('/portal/projects')}
-    />
+    <>
+      {showMockData && (
+        <div style={{ 
+          background: '#fef3c7', 
+          color: '#92400e',
+          padding: '0.75rem 1rem', 
+          marginBottom: '1rem',
+          borderRadius: '8px',
+          fontSize: '0.875rem',
+        }}>
+          ⚠️ API unavailable - showing demo data
+        </div>
+      )}
+      <ProjectDetail
+        project={displayProject}
+        onBack={() => navigate('/portal/projects')}
+      />
+    </>
   );
 }
 

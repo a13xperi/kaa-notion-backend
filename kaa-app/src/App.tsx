@@ -7,12 +7,12 @@
 
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, RequireAuth, RequireAdmin } from './contexts/AuthContext';
 import { ToastProvider } from './components/common';
 import { DarkModeProvider } from './contexts/DarkModeContext';
 import pwaManager from './utils/pwa';
 import logger from './utils/logger';
-
 import './App.css';
 import './routes/pages.css';
 
@@ -46,6 +46,24 @@ import InstallPrompt from './components/InstallPrompt';
 
 // Legacy Components (for backward compatibility)
 import FeatureDemo from './components/FeatureDemo';
+
+// ============================================================================
+// REACT QUERY CLIENT
+// ============================================================================
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30000, // 30 seconds
+    },
+  },
+});
+
+// ============================================================================
+// ROUTE GUARDS
+// ============================================================================
 
 /**
  * Protected Route - requires authentication
@@ -170,10 +188,11 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <DarkModeProvider>
-        <AuthProvider>
-          <ToastProvider position="top-right" maxToasts={5}>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <DarkModeProvider>
+          <AuthProvider>
+            <ToastProvider position="top-right" maxToasts={5}>
             <Routes>
               {/* ============ PUBLIC ROUTES ============ */}
               
@@ -305,10 +324,11 @@ function App() {
             {/* Global Components */}
             <OfflineIndicator />
             <InstallPrompt />
-          </ToastProvider>
-        </AuthProvider>
-      </DarkModeProvider>
-    </BrowserRouter>
+            </ToastProvider>
+          </AuthProvider>
+        </DarkModeProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

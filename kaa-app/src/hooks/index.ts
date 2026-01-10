@@ -1,52 +1,52 @@
 /**
  * Hooks Index
- * Central export point for all custom hooks.
+ * Central export for all custom hooks.
  */
 
-// Projects hooks
+// Auth
+export {
+  useCurrentUser,
+  useLogin,
+  useRegister,
+  useLogout,
+  useRefreshToken,
+  useIsAuthenticated,
+  useIsAdmin,
+  useUserTier,
+  useAuthState,
+  authKeys,
+} from './useAuth';
+export type { User, LoginCredentials, RegisterData, AuthResponse } from './useAuth';
+
+// Projects
 export {
   useProjects,
   useProject,
+  useProjectMilestones,
+  useProjectDeliverables,
   useUpdateProjectStatus,
-  usePrefetchProject,
-  useActiveProjects,
-  useCompletedProjects,
+  useProjectProgress,
   projectKeys,
 } from './useProjects';
+export type { ProjectFilters, ProjectsResponse } from './useProjects';
 
-// Project with relations hook
+// Leads
 export {
-  useProjectWithRelations,
-  useProjectBasic,
-  useProjectProgress,
-} from './useProject';
-
-// Milestones hooks
-export {
-  useMilestones,
-  useMilestone,
-  useUpdateMilestoneStatus,
-  useCurrentMilestone,
-  useOverdueMilestones,
-  useMilestoneProgress,
-  milestoneKeys,
-} from './useMilestones';
-
-// Deliverables hooks
-export {
-  useDeliverables,
-  useDeliverable,
-  useDeliverableDownloadUrl,
-  useUploadDeliverable,
-  useDeleteDeliverable,
-  useDownloadDeliverable,
-  useDeliverablesByCategory,
-  useDeliverableStats,
-  useRecentDeliverables,
-  deliverableKeys,
-} from './useDeliverables';
-
-// Type exports
-export type { ProjectWithRelations } from './useProject';
-export type { FetchProjectsParams } from './useProjects';
-export type { FetchDeliverablesParams } from './useDeliverables';
+  useLeads,
+  useLead,
+  useLeadStats,
+  useCreateLead,
+  useUpdateLeadStatus,
+  useOverrideLeadTier,
+  useConvertLead,
+  leadKeys,
+} from './useLeads';
+export type { 
+  Lead, 
+  LeadStatus, 
+  LeadFilters, 
+  LeadsResponse, 
+  LeadStats,
+  CreateLeadData,
+  CreateLeadResponse,
+} from './useLeads';
