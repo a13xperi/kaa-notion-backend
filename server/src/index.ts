@@ -32,6 +32,8 @@ import {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  requireNotionService,
+  requireStorageService,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -182,8 +184,8 @@ app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
 app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)

@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
-import { getStorageService, StorageService } from '../services/storageService';
+import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -15,6 +15,10 @@ import { logger } from '../logger';
 
 interface UploadRouterDependencies {
   prisma: PrismaClient;
+}
+
+interface StorageServiceRequest extends Request {
+  storageService?: StorageService;
 }
 
 // Extend Express Request
@@ -44,31 +48,13 @@ const upload = multer({
     files: 10, // Max 10 files per request
   },
   fileFilter: (req, file, cb) => {
-    // Get allowed types from storage service if available
-    try {
-      const storageService = getStorageService();
-      const allowedTypes = storageService.getAllowedMimeTypes();
-      
-      if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`File type not allowed: ${file.mimetype}`));
-      }
-    } catch {
-      // If storage service not initialized, use default list
-      const defaultAllowed = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-      ];
-      
-      if (defaultAllowed.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`File type not allowed: ${file.mimetype}`));
-      }
+    const storageService = (req as StorageServiceRequest).storageService as StorageService;
+    const allowedTypes = storageService.getAllowedMimeTypes();
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type not allowed: ${file.mimetype}`));
     }
   },
 });
@@ -221,15 +207,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
         }
 
         // Get storage service
-        let storageService: StorageService;
-        try {
-          storageService = getStorageService();
-        } catch {
-          return res.status(503).json({
-            success: false,
-            error: { code: 'SERVICE_UNAVAILABLE', message: 'Storage service not configured' },
-          });
-        }
+        const storageService = (req as StorageServiceRequest).storageService as StorageService;
 
         // Upload file
         const uploadResult = await storageService.uploadFile(file.buffer, {
@@ -346,15 +324,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           });
         }
 
-        let storageService: StorageService;
-        try {
-          storageService = getStorageService();
-        } catch {
-          return res.status(503).json({
-            success: false,
-            error: { code: 'SERVICE_UNAVAILABLE', message: 'Storage service not configured' },
-          });
-        }
+        const storageService = (req as StorageServiceRequest).storageService as StorageService;
 
         const results: Array<{
           fileName: string;
@@ -450,24 +420,9 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.get('/config', async (req: Request, res: Response) => {
     try {
-      let allowedTypes: string[];
-      let maxSizeBytes: number;
-
-      try {
-        const storageService = getStorageService();
-        allowedTypes = storageService.getAllowedMimeTypes();
-        maxSizeBytes = storageService.getMaxFileSizeBytes();
-      } catch {
-        // Default configuration
-        allowedTypes = [
-          'application/pdf',
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'image/webp',
-        ];
-        maxSizeBytes = 50 * 1024 * 1024;
-      }
+      const storageService = (req as StorageServiceRequest).storageService as StorageService;
+      const allowedTypes = storageService.getAllowedMimeTypes();
+      const maxSizeBytes = storageService.getMaxFileSizeBytes();
 
       return res.json({
         success: true,
@@ -512,7 +467,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
 
         // Delete from storage
         try {
-          const storageService = getStorageService();
+          const storageService = (req as StorageServiceRequest).storageService as StorageService;
           const deleteResult = await storageService.deleteFile(deliverable.filePath);
 
           if (!deleteResult.success) {

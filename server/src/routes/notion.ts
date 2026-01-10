@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
-import { getNotionSyncService, NotionSyncService } from '../services';
+import { NotionSyncService } from '../services';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -14,6 +14,10 @@ import { logger } from '../logger';
 
 interface NotionRouterDependencies {
   prisma: PrismaClient;
+}
+
+interface NotionServiceRequest extends Request {
+  notionSyncService?: NotionSyncService;
 }
 
 // Extend Express Request
@@ -80,19 +84,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.get('/status', requireAdmin, async (req: Request, res: Response) => {
     try {
-      let syncService: NotionSyncService;
-      try {
-        syncService = getNotionSyncService();
-      } catch {
-        // Service not initialized
-        return res.json({
-          success: true,
-          data: {
-            initialized: false,
-            message: 'Notion sync service not configured',
-          },
-        });
-      }
+      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       const stats = await syncService.getSyncStats();
 
@@ -142,18 +134,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.post('/sync', requireAdmin, async (req: Request, res: Response) => {
     try {
-      let syncService: NotionSyncService;
-      try {
-        syncService = getNotionSyncService();
-      } catch {
-        return res.status(503).json({
-          success: false,
-          error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Notion sync service not configured',
-          },
-        });
-      }
+      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       const results = await syncService.syncAllPending();
 
@@ -194,18 +175,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.post('/retry', requireAdmin, async (req: Request, res: Response) => {
     try {
-      let syncService: NotionSyncService;
-      try {
-        syncService = getNotionSyncService();
-      } catch {
-        return res.status(503).json({
-          success: false,
-          error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Notion sync service not configured',
-          },
-        });
-      }
+      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       const count = await syncService.retryFailed();
 
@@ -248,18 +218,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
     const { id } = req.params;
     
     try {
-      let syncService: NotionSyncService;
-      try {
-        syncService = getNotionSyncService();
-      } catch {
-        return res.status(503).json({
-          success: false,
-          error: {
-            code: 'SERVICE_UNAVAILABLE',
-            message: 'Notion sync service not configured',
-          },
-        });
-      }
+      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       // Get project with client info
       const project = await prisma.project.findUnique({
