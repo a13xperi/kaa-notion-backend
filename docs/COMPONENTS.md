@@ -247,6 +247,152 @@ import { LoadingButton } from './components/common';
 
 ---
 
+### Pagination
+
+Page navigation with ellipsis, first/last buttons, and accessibility.
+
+```tsx
+import { Pagination } from './components/common';
+
+<Pagination
+  currentPage={page}
+  totalPages={totalPages}
+  onPageChange={setPage}
+  showFirstLast={true}
+  siblingCount={1}
+/>
+```
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| currentPage | number | - | Current active page |
+| totalPages | number | - | Total number of pages |
+| onPageChange | (page: number) => void | - | Called when page changes |
+| siblingCount | number | 1 | Pages shown around current |
+| showFirstLast | boolean | true | Show first/last buttons |
+| disabled | boolean | false | Disable all buttons |
+| className | string | '' | Additional CSS class |
+
+---
+
+### SearchInput
+
+Search input with debounce, icon, clear button, and loading state.
+
+```tsx
+import { SearchInput } from './components/common';
+
+const [query, setQuery] = useState('');
+
+<SearchInput
+  value={query}
+  onChange={setQuery}
+  placeholder="Search projects..."
+  debounceMs={300}
+  showIcon={true}
+  showClear={true}
+  isLoading={isSearching}
+/>
+```
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| value | string | - | Controlled input value |
+| onChange | (value: string) => void | - | Called with debounced value |
+| debounceMs | number | 300 | Debounce delay in ms |
+| placeholder | string | 'Search...' | Input placeholder |
+| showIcon | boolean | true | Show search icon |
+| showClear | boolean | true | Show clear button |
+| isLoading | boolean | false | Show loading spinner |
+| size | 'sm' \| 'md' \| 'lg' | 'md' | Input size |
+
+---
+
+### Badge / StatusBadge / TierBadge
+
+Status badges and tags with multiple variants.
+
+```tsx
+import { Badge, StatusBadge, TierBadge } from './components/common';
+
+// Basic badge
+<Badge variant="success" size="sm">Active</Badge>
+
+// With dot indicator
+<Badge variant="primary" dot>Processing</Badge>
+
+// Rounded (pill) style
+<Badge variant="info" rounded>New</Badge>
+
+// Status preset (auto-maps status to variant)
+<StatusBadge status="completed" />
+<StatusBadge status="in_progress" />
+<StatusBadge status="cancelled" />
+
+// Tier preset
+<TierBadge tier={1} /> // "Tier 1 - DIY"
+<TierBadge tier={4} /> // "Tier 4 - KAA Premium"
+```
+
+**Badge Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| children | ReactNode | - | Badge text |
+| variant | 'default' \| 'primary' \| 'success' \| 'warning' \| 'danger' \| 'info' | 'default' | Color variant |
+| size | 'sm' \| 'md' \| 'lg' | 'md' | Badge size |
+| dot | boolean | false | Show dot indicator |
+| rounded | boolean | false | Pill shape |
+| icon | ReactNode | - | Leading icon |
+
+---
+
+### EmptyState
+
+Placeholder components for empty lists and search results.
+
+```tsx
+import {
+  EmptyState,
+  EmptySearch,
+  EmptyList,
+  EmptyProjects,
+  EmptyDeliverables,
+} from './components/common';
+
+// Custom empty state
+<EmptyState
+  icon="📭"
+  title="No Items"
+  description="Add some items to get started."
+  action={<button>Add Item</button>}
+/>
+
+// Search results empty
+<EmptySearch query={searchQuery} />
+
+// Generic list empty
+<EmptyList itemName="projects" action={<button>Create</button>} />
+
+// Preset empty states
+<EmptyProjects action={<button>Start Project</button>} />
+<EmptyDeliverables />
+<EmptyMessages />
+<EmptyNotifications />
+```
+
+**EmptyState Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| icon | ReactNode | '📭' | Display icon |
+| title | string | - | Main heading |
+| description | string | - | Supporting text |
+| action | ReactNode | - | Call-to-action button |
+| size | 'sm' \| 'md' \| 'lg' | 'md' | Component size |
+
+---
+
 ## Auth Components
 
 ### LoginForm

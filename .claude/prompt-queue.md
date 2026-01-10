@@ -312,6 +312,15 @@
 - [x] `test`: Modal.test.tsx - 15 tests for modal open/close, keyboard, overlay behavior
 - [x] `test`: ConfirmDialog.test.tsx - 15 tests for confirm/cancel actions, variants, loading
 - [x] `test`: LoadingButton.test.tsx - 26 tests for variants, sizes, icons, loading state
+- [x] `new-component`: Pagination - Page navigation with ellipsis, first/last, accessibility
+- [x] `new-component`: SearchInput - Debounced search with icon, clear button, loading state
+- [x] `new-component`: Badge - Status badges with variants (StatusBadge, TierBadge presets)
+- [x] `new-component`: EmptyState - Empty list placeholders (EmptySearch, EmptyList, etc.)
+- [x] `new-styles`: Pagination.css, SearchInput.css, Badge.css, EmptyState.css
+- [x] `test`: Pagination.test.tsx - 17 tests for page navigation, accessibility
+- [x] `test`: SearchInput.test.tsx - 17 tests for debounce, clear, loading states
+- [x] `test`: Badge.test.tsx - 34 tests for Badge, StatusBadge, TierBadge variants
+- [x] `test`: EmptyState.test.tsx - 22 tests for all empty state presets
 
 ### 2025-01-09
 - [x] Initial project setup

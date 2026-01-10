@@ -1,0 +1,153 @@
+/**
+ * Badge Styles
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Sizes */
+.badge--sm {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  border-radius: 4px;
+}
+
+.badge--md {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  border-radius: 5px;
+}
+
+.badge--lg {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  border-radius: 6px;
+}
+
+/* Rounded (pill shape) */
+.badge--rounded {
+  border-radius: 999px;
+}
+
+/* Variants */
+.badge--default {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.badge--primary {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge--success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge--warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge--danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge--info {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+/* Dot indicator */
+.badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badge--sm .badge__dot {
+  width: 5px;
+  height: 5px;
+}
+
+.badge--lg .badge__dot {
+  width: 7px;
+  height: 7px;
+}
+
+.badge--default .badge__dot {
+  background: #6b7280;
+}
+
+.badge--primary .badge__dot {
+  background: #2563eb;
+}
+
+.badge--success .badge__dot {
+  background: #22c55e;
+}
+
+.badge--warning .badge__dot {
+  background: #f59e0b;
+}
+
+.badge--danger .badge__dot {
+  background: #ef4444;
+}
+
+.badge--info .badge__dot {
+  background: #6366f1;
+}
+
+/* Icon */
+.badge__icon {
+  display: flex;
+  align-items: center;
+  font-size: 0.875em;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .badge--default {
+    background: #374151;
+    color: #d1d5db;
+  }
+
+  .badge--primary {
+    background: rgba(37, 99, 235, 0.2);
+    color: #60a5fa;
+  }
+
+  .badge--success {
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+  }
+
+  .badge--warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+  }
+
+  .badge--danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+  }
+
+  .badge--info {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+  }
+
+  .badge--default .badge__dot {
+    background: #9ca3af;
+  }
+}
