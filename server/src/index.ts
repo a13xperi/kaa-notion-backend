@@ -30,8 +30,9 @@ import {
   shutdownRealtimeService,
 } from './services';
 import { initStripe } from './utils/stripeHelpers';
-import { 
-  errorHandler, 
+import stripe from './utils/stripe';
+import {
+  errorHandler,
   notFoundHandler,
   apiRateLimiter,
   authRateLimiter,
@@ -40,6 +41,8 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  requireNotionService,
+  requireStorageService,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
