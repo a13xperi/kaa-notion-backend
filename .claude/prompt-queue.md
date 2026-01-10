@@ -393,6 +393,9 @@
 - [x] `docs`: README.md - Comprehensive project documentation with architecture, setup, API reference
 - [x] `script`: quickstart.sh - One-command setup with SQLite option for easy development
 - [x] `update`: package.json - Added test, docker, and quickstart scripts
+- [x] `new-package`: shared/types - Shared TypeScript types between frontend and backend
+- [x] `types`: API types, enums, request/response types for all endpoints
+- [x] `docs`: shared/README.md - Documentation for shared types usage
 
 ### 2025-01-09
 - [x] Initial project setup
