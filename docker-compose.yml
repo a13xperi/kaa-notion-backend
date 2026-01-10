@@ -1,0 +1,167 @@
+# SAGE MVP Platform - Docker Compose Configuration
+# For local development and production deployment
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # Frontend - React Application
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./kaa-app
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:3001/api}
+        - REACT_APP_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+    container_name: sage-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - sage-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # Backend - Node.js API Server
+  # ==========================================================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sage-backend
+    ports:
+      - "3001:3001"
+    environment:
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
+      
+      # JWT Authentication
+      - JWT_SECRET=${JWT_SECRET:-development-secret-key-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      
+      # Stripe
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL:-http://localhost:3000/success}
+      - STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL:-http://localhost:3000/cancel}
+      
+      # Notion (optional)
+      - NOTION_API_KEY=${NOTION_API_KEY:-}
+      - NOTION_PROJECTS_DATABASE_ID=${NOTION_PROJECTS_DATABASE_ID:-}
+      
+      # Supabase Storage (optional)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-deliverables}
+      
+      # Email
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - EMAIL_FROM=${EMAIL_FROM:-SAGE <hello@sage.design>}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-support@sage.design}
+      
+      # Application
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sage-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # Database - PostgreSQL
+  # ==========================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: sage-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sage}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sage-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # Database Migrations (run once)
+  # ==========================================================================
+  migrate:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: builder
+    container_name: sage-migrate
+    command: npx prisma migrate deploy
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sage-network
+    profiles:
+      - migrate
+
+  # ==========================================================================
+  # Database Seeder (run once for demo data)
+  # ==========================================================================
+  seed:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: builder
+    container_name: sage-seed
+    command: npx prisma db seed
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/sage?schema=public}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sage-network
+    profiles:
+      - seed
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  sage-network:
+    driver: bridge
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  postgres-data:
+    driver: local

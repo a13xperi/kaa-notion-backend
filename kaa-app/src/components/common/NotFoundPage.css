@@ -1,0 +1,175 @@
+/**
+ * Not Found Page Styles
+ */
+
+.not-found {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+.not-found__content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.not-found__icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.not-found__code {
+  font-size: 8rem;
+  font-weight: 800;
+  color: #e5e7eb;
+  margin: 0;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.not-found__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 1rem 0 0.5rem;
+}
+
+.not-found__message {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin: 0 0 2rem;
+  line-height: 1.6;
+}
+
+.not-found__actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.not-found__button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.not-found__button--primary {
+  background: #2563eb;
+  color: white;
+}
+
+.not-found__button--primary:hover {
+  background: #1d4ed8;
+}
+
+.not-found__button--secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.not-found__button--secondary:hover {
+  background: #e5e7eb;
+}
+
+.not-found__help {
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.not-found__help p {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0 0 1rem;
+}
+
+.not-found__help ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.not-found__help a {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.9375rem;
+}
+
+.not-found__help a:hover {
+  text-decoration: underline;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .not-found {
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  }
+
+  .not-found__code {
+    color: #374151;
+  }
+
+  .not-found__title {
+    color: #f9fafb;
+  }
+
+  .not-found__message {
+    color: #9ca3af;
+  }
+
+  .not-found__button--secondary {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .not-found__button--secondary:hover {
+    background: #4b5563;
+  }
+
+  .not-found__help {
+    border-color: #374151;
+  }
+
+  .not-found__help p {
+    color: #9ca3af;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .not-found__code {
+    font-size: 5rem;
+  }
+
+  .not-found__title {
+    font-size: 1.5rem;
+  }
+
+  .not-found__actions {
+    flex-direction: column;
+  }
+
+  .not-found__help ul {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
