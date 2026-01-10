@@ -1,497 +1,455 @@
 {
   "name": "SAGE MVP Comprehensive Test Matrix",
-  "version": "1.0.0",
-  "description": "Extensive test coverage for all critical paths, edge cases, and user journeys",
+  "version": "2.0.0",
+  "description": "Integrated test coverage for SAGE MVP Platform - aligned with existing test infrastructure",
+
+  "project": {
+    "name": "SAGE MVP Platform",
+    "description": "Tiered landscape architecture services platform",
+    "stack": {
+      "frontend": ["React 19", "TypeScript", "React Query", "React Router"],
+      "backend": ["Express 5", "Prisma 7", "PostgreSQL", "TypeScript"],
+      "testing": ["Jest (backend)", "React Testing Library (frontend)", "Playwright (E2E)"],
+      "integrations": ["Stripe", "Notion", "Supabase", "Resend"]
+    }
+  },
+
+  "commands": {
+    "unit": {
+      "all": "npm test",
+      "backend": "npm run test:backend",
+      "frontend": "npm run test:frontend"
+    },
+    "e2e": {
+      "all": "npm run test:e2e",
+      "ui": "npm run test:e2e:ui",
+      "headed": "npm run test:e2e:headed",
+      "report": "npm run test:e2e:report",
+      "chromium": "npx playwright test --project=chromium",
+      "firefox": "npx playwright test --project=firefox",
+      "webkit": "npx playwright test --project=webkit",
+      "mobile": "npx playwright test --project='Mobile Chrome' --project='Mobile Safari'"
+    },
+    "tagged": {
+      "critical": "npx playwright test --grep @critical",
+      "edge": "npx playwright test --grep @edge",
+      "auth": "npx playwright test e2e/auth.spec.ts",
+      "checkout": "npx playwright test e2e/checkout.spec.ts",
+      "intake": "npx playwright test e2e/intake.spec.ts",
+      "landing": "npx playwright test e2e/landing.spec.ts"
+    }
+  },
 
   "testSuites": {
     "authentication": {
       "name": "Authentication & Authorization",
       "priority": "critical",
+      "existingTests": {
+        "e2e": ["e2e/auth.spec.ts"],
+        "unit": ["server/src/__tests__/auth.test.ts", "server/src/__tests__/loginProtection.test.ts"]
+      },
       "scenarios": [
         {
           "id": "auth-001",
-          "name": "Email/Password Login",
+          "name": "User Registration",
           "type": "e2e",
-          "steps": ["Navigate to login", "Enter valid credentials", "Submit form", "Verify redirect to dashboard"],
-          "edgeCases": ["Empty fields", "Invalid email format", "Wrong password", "Account locked", "Unverified email"]
+          "steps": ["Navigate to register", "Fill form", "Submit", "Verify email sent", "Confirm account"],
+          "edgeCases": ["Duplicate email", "Weak password", "Invalid email format", "Rate limiting"]
         },
         {
           "id": "auth-002",
-          "name": "Social OAuth Login",
+          "name": "User Login",
           "type": "e2e",
-          "providers": ["Google", "Apple", "Facebook", "Microsoft"],
-          "steps": ["Click OAuth button", "Complete OAuth flow", "Handle callback", "Create/link account"],
-          "edgeCases": ["OAuth cancelled", "Account exists with different provider", "Missing permissions"]
+          "steps": ["Navigate to login", "Enter credentials", "Submit", "Verify redirect to portal"],
+          "edgeCases": ["Wrong password", "Non-existent user", "Account locked", "Brute force protection"]
         },
         {
           "id": "auth-003",
-          "name": "Magic Link Login",
+          "name": "Password Reset",
           "type": "e2e",
-          "steps": ["Enter email", "Send magic link", "Click link", "Verify session"],
-          "edgeCases": ["Expired link", "Already used link", "Invalid token", "Email not found"]
+          "steps": ["Request reset", "Check email", "Set new password", "Login with new password"],
+          "edgeCases": ["Expired token", "Invalid token", "Password requirements"]
         },
         {
           "id": "auth-004",
-          "name": "Multi-Factor Authentication",
-          "type": "e2e",
-          "methods": ["TOTP", "SMS", "Email", "Backup codes"],
-          "edgeCases": ["Wrong code", "Expired code", "Rate limiting", "Lost device recovery"]
+          "name": "Session Management",
+          "type": "unit",
+          "tests": ["JWT generation", "Token validation", "Token refresh", "Session expiry"],
+          "edgeCases": ["Expired token", "Invalid token", "Concurrent sessions"]
         },
         {
           "id": "auth-005",
-          "name": "Password Reset",
+          "name": "Role-Based Access",
           "type": "e2e",
-          "steps": ["Request reset", "Receive email", "Set new password", "Login with new password"],
-          "edgeCases": ["Expired token", "Password requirements not met", "Email not found"]
-        },
-        {
-          "id": "auth-006",
-          "name": "Session Management",
-          "type": "e2e",
-          "scenarios": ["Session expiry", "Concurrent sessions", "Force logout", "Remember me"],
-          "edgeCases": ["Token refresh", "Invalid token", "Session hijacking prevention"]
-        },
-        {
-          "id": "auth-007",
-          "name": "Role-Based Access Control",
-          "type": "e2e",
-          "roles": ["Admin", "Manager", "User", "Guest"],
-          "edgeCases": ["Unauthorized access attempt", "Role escalation prevention", "Feature flags by role"]
+          "roles": ["SAGE_ADMIN", "SAGE_CLIENT", "TEAM_MEMBER"],
+          "tests": ["Admin dashboard access", "Client portal access", "Team features"],
+          "edgeCases": ["Unauthorized access", "Role escalation prevention"]
         }
       ],
       "unitTests": [
-        "Password hashing validation",
-        "Token generation/validation",
-        "Permission checks",
-        "Rate limiting logic",
-        "Session token rotation"
+        "Password hashing (bcrypt)",
+        "JWT token generation/validation",
+        "Login protection (brute force)",
+        "Rate limiting logic"
       ]
     },
 
-    "payments": {
-      "name": "Payment Gateway & Billing",
+    "intake": {
+      "name": "Lead Intake & Tier Recommendation",
       "priority": "critical",
+      "existingTests": {
+        "e2e": ["e2e/intake.spec.ts"],
+        "unit": ["server/src/__tests__/leads.test.ts", "server/src/__tests__/tierFeatures.test.ts"]
+      },
       "scenarios": [
         {
-          "id": "pay-001",
-          "name": "Credit Card Payment",
+          "id": "intake-001",
+          "name": "Intake Form Submission",
           "type": "e2e",
-          "providers": ["Stripe", "PayPal"],
-          "steps": ["Select plan", "Enter card details", "Process payment", "Confirm subscription"],
-          "edgeCases": ["Declined card", "Insufficient funds", "Expired card", "3D Secure", "Network timeout"]
+          "steps": ["Open intake form", "Fill project details", "Submit", "View tier recommendation"],
+          "edgeCases": ["Empty fields", "Invalid data", "Form timeout", "Duplicate submission"]
         },
         {
-          "id": "pay-002",
+          "id": "intake-002",
+          "name": "Tier Recommendation Engine",
+          "type": "unit",
+          "tiers": ["Tier 1 - The Concept ($299)", "Tier 2 - The Builder ($1,499)", "Tier 3 - The Concierge ($4,999)", "Tier 4 - White Glove (Custom)"],
+          "tests": ["Score calculation", "Tier matching", "Feature comparison"],
+          "edgeCases": ["Edge score boundaries", "Multiple qualifying tiers"]
+        },
+        {
+          "id": "intake-003",
+          "name": "Lead Management",
+          "type": "e2e",
+          "steps": ["Lead created", "Admin views lead", "Lead status update", "Lead assignment"],
+          "edgeCases": ["Lead duplication", "Status transitions", "Assignment conflicts"]
+        }
+      ],
+      "unitTests": [
+        "Tier feature matrix validation",
+        "Lead scoring algorithm",
+        "Tier recommendation logic",
+        "Lead validation"
+      ]
+    },
+
+    "checkout": {
+      "name": "Payment & Checkout",
+      "priority": "critical",
+      "existingTests": {
+        "e2e": ["e2e/checkout.spec.ts"],
+        "unit": ["server/src/__tests__/payments.test.ts", "server/src/__tests__/stripeHelpers.test.ts"]
+      },
+      "scenarios": [
+        {
+          "id": "checkout-001",
+          "name": "Stripe Checkout Session",
+          "type": "e2e",
+          "steps": ["Select tier", "Click checkout", "Redirect to Stripe", "Complete payment", "Return to success page"],
+          "edgeCases": ["Payment declined", "Session timeout", "Duplicate payment prevention"]
+        },
+        {
+          "id": "checkout-002",
+          "name": "Stripe Test Cards",
+          "type": "e2e",
+          "testCards": {
+            "success": "4242424242424242",
+            "declined": "4000000000000002",
+            "expired": "4000000000000069",
+            "insufficientFunds": "4000000000009995",
+            "requires3DS": "4000002500003155"
+          },
+          "edgeCases": ["All error card types", "3D Secure flow", "Webhook handling"]
+        },
+        {
+          "id": "checkout-003",
+          "name": "Webhook Processing",
+          "type": "unit",
+          "events": ["checkout.session.completed", "payment_intent.succeeded", "payment_intent.failed"],
+          "edgeCases": ["Signature validation", "Duplicate events", "Out-of-order events"]
+        },
+        {
+          "id": "checkout-004",
           "name": "Subscription Management",
           "type": "e2e",
-          "actions": ["Create", "Upgrade", "Downgrade", "Cancel", "Reactivate"],
-          "edgeCases": ["Proration", "Mid-cycle changes", "Grace period", "Dunning management"]
-        },
-        {
-          "id": "pay-003",
-          "name": "Invoice & Receipts",
-          "type": "e2e",
-          "steps": ["Generate invoice", "Send email", "Download PDF", "Payment history"],
-          "edgeCases": ["Failed generation", "Tax calculations", "Currency conversion"]
-        },
-        {
-          "id": "pay-004",
-          "name": "Refunds & Disputes",
-          "type": "e2e",
-          "scenarios": ["Full refund", "Partial refund", "Dispute handling", "Chargeback"],
-          "edgeCases": ["Refund window expired", "Dispute escalation", "Fraud detection"]
-        },
-        {
-          "id": "pay-005",
-          "name": "Payment Methods",
-          "type": "e2e",
-          "methods": ["Credit card", "Debit card", "ACH/Bank transfer", "Digital wallets"],
-          "edgeCases": ["Method declined", "Verification required", "Regional restrictions"]
-        },
-        {
-          "id": "pay-006",
-          "name": "Pricing & Discounts",
-          "type": "e2e",
-          "scenarios": ["Coupon codes", "Volume discounts", "Trial periods", "Promotional pricing"],
-          "edgeCases": ["Expired coupon", "Usage limits", "Stackable discounts"]
+          "actions": ["View subscription", "Upgrade tier", "Cancel subscription", "View billing history"],
+          "edgeCases": ["Proration", "Grace period", "Failed renewal"]
         }
       ],
       "unitTests": [
-        "Price calculation accuracy",
-        "Tax calculation by region",
-        "Proration calculations",
+        "Stripe session creation",
         "Webhook signature validation",
-        "Idempotency key handling"
+        "Payment status transitions",
+        "Price calculations"
       ]
     },
 
-    "onboarding": {
-      "name": "User Onboarding",
+    "clientPortal": {
+      "name": "Client Portal",
       "priority": "high",
+      "existingTests": {
+        "integration": ["server/src/__tests__/integration/clientPortalFlow.test.ts"],
+        "unit": ["server/src/__tests__/clientService.test.ts", "server/src/__tests__/projects.test.ts", "server/src/__tests__/deliverables.test.ts", "server/src/__tests__/milestoneTemplates.test.ts"]
+      },
       "scenarios": [
         {
-          "id": "onb-001",
-          "name": "New User Registration",
+          "id": "portal-001",
+          "name": "Project Dashboard",
           "type": "e2e",
-          "steps": ["Landing page", "Sign up form", "Email verification", "Profile setup", "Welcome tour"],
-          "edgeCases": ["Duplicate email", "Invalid data", "Verification expired", "Incomplete profile"]
+          "steps": ["Login as client", "View projects list", "Select project", "View project details"],
+          "edgeCases": ["Empty projects", "Project not found", "Permission denied"]
         },
         {
-          "id": "onb-002",
-          "name": "Guided Setup Wizard",
+          "id": "portal-002",
+          "name": "Milestone Tracking",
           "type": "e2e",
-          "steps": ["Company info", "Team invites", "Integration setup", "First project"],
-          "edgeCases": ["Skip steps", "Back navigation", "Session timeout during wizard"]
+          "steps": ["View milestones", "Check progress", "View milestone details", "Upload deliverables"],
+          "edgeCases": ["Overdue milestones", "Milestone dependencies", "Status transitions"]
         },
         {
-          "id": "onb-003",
-          "name": "Team Invitation Flow",
+          "id": "portal-003",
+          "name": "Deliverables Management",
           "type": "e2e",
-          "steps": ["Send invite", "Accept invite", "Set password", "Join workspace"],
-          "edgeCases": ["Expired invite", "Already member", "Invalid email", "Role assignment"]
+          "steps": ["View deliverables", "Download file", "Request revision", "Approve deliverable"],
+          "edgeCases": ["Large file download", "Invalid file type", "Revision limits"]
         },
         {
-          "id": "onb-004",
-          "name": "Feature Discovery",
+          "id": "portal-004",
+          "name": "Messaging & Notifications",
           "type": "e2e",
-          "scenarios": ["Tooltips", "Guided tours", "Help articles", "Video tutorials"],
-          "edgeCases": ["Dismiss permanently", "Resume tour", "Language variations"]
-        },
-        {
-          "id": "onb-005",
-          "name": "Data Import",
-          "type": "e2e",
-          "sources": ["CSV", "Excel", "Third-party apps", "API migration"],
-          "edgeCases": ["Large files", "Invalid format", "Duplicate detection", "Partial import"]
+          "steps": ["Send message", "Receive notification", "View message thread", "Mark as read"],
+          "edgeCases": ["Offline mode", "Real-time updates", "Notification preferences"]
         }
       ],
       "unitTests": [
-        "Email validation",
-        "Progress tracking logic",
-        "Onboarding state machine",
-        "Import data parsing",
-        "Invite token generation"
+        "Client service operations",
+        "Project CRUD operations",
+        "Deliverable management",
+        "Milestone template logic"
       ]
     },
 
-    "messaging": {
-      "name": "Messaging & Communication",
+    "adminDashboard": {
+      "name": "Admin Dashboard",
       "priority": "high",
+      "existingTests": {
+        "integration": ["server/src/__tests__/integration/leadToClientFlow.test.ts"],
+        "unit": ["server/src/__tests__/leads.test.ts"]
+      },
       "scenarios": [
         {
-          "id": "msg-001",
-          "name": "Real-time Chat",
+          "id": "admin-001",
+          "name": "Lead Queue Management",
           "type": "e2e",
-          "features": ["Send message", "Receive message", "Typing indicator", "Read receipts"],
-          "edgeCases": ["Offline mode", "Reconnection", "Message ordering", "Large messages"]
+          "steps": ["View leads queue", "Filter leads", "Update lead status", "Convert to client"],
+          "edgeCases": ["Empty queue", "Bulk operations", "Concurrent edits"]
         },
         {
-          "id": "msg-002",
-          "name": "Notification System",
+          "id": "admin-002",
+          "name": "Client Management",
           "type": "e2e",
-          "channels": ["In-app", "Email", "Push (web)", "Push (mobile)", "SMS"],
-          "edgeCases": ["Preferences", "Do not disturb", "Batching", "Delivery failures"]
+          "steps": ["View clients list", "Search clients", "View client details", "Manage projects"],
+          "edgeCases": ["Large client list", "Search edge cases", "Client archival"]
         },
         {
-          "id": "msg-003",
-          "name": "Email Communications",
+          "id": "admin-003",
+          "name": "Analytics Dashboard",
           "type": "e2e",
-          "types": ["Transactional", "Marketing", "System alerts", "Digests"],
-          "edgeCases": ["Bounce handling", "Unsubscribe", "Spam filtering", "Template errors"]
+          "steps": ["View metrics", "Filter by date range", "Export reports", "View charts"],
+          "edgeCases": ["No data period", "Large datasets", "Real-time updates"]
         },
         {
-          "id": "msg-004",
-          "name": "In-App Messaging",
+          "id": "admin-004",
+          "name": "Team Management",
           "type": "e2e",
-          "features": ["Direct messages", "Group chats", "Channels", "Threads"],
-          "edgeCases": ["Member limits", "Message editing", "Deletion", "Mentions"]
-        },
-        {
-          "id": "msg-005",
-          "name": "File Sharing",
-          "type": "e2e",
-          "features": ["Upload", "Preview", "Download", "Share links"],
-          "edgeCases": ["Large files", "Unsupported formats", "Virus scanning", "Storage limits"]
+          "steps": ["View team members", "Invite member", "Assign roles", "Remove member"],
+          "edgeCases": ["Invite expiry", "Role conflicts", "Self-removal prevention"]
         }
       ],
       "unitTests": [
-        "Message sanitization",
-        "WebSocket connection handling",
-        "Notification priority logic",
-        "Email template rendering",
-        "File type validation"
-      ]
-    },
-
-    "coreFeatures": {
-      "name": "Core Application Features",
-      "priority": "high",
-      "scenarios": [
-        {
-          "id": "core-001",
-          "name": "Dashboard",
-          "type": "e2e",
-          "features": ["Data loading", "Widget rendering", "Filtering", "Date ranges"],
-          "edgeCases": ["Empty state", "Loading errors", "Stale data", "Permission-based views"]
-        },
-        {
-          "id": "core-002",
-          "name": "Search & Filtering",
-          "type": "e2e",
-          "features": ["Global search", "Advanced filters", "Sort options", "Saved searches"],
-          "edgeCases": ["No results", "Special characters", "Performance with large datasets"]
-        },
-        {
-          "id": "core-003",
-          "name": "CRUD Operations",
-          "type": "e2e",
-          "entities": ["Projects", "Tasks", "Users", "Settings"],
-          "edgeCases": ["Validation errors", "Concurrent edits", "Cascade delete", "Soft delete"]
-        },
-        {
-          "id": "core-004",
-          "name": "Data Export",
-          "type": "e2e",
-          "formats": ["CSV", "Excel", "PDF", "JSON"],
-          "edgeCases": ["Large exports", "Timeout handling", "Format errors", "Permission checks"]
-        },
-        {
-          "id": "core-005",
-          "name": "Settings & Preferences",
-          "type": "e2e",
-          "areas": ["Profile", "Security", "Notifications", "Integrations", "Billing"],
-          "edgeCases": ["Unsaved changes warning", "Validation", "Reset to defaults"]
-        }
-      ],
-      "unitTests": [
-        "Data transformation",
-        "Filter logic",
-        "Sort algorithms",
-        "Export generation",
-        "Settings validation"
+        "Lead to client conversion",
+        "Lead status transitions",
+        "Analytics aggregation",
+        "Team permission logic"
       ]
     },
 
     "integrations": {
       "name": "Third-Party Integrations",
       "priority": "medium",
+      "existingTests": {
+        "unit": ["server/src/services/__tests__/webhookService.test.ts", "server/src/services/__tests__/slackService.test.ts"]
+      },
       "scenarios": [
         {
           "id": "int-001",
-          "name": "OAuth Connections",
-          "type": "e2e",
-          "providers": ["Google Workspace", "Microsoft 365", "Slack", "Notion"],
-          "edgeCases": ["Token refresh", "Permission changes", "Disconnect handling"]
+          "name": "Notion Sync",
+          "type": "unit",
+          "tests": ["Lead sync to Notion", "Deliverable sync", "Status updates"],
+          "edgeCases": ["API rate limits", "Connection failures", "Data conflicts"]
         },
         {
           "id": "int-002",
-          "name": "Webhook Management",
+          "name": "Supabase Storage",
           "type": "e2e",
-          "features": ["Create webhook", "Test webhook", "View logs", "Retry failed"],
-          "edgeCases": ["Invalid URL", "Timeout", "Signature validation", "Rate limiting"]
+          "tests": ["File upload", "File download", "File deletion"],
+          "edgeCases": ["Large files", "Invalid types", "Storage limits", "Presigned URLs"]
         },
         {
           "id": "int-003",
-          "name": "API Access",
-          "type": "e2e",
-          "features": ["API key generation", "Usage tracking", "Rate limits", "Documentation"],
-          "edgeCases": ["Key rotation", "Quota exceeded", "Invalid requests"]
+          "name": "Email (Resend)",
+          "type": "unit",
+          "tests": ["Transactional emails", "Welcome emails", "Notification emails"],
+          "edgeCases": ["Delivery failures", "Template errors", "Rate limiting"]
+        },
+        {
+          "id": "int-004",
+          "name": "Stripe Webhooks",
+          "type": "unit",
+          "tests": ["Signature validation", "Event processing", "Idempotency"],
+          "edgeCases": ["Replay attacks", "Missing events", "Out-of-order delivery"]
         }
       ],
       "unitTests": [
-        "OAuth token management",
-        "Webhook payload construction",
-        "API rate limiting",
-        "Retry logic with backoff"
+        "Webhook signature validation",
+        "Slack notification formatting",
+        "Email template rendering",
+        "API retry logic"
       ]
     },
 
-    "accessibility": {
-      "name": "Accessibility & Compliance",
+    "messaging": {
+      "name": "Real-time Messaging",
       "priority": "high",
+      "existingTests": {
+        "unit": ["server/src/services/__tests__/messagingService.test.ts", "server/src/services/__tests__/realtimeService.test.ts"]
+      },
       "scenarios": [
         {
-          "id": "a11y-001",
-          "name": "Keyboard Navigation",
+          "id": "msg-001",
+          "name": "Client-Team Communication",
           "type": "e2e",
-          "areas": ["Forms", "Modals", "Menus", "Tables", "Actions"],
-          "edgeCases": ["Focus trapping", "Skip links", "Custom components"]
+          "steps": ["Send message", "Receive message", "View history", "Upload attachment"],
+          "edgeCases": ["Offline mode", "Reconnection", "Large attachments"]
         },
         {
-          "id": "a11y-002",
-          "name": "Screen Reader Compatibility",
+          "id": "msg-002",
+          "name": "Notification System",
           "type": "e2e",
-          "features": ["ARIA labels", "Live regions", "Landmark roles", "Alt text"],
-          "edgeCases": ["Dynamic content", "Error announcements", "Loading states"]
-        },
-        {
-          "id": "a11y-003",
-          "name": "Visual Accessibility",
-          "type": "e2e",
-          "features": ["Color contrast", "Text scaling", "Focus indicators", "Motion reduction"],
-          "edgeCases": ["Dark mode", "High contrast mode", "Custom themes"]
+          "channels": ["In-app", "Email"],
+          "tests": ["New message notification", "Project update notification", "Mention notification"],
+          "edgeCases": ["Notification preferences", "Batching", "Delivery failures"]
         }
       ],
       "unitTests": [
-        "ARIA attribute validation",
-        "Color contrast calculations",
-        "Focus management logic"
+        "Message sanitization",
+        "Real-time event broadcasting",
+        "Notification priority logic",
+        "Message persistence"
       ]
     },
 
-    "performance": {
-      "name": "Performance & Reliability",
+    "services": {
+      "name": "Backend Services",
       "priority": "high",
+      "existingTests": {
+        "unit": [
+          "server/src/services/__tests__/cacheService.test.ts",
+          "server/src/services/__tests__/emailService.test.ts",
+          "server/src/services/__tests__/healthService.test.ts",
+          "server/src/services/__tests__/referralService.test.ts",
+          "server/src/services/__tests__/calendarService.test.ts"
+        ]
+      },
       "scenarios": [
         {
-          "id": "perf-001",
-          "name": "Page Load Performance",
-          "type": "e2e",
-          "metrics": ["FCP", "LCP", "TTI", "CLS"],
-          "thresholds": {"FCP": 1500, "LCP": 2500, "TTI": 3500, "CLS": 0.1}
+          "id": "svc-001",
+          "name": "Cache Service (Redis)",
+          "type": "unit",
+          "tests": ["Cache set/get", "Cache invalidation", "TTL handling"],
+          "edgeCases": ["Cache miss", "Connection failure", "Large payloads"]
         },
         {
-          "id": "perf-002",
-          "name": "API Response Times",
-          "type": "e2e",
-          "endpoints": ["Critical paths", "Data-heavy endpoints", "Search"],
-          "thresholds": {"p50": 200, "p95": 500, "p99": 1000}
+          "id": "svc-002",
+          "name": "Health Service",
+          "type": "unit",
+          "tests": ["Database health", "Redis health", "External service health"],
+          "edgeCases": ["Degraded state", "Complete failure", "Recovery"]
         },
         {
-          "id": "perf-003",
-          "name": "Concurrent Users",
-          "type": "load",
-          "scenarios": ["Normal load", "Peak load", "Stress test"],
-          "edgeCases": ["Connection pooling", "Cache invalidation", "Queue overflow"]
+          "id": "svc-003",
+          "name": "Referral Service",
+          "type": "unit",
+          "tests": ["Referral creation", "Referral tracking", "Commission calculation"],
+          "edgeCases": ["Expired referrals", "Self-referral prevention"]
+        },
+        {
+          "id": "svc-004",
+          "name": "Calendar Service",
+          "type": "unit",
+          "tests": ["Availability checking", "Booking creation", "Reminder scheduling"],
+          "edgeCases": ["Timezone handling", "Conflicting bookings", "Past date prevention"]
         }
-      ],
-      "unitTests": [
-        "Query optimization",
-        "Cache hit rates",
-        "Memory leak detection"
       ]
     },
 
-    "security": {
-      "name": "Security Testing",
-      "priority": "critical",
+    "infrastructure": {
+      "name": "Infrastructure & Configuration",
+      "priority": "medium",
+      "existingTests": {
+        "unit": [
+          "server/src/config/__tests__/database.test.ts",
+          "server/src/config/__tests__/environment.test.ts",
+          "server/src/middleware/__tests__/compression.test.ts",
+          "server/src/utils/__tests__/queryOptimization.test.ts"
+        ]
+      },
       "scenarios": [
         {
-          "id": "sec-001",
-          "name": "Input Validation",
-          "type": "e2e",
-          "attacks": ["XSS", "SQL Injection", "Command Injection", "Path Traversal"],
-          "areas": ["Forms", "URLs", "File uploads", "API endpoints"]
+          "id": "infra-001",
+          "name": "Database Configuration",
+          "type": "unit",
+          "tests": ["Connection pooling", "Query optimization", "Index usage"],
+          "edgeCases": ["Connection timeout", "Pool exhaustion", "Slow queries"]
         },
         {
-          "id": "sec-002",
-          "name": "Authentication Security",
-          "type": "e2e",
-          "tests": ["Brute force protection", "Session fixation", "CSRF protection", "JWT validation"],
-          "edgeCases": ["Token leakage", "Cookie security", "Logout completeness"]
+          "id": "infra-002",
+          "name": "Environment Configuration",
+          "type": "unit",
+          "tests": ["Required vars validation", "Default values", "Type coercion"],
+          "edgeCases": ["Missing vars", "Invalid values", "Dev vs prod"]
         },
         {
-          "id": "sec-003",
-          "name": "Authorization Testing",
-          "type": "e2e",
-          "tests": ["Horizontal privilege escalation", "Vertical privilege escalation", "IDOR"],
-          "edgeCases": ["Direct object references", "Hidden endpoints", "API bypass"]
-        },
-        {
-          "id": "sec-004",
-          "name": "Data Protection",
-          "type": "e2e",
-          "tests": ["PII handling", "Encryption at rest", "Encryption in transit", "Data retention"],
-          "edgeCases": ["Export restrictions", "Audit logging", "GDPR compliance"]
+          "id": "infra-003",
+          "name": "Middleware",
+          "type": "unit",
+          "tests": ["Compression", "CORS", "Rate limiting", "Error handling"],
+          "edgeCases": ["Large payloads", "Cross-origin requests", "Burst traffic"]
         }
-      ],
-      "unitTests": [
-        "Input sanitization functions",
-        "Encryption/decryption",
-        "Permission check utilities",
-        "Rate limiting accuracy"
       ]
     },
 
-    "errorHandling": {
-      "name": "Error Handling & Recovery",
-      "priority": "high",
+    "landing": {
+      "name": "Landing & Marketing",
+      "priority": "medium",
+      "existingTests": {
+        "e2e": ["e2e/landing.spec.ts"]
+      },
       "scenarios": [
         {
-          "id": "err-001",
-          "name": "Network Failures",
+          "id": "land-001",
+          "name": "Landing Page",
           "type": "e2e",
-          "scenarios": ["API timeout", "Connection lost", "Slow connection"],
-          "edgeCases": ["Retry logic", "Offline mode", "Data sync on reconnect"]
+          "steps": ["Load page", "View tier comparison", "Navigate to intake", "Check responsive"],
+          "edgeCases": ["Slow load", "Mobile viewport", "JavaScript disabled"]
         },
         {
-          "id": "err-002",
-          "name": "Form Validation Errors",
+          "id": "land-002",
+          "name": "Tier Comparison",
           "type": "e2e",
-          "scenarios": ["Field-level errors", "Form-level errors", "Server validation"],
-          "edgeCases": ["Error clearing", "Focus management", "Error persistence"]
-        },
-        {
-          "id": "err-003",
-          "name": "404 & Error Pages",
-          "type": "e2e",
-          "pages": ["Not found", "Server error", "Maintenance mode", "Permission denied"],
-          "edgeCases": ["Deep links", "Navigation recovery", "Error reporting"]
-        },
-        {
-          "id": "err-004",
-          "name": "Data Integrity",
-          "type": "e2e",
-          "scenarios": ["Concurrent edits", "Optimistic updates", "Rollback on failure"],
-          "edgeCases": ["Conflict resolution", "Stale data warning", "Force refresh"]
+          "steps": ["View all tiers", "Compare features", "Click CTA", "View pricing"],
+          "edgeCases": ["Pricing display", "Feature toggles"]
         }
-      ],
-      "unitTests": [
-        "Error boundary logic",
-        "Retry mechanism",
-        "Error message formatting",
-        "Logging accuracy"
-      ]
-    },
-
-    "mobile": {
-      "name": "Mobile-Specific Testing",
-      "priority": "high",
-      "scenarios": [
-        {
-          "id": "mob-001",
-          "name": "Responsive Design",
-          "type": "e2e",
-          "breakpoints": ["320px", "375px", "414px", "768px", "1024px", "1440px"],
-          "edgeCases": ["Orientation change", "Safe areas", "Notch handling"]
-        },
-        {
-          "id": "mob-002",
-          "name": "Touch Interactions",
-          "type": "e2e",
-          "gestures": ["Tap", "Long press", "Swipe", "Pinch zoom", "Pull to refresh"],
-          "edgeCases": ["Multi-touch", "Gesture conflicts", "Touch target sizes"]
-        },
-        {
-          "id": "mob-003",
-          "name": "Native Features",
-          "type": "e2e",
-          "features": ["Camera", "Location", "Push notifications", "Biometrics"],
-          "edgeCases": ["Permission denied", "Feature unavailable", "Background mode"]
-        },
-        {
-          "id": "mob-004",
-          "name": "Offline Functionality",
-          "type": "e2e",
-          "features": ["Offline viewing", "Queue actions", "Sync on connect"],
-          "edgeCases": ["Storage limits", "Conflict resolution", "Partial sync"]
-        }
-      ],
-      "unitTests": [
-        "Responsive breakpoint logic",
-        "Gesture detection",
-        "Offline queue management",
-        "Sync conflict resolution"
       ]
     }
   },
@@ -502,15 +460,15 @@
       "phases": [
         {
           "phase": 1,
-          "name": "Unit Tests",
-          "command": "npm test",
+          "name": "Backend Unit Tests",
+          "command": "npm run test:backend",
           "passThreshold": "100%",
           "retries": 3
         },
         {
           "phase": 2,
-          "name": "Integration Tests",
-          "command": "npm run test:integration",
+          "name": "Frontend Unit Tests",
+          "command": "npm run test:frontend",
           "passThreshold": "100%",
           "retries": 3
         },
@@ -523,44 +481,44 @@
         },
         {
           "phase": 4,
-          "name": "E2E Full Suite",
-          "command": "npx playwright test",
-          "passThreshold": "95%",
+          "name": "E2E Full Suite (Chromium)",
+          "command": "npx playwright test --project=chromium",
+          "passThreshold": "100%",
           "retries": 2
         },
         {
           "phase": 5,
-          "name": "Visual Regression",
-          "command": "npx playwright test --grep @visual",
-          "passThreshold": "100%",
-          "retries": 1
+          "name": "E2E Cross-Browser",
+          "command": "npx playwright test --project=firefox --project=webkit",
+          "passThreshold": "95%",
+          "retries": 2
         },
         {
           "phase": 6,
-          "name": "Accessibility Audit",
-          "command": "npx playwright test --grep @a11y",
-          "passThreshold": "100%",
-          "retries": 1
+          "name": "E2E Mobile",
+          "command": "npx playwright test --project='Mobile Chrome' --project='Mobile Safari'",
+          "passThreshold": "95%",
+          "retries": 2
         },
         {
           "phase": 7,
-          "name": "Performance Audit",
-          "command": "npx playwright test --grep @performance",
-          "passThreshold": "90%",
-          "retries": 1
+          "name": "Final Verification",
+          "command": "npm test && npm run test:e2e",
+          "passThreshold": "100%",
+          "consecutiveRuns": 3
         }
       ]
     },
     "parallelization": {
-      "shards": 4,
       "workers": "50%",
       "retryFailedTests": true
     },
     "reporting": {
-      "formats": ["html", "json", "junit"],
+      "formats": ["html", "list"],
+      "outputFolder": "playwright-report",
       "screenshots": "only-on-failure",
-      "video": "retain-on-failure",
-      "trace": "retain-on-failure"
+      "video": "on-first-retry",
+      "trace": "on-first-retry"
     }
   },
 
@@ -568,62 +526,69 @@
     "input": [
       "Empty input",
       "Maximum length input",
-      "Special characters",
+      "Special characters (& < > \" ')",
       "Unicode characters",
       "Script injection attempts",
       "SQL injection attempts",
       "Whitespace only",
-      "Numeric overflow",
       "Negative numbers",
-      "Decimal precision",
-      "Date edge cases (leap year, DST)",
-      "Future/past dates",
-      "File size limits",
-      "Unsupported file types"
+      "Invalid email format",
+      "Weak passwords"
     ],
     "state": [
       "First-time user",
       "Returning user",
-      "Multiple tabs/windows",
-      "Concurrent sessions",
       "Session timeout",
       "Token expiry",
-      "Cache miss",
-      "Stale cache",
-      "Race conditions",
-      "Optimistic update conflicts"
+      "Concurrent sessions",
+      "Role transitions",
+      "Pending payment",
+      "Cancelled subscription"
     ],
     "network": [
       "Slow connection (3G)",
       "Intermittent connection",
-      "Complete offline",
       "Request timeout",
       "Server error (500)",
       "Rate limited (429)",
       "Not found (404)",
-      "Unauthorized (401)",
-      "Forbidden (403)"
+      "Unauthorized (401)"
     ],
-    "device": [
-      "Small screen (320px)",
-      "Large screen (4K)",
-      "Touch device",
-      "Mouse device",
-      "Keyboard only",
-      "Screen reader",
-      "High DPI display",
-      "Low memory device",
-      "Older browser"
+    "payment": [
+      "Card declined",
+      "Insufficient funds",
+      "Expired card",
+      "3D Secure required",
+      "Duplicate payment",
+      "Webhook timeout",
+      "Partial refund"
     ],
     "data": [
       "Empty list",
       "Single item",
-      "Maximum items",
+      "Large dataset (100+ items)",
       "Paginated results",
-      "Sorted/filtered",
-      "Real-time updates",
-      "Deleted items",
-      "Orphaned references"
+      "Stale data",
+      "Concurrent edits",
+      "Deleted references"
     ]
+  },
+
+  "existingTestStats": {
+    "backend": {
+      "total": 262,
+      "unit": 190,
+      "integration": 36,
+      "service": 36
+    },
+    "frontend": {
+      "total": 595,
+      "component": 400,
+      "api": 195
+    },
+    "e2e": {
+      "files": 4,
+      "browsers": ["chromium", "firefox", "webkit", "Mobile Chrome", "Mobile Safari"]
+    }
   }
 }

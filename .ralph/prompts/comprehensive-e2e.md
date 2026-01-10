@@ -1,13 +1,13 @@
-# Comprehensive E2E Testing Task
+# SAGE MVP Comprehensive Testing Task
 
-## Zone
-Full Platform Testing (Continuous Improvement Loop)
+## Project
+SAGE MVP Platform - Tiered Landscape Architecture Services
 
 ## Stack
-- Jest/Vitest (Unit Testing)
-- Playwright (Web E2E)
-- Detox/Maestro (Mobile E2E)
-- Testing Library (Component Testing)
+- **Frontend:** React 19, TypeScript, React Query, React Router
+- **Backend:** Express 5, Prisma 7, PostgreSQL, TypeScript
+- **Testing:** Jest (backend), React Testing Library (frontend), Playwright (E2E)
+- **Integrations:** Stripe, Notion, Supabase, Resend
 
 ## Task
 {{TASK}}
@@ -17,271 +17,250 @@ Full Platform Testing (Continuous Improvement Loop)
 
 ---
 
-## COMPREHENSIVE TESTING LOOP
+## CONTINUOUS TESTING LOOP
 
-This is a **CONTINUOUS IMPROVEMENT** task. You will systematically test every critical path, user journey, and edge case in the application.
+Run this loop until ALL tests pass consistently.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  TESTING LOOP (Run until ALL tests pass)                        │
+│  Phase 1: Backend Unit Tests (100% required)                    │
+│    └─ npm run test:backend                                      │
 │                                                                 │
-│  Phase 1: Unit Tests                                            │
-│    └─ npm test                                                  │
-│    └─ Fix failing tests                                         │
-│    └─ Repeat until 100% pass                                    │
+│  Phase 2: Frontend Unit Tests (100% required)                   │
+│    └─ npm run test:frontend                                     │
 │                                                                 │
-│  Phase 2: Integration Tests                                     │
-│    └─ npm run test:integration                                  │
-│    └─ Fix failing tests                                         │
-│    └─ Repeat until 100% pass                                    │
+│  Phase 3: E2E Auth Tests                                        │
+│    └─ npx playwright test e2e/auth.spec.ts                      │
 │                                                                 │
-│  Phase 3: E2E Critical Path (@critical)                         │
-│    └─ npx playwright test --grep @critical                      │
-│    └─ Fix APPLICATION code (not tests unless wrong)             │
-│    └─ Repeat until 100% pass                                    │
+│  Phase 4: E2E Checkout Tests                                    │
+│    └─ npx playwright test e2e/checkout.spec.ts                  │
 │                                                                 │
-│  Phase 4: E2E Full Suite                                        │
-│    └─ npx playwright test                                       │
-│    └─ Fix failures                                              │
-│    └─ Repeat until 95%+ pass                                    │
+│  Phase 5: E2E Intake Tests                                      │
+│    └─ npx playwright test e2e/intake.spec.ts                    │
 │                                                                 │
-│  Phase 5: Edge Cases (@edge)                                    │
-│    └─ npx playwright test --grep @edge                          │
-│    └─ Fix edge case handling                                    │
-│    └─ Repeat until 100% pass                                    │
+│  Phase 6: E2E Landing Tests                                     │
+│    └─ npx playwright test e2e/landing.spec.ts                   │
 │                                                                 │
-│  Phase 6: Accessibility (@a11y)                                 │
-│    └─ npx playwright test --grep @a11y                          │
-│    └─ Fix accessibility issues                                  │
-│    └─ Repeat until 100% pass                                    │
+│  Phase 7: Full E2E Suite (All Browsers)                         │
+│    └─ npm run test:e2e                                          │
 │                                                                 │
-│  Phase 7: Performance (@performance)                            │
-│    └─ npx playwright test --grep @performance                   │
-│    └─ Optimize slow areas                                       │
-│    └─ Repeat until thresholds met                               │
-│                                                                 │
-│  Phase 8: Final Verification                                    │
-│    └─ Run ALL tests 3x consecutively                            │
-│    └─ No flaky tests allowed                                    │
-│    └─ All phases must pass                                      │
-│                                                                 │
+│  Phase 8: Final Verification (3 consecutive passes)             │
+│    └─ npm test && npm run test:e2e                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## TEST AREAS TO COVER
+## TEST COMMANDS
 
-### 1. AUTHENTICATION (@critical)
-- [ ] Email/Password login (valid & invalid)
-- [ ] OAuth login (Google, Apple, Microsoft)
-- [ ] Magic link login
-- [ ] Multi-factor authentication (TOTP, SMS, backup codes)
-- [ ] Password reset flow
-- [ ] Session management (expiry, concurrent, logout)
-- [ ] Role-based access control
-
-**Edge Cases:**
-- [ ] Empty fields, invalid formats
-- [ ] Account lockout after failed attempts
-- [ ] Expired tokens and links
-- [ ] XSS/SQL injection prevention
-- [ ] Rate limiting enforcement
-
-### 2. PAYMENT GATEWAY (@critical)
-- [ ] Credit card payment (success & decline)
-- [ ] 3D Secure authentication
-- [ ] Subscription create/upgrade/downgrade/cancel
-- [ ] Invoice generation and download
-- [ ] Refund processing
-- [ ] Payment method management
-
-**Edge Cases:**
-- [ ] All Stripe test card scenarios (expired, insufficient funds, etc.)
-- [ ] Coupon code validation (valid, expired, limited use)
-- [ ] Proration calculations
-- [ ] Network timeout during payment
-- [ ] Double submission prevention
-- [ ] Webhook signature validation
-
-### 3. ONBOARDING (@critical)
-- [ ] New user registration
-- [ ] Email verification
-- [ ] Profile setup wizard
-- [ ] Workspace creation
-- [ ] Team invitations
-- [ ] Welcome tour
-
-**Edge Cases:**
-- [ ] Duplicate email rejection
-- [ ] Password requirements enforcement
-- [ ] Expired verification tokens
-- [ ] Session timeout during wizard
-- [ ] Data import (CSV, large files, duplicates)
-- [ ] Skip/resume onboarding
-
-### 4. MESSAGING & NOTIFICATIONS (@critical)
-- [ ] Real-time message send/receive
-- [ ] Typing indicators
-- [ ] Read receipts
-- [ ] Message editing/deletion
-- [ ] File sharing (upload, download, preview)
-- [ ] In-app notifications
-- [ ] Email notifications
-
-**Edge Cases:**
-- [ ] Offline mode handling
-- [ ] WebSocket reconnection
-- [ ] Message ordering during reconnection
-- [ ] Large messages (10K+ chars)
-- [ ] Special characters and emojis
-- [ ] Rapid message sending
-- [ ] File size limits
-- [ ] Unsupported file types
-- [ ] Do Not Disturb mode
-- [ ] Channel muting
-
-### 5. CORE FEATURES
-- [ ] Dashboard data loading
-- [ ] Search functionality (global, filtered)
-- [ ] CRUD operations on all entities
-- [ ] Data export (CSV, PDF, Excel)
-- [ ] Settings management
-- [ ] Pagination/infinite scroll
-
-**Edge Cases:**
-- [ ] Empty states
-- [ ] Error states
-- [ ] Loading states
-- [ ] Large datasets (1000+ items)
-- [ ] Concurrent edits
-- [ ] Stale data handling
-
-### 6. ACCESSIBILITY (@a11y)
-- [ ] Keyboard navigation (all interactive elements)
-- [ ] Screen reader compatibility
-- [ ] Focus management
-- [ ] ARIA labels on all elements
-- [ ] Color contrast compliance
-- [ ] Text scaling support
-- [ ] Motion reduction respect
-
-### 7. PERFORMANCE (@performance)
-- [ ] Page load < 3s
-- [ ] First Contentful Paint < 1.5s
-- [ ] Time to Interactive < 3.5s
-- [ ] API response times < 500ms (p95)
-- [ ] No memory leaks
-- [ ] No render blocking
-
-### 8. SECURITY (@security)
-- [ ] Input validation on all fields
-- [ ] XSS prevention
-- [ ] CSRF protection
-- [ ] SQL injection prevention
-- [ ] Authorization checks on all endpoints
-- [ ] Sensitive data protection
-
----
-
-## TESTING COMMANDS
-
+### Unit Tests
 ```bash
-# Unit Tests
-npm test                                    # All unit tests
-npm test -- --coverage                      # With coverage report
-npm test -- --watch                         # Watch mode
+npm test                           # All tests (backend + frontend)
+npm run test:backend               # Backend only (Jest)
+npm run test:frontend              # Frontend only (React Testing Library)
+```
 
-# E2E Tests (Playwright)
-npx playwright test                         # Full suite
-npx playwright test --grep @critical        # Critical paths only
-npx playwright test --grep @edge            # Edge cases only
-npx playwright test --grep @a11y            # Accessibility
-npx playwright test --grep @performance     # Performance
-npx playwright test --project=chromium      # Chrome only
-npx playwright test --project=webkit        # Safari only
-npx playwright test --project=firefox       # Firefox only
-npx playwright test --project=mobile        # Mobile viewports
+### E2E Tests (Playwright)
+```bash
+npm run test:e2e                   # Full suite (all browsers)
+npm run test:e2e:ui                # Interactive UI mode
+npm run test:e2e:headed            # Visible browser
+npm run test:e2e:report            # View HTML report
 
-# Mobile E2E
-detox test -c ios.sim.debug                 # iOS simulator
-detox test -c android.emu.debug             # Android emulator
-maestro test .maestro/                      # Maestro flows
+# Individual test files
+npx playwright test e2e/auth.spec.ts
+npx playwright test e2e/checkout.spec.ts
+npx playwright test e2e/intake.spec.ts
+npx playwright test e2e/landing.spec.ts
 
-# Debug Mode
-npx playwright test --debug                 # Step through tests
-npx playwright test --ui                    # UI mode
-npx playwright show-report                  # View HTML report
+# By browser
+npx playwright test --project=chromium
+npx playwright test --project=firefox
+npx playwright test --project=webkit
+npx playwright test --project='Mobile Chrome'
+npx playwright test --project='Mobile Safari'
 
-# CI Mode
-npx playwright test --reporter=github       # GitHub Actions format
-npx playwright test --reporter=junit        # JUnit XML format
+# Tagged tests
+npx playwright test --grep @critical
+npx playwright test --grep @edge
 ```
 
 ---
 
-## WORKFLOW
+## EXISTING TEST FILES
 
-1. **Start with Unit Tests**
-   - Run `npm test`
-   - Fix all failing tests
-   - Ensure 100% pass rate before proceeding
+### Backend Tests (server/src/__tests__/)
+| File | Coverage |
+|------|----------|
+| `auth.test.ts` | Authentication, JWT, password hashing |
+| `loginProtection.test.ts` | Brute force protection, rate limiting |
+| `payments.test.ts` | Stripe integration, checkout sessions |
+| `stripeHelpers.test.ts` | Stripe utility functions |
+| `leads.test.ts` | Lead management, tier recommendation |
+| `tierFeatures.test.ts` | Tier feature matrix |
+| `projects.test.ts` | Project CRUD operations |
+| `deliverables.test.ts` | Deliverable management |
+| `clientService.test.ts` | Client operations |
+| `milestoneTemplates.test.ts` | Milestone templates |
+| `validators.test.ts` | Input validation |
+| `rateLimit.test.ts` | Rate limiting logic |
+| `appError.test.ts` | Error handling |
+| `logger.test.ts` | Logging functionality |
 
-2. **Run Critical Path E2E**
-   - Run `npx playwright test --grep @critical`
-   - These are the most important user journeys
-   - Fix APPLICATION code for failures (not test code unless test is wrong)
+### Integration Tests (server/src/__tests__/integration/)
+| File | Coverage |
+|------|----------|
+| `clientPortalFlow.test.ts` | Full client portal flow |
+| `leadToClientFlow.test.ts` | Lead conversion flow |
 
-3. **Run Full E2E Suite**
-   - Run `npx playwright test`
-   - Work through failures systematically
-   - Group fixes by feature area
+### Service Tests (server/src/services/__tests__/)
+| File | Coverage |
+|------|----------|
+| `cacheService.test.ts` | Redis caching |
+| `emailService.test.ts` | Email sending (Resend) |
+| `healthService.test.ts` | Health checks |
+| `messagingService.test.ts` | Real-time messaging |
+| `realtimeService.test.ts` | WebSocket connections |
+| `webhookService.test.ts` | Webhook processing |
+| `slackService.test.ts` | Slack notifications |
+| `referralService.test.ts` | Referral tracking |
+| `calendarService.test.ts` | Calendar/booking |
 
-4. **Run Edge Case Tests**
-   - Run `npx playwright test --grep @edge`
-   - These test boundary conditions
-   - Often reveal hidden bugs
+### E2E Tests (e2e/)
+| File | Coverage |
+|------|----------|
+| `auth.spec.ts` | Login, registration, password reset |
+| `checkout.spec.ts` | Stripe checkout, payment flow |
+| `intake.spec.ts` | Lead intake form, tier recommendation |
+| `landing.spec.ts` | Landing page, tier comparison |
 
-5. **Run Accessibility Tests**
-   - Run `npx playwright test --grep @a11y`
-   - Fix accessibility issues
-   - Use axe-core for additional scanning
+---
 
-6. **Run Performance Tests**
-   - Run `npx playwright test --grep @performance`
-   - Optimize slow areas
-   - Check for memory leaks
+## AREAS TO TEST
 
-7. **Final Verification**
-   - Run ALL tests 3 times consecutively
-   - All runs must pass
-   - No flaky tests allowed
+### 1. AUTHENTICATION
+- [ ] User registration (email/password)
+- [ ] User login
+- [ ] Password reset flow
+- [ ] JWT token validation
+- [ ] Session management
+- [ ] Role-based access (SAGE_ADMIN, SAGE_CLIENT, TEAM_MEMBER)
+- [ ] Brute force protection
+- [ ] Rate limiting
+
+**Edge Cases:**
+- Duplicate email registration
+- Weak password rejection
+- Invalid email format
+- Expired tokens
+- Concurrent sessions
+
+### 2. LEAD INTAKE & TIER RECOMMENDATION
+- [ ] Intake form submission
+- [ ] Tier recommendation engine
+- [ ] Lead creation in database
+- [ ] Admin lead queue view
+- [ ] Lead status updates
+
+**Tiers:**
+- Tier 1 - The Concept ($299)
+- Tier 2 - The Builder ($1,499)
+- Tier 3 - The Concierge ($4,999)
+- Tier 4 - White Glove (Custom)
+
+**Edge Cases:**
+- Empty form fields
+- Invalid data types
+- Duplicate lead submission
+- Edge score boundaries
+
+### 3. PAYMENT & CHECKOUT (Stripe)
+- [ ] Checkout session creation
+- [ ] Stripe redirect flow
+- [ ] Payment success handling
+- [ ] Webhook processing
+- [ ] Subscription management
+
+**Test Cards:**
+- `4242424242424242` - Success
+- `4000000000000002` - Declined
+- `4000000000000069` - Expired
+- `4000000000009995` - Insufficient funds
+- `4000002500003155` - 3D Secure
+
+**Edge Cases:**
+- Payment declined scenarios
+- 3D Secure authentication
+- Webhook signature validation
+- Duplicate payment prevention
+
+### 4. CLIENT PORTAL
+- [ ] Project dashboard
+- [ ] Project details view
+- [ ] Milestone tracking
+- [ ] Deliverables management
+- [ ] File upload/download
+- [ ] Messaging system
+- [ ] Notification center
+
+**Edge Cases:**
+- Empty project list
+- Large file uploads
+- Permission denied scenarios
+- Real-time updates
+
+### 5. ADMIN DASHBOARD
+- [ ] Lead queue management
+- [ ] Client management
+- [ ] Analytics dashboard
+- [ ] Team management
+- [ ] Lead to client conversion
+
+**Edge Cases:**
+- Empty states
+- Bulk operations
+- Concurrent edits
+- Role permissions
+
+### 6. INTEGRATIONS
+- [ ] Notion sync (leads, deliverables)
+- [ ] Supabase storage (file uploads)
+- [ ] Resend emails (transactional)
+- [ ] Stripe webhooks
+
+**Edge Cases:**
+- API rate limits
+- Connection failures
+- Webhook retries
 
 ---
 
 ## WHEN TESTS FAIL
 
-1. **Read the error message carefully**
-2. **Check the screenshot/video** in `test-results/`
-3. **Run in debug mode** for step-by-step execution
-4. **Check if it's a timing issue** (add appropriate waits)
-5. **Check if it's a selector issue** (update selectors)
-6. **Check if the application code is wrong** (fix the app)
-7. **Check if the test expectation is wrong** (fix the test)
+1. **Read the error message** carefully
+2. **Check screenshots/videos** in `playwright-report/`
+3. **Run in UI mode** for debugging: `npm run test:e2e:ui`
+4. **Check if timing issue** - add appropriate waits
+5. **Fix the APPLICATION code** (not tests unless tests are wrong)
+6. **Re-run the failing test** to verify fix
+7. **Run full suite** to check for regressions
 
 ---
 
 ## SUCCESS CRITERIA
 
-- [ ] All unit tests pass (100%)
-- [ ] All integration tests pass (100%)
-- [ ] All critical E2E tests pass (100%)
-- [ ] Full E2E suite passes (95%+ minimum)
-- [ ] All edge case tests pass (100%)
-- [ ] All accessibility tests pass (100%)
-- [ ] Performance thresholds met
+- [ ] All backend unit tests pass (262 tests)
+- [ ] All frontend unit tests pass (595 tests)
+- [ ] All E2E auth tests pass
+- [ ] All E2E checkout tests pass
+- [ ] All E2E intake tests pass
+- [ ] All E2E landing tests pass
+- [ ] Tests pass on Chromium
+- [ ] Tests pass on Firefox
+- [ ] Tests pass on WebKit
+- [ ] Tests pass on Mobile Chrome
+- [ ] Tests pass on Mobile Safari
 - [ ] Tests pass 3 consecutive runs (no flakiness)
-- [ ] Test coverage > 80%
 
 ---
 

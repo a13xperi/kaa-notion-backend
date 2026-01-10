@@ -877,18 +877,18 @@ cmd_comprehensive() {
     local area="${2:-all}"
 
     banner
-    echo -e "${W}COMPREHENSIVE TESTING LOOP${N}"
+    echo -e "${W}SAGE MVP COMPREHENSIVE TESTING${N}"
     divider
     echo ""
-    echo -e "This will run a ${C}continuous improvement loop${N} covering:"
+    echo -e "Run a ${C}continuous improvement loop${N} covering:"
     echo ""
-    echo "  Phase 1: Unit Tests (100% pass required)"
-    echo "  Phase 2: Integration Tests (100% pass required)"
-    echo "  Phase 3: E2E Critical Paths (100% pass required)"
-    echo "  Phase 4: E2E Full Suite (95%+ pass required)"
-    echo "  Phase 5: Edge Cases (100% pass required)"
-    echo "  Phase 6: Accessibility (100% pass required)"
-    echo "  Phase 7: Performance (thresholds required)"
+    echo "  Phase 1: Backend Unit Tests (npm run test:backend)"
+    echo "  Phase 2: Frontend Unit Tests (npm run test:frontend)"
+    echo "  Phase 3: E2E Auth Tests (e2e/auth.spec.ts)"
+    echo "  Phase 4: E2E Checkout Tests (e2e/checkout.spec.ts)"
+    echo "  Phase 5: E2E Intake Tests (e2e/intake.spec.ts)"
+    echo "  Phase 6: E2E Landing Tests (e2e/landing.spec.ts)"
+    echo "  Phase 7: Full E2E Suite (all browsers)"
     echo "  Phase 8: Final Verification (3 consecutive passes)"
     echo ""
 
@@ -898,32 +898,38 @@ cmd_comprehensive() {
     case "${area}" in
         auth|authentication)
             echo "  Target: Authentication only"
-            local grep_filter="@auth"
+            echo "  E2E: npx playwright test e2e/auth.spec.ts"
+            echo "  Unit: server/src/__tests__/auth.test.ts"
             ;;
-        pay|payments)
-            echo "  Target: Payments only"
-            local grep_filter="@payment"
+        checkout|pay|payments)
+            echo "  Target: Payments & Checkout only"
+            echo "  E2E: npx playwright test e2e/checkout.spec.ts"
+            echo "  Unit: server/src/__tests__/payments.test.ts"
             ;;
-        onboard|onboarding)
-            echo "  Target: Onboarding only"
-            local grep_filter="@onboarding"
+        intake|leads)
+            echo "  Target: Lead Intake only"
+            echo "  E2E: npx playwright test e2e/intake.spec.ts"
+            echo "  Unit: server/src/__tests__/leads.test.ts"
             ;;
-        msg|messaging)
-            echo "  Target: Messaging only"
-            local grep_filter="@messaging"
+        portal|client)
+            echo "  Target: Client Portal only"
+            echo "  Integration: server/src/__tests__/integration/clientPortalFlow.test.ts"
+            echo "  Unit: server/src/__tests__/clientService.test.ts"
+            ;;
+        landing)
+            echo "  Target: Landing Page only"
+            echo "  E2E: npx playwright test e2e/landing.spec.ts"
             ;;
         all|*)
-            echo "  Target: ALL test areas"
+            echo "  Target: ALL test areas (857 tests total)"
             echo ""
-            echo "  - Authentication (login, OAuth, MFA, sessions)"
-            echo "  - Payments (cards, subscriptions, refunds)"
-            echo "  - Onboarding (registration, wizard, invites)"
-            echo "  - Messaging (chat, notifications, files)"
-            echo "  - Core Features (dashboard, CRUD, search)"
-            echo "  - Accessibility (keyboard, screen reader)"
-            echo "  - Performance (load times, API response)"
-            echo "  - Security (XSS, CSRF, injection)"
-            local grep_filter=""
+            echo "  - Authentication (login, registration, JWT, brute force)"
+            echo "  - Payments (Stripe checkout, subscriptions, webhooks)"
+            echo "  - Lead Intake (form, tier recommendation, lead queue)"
+            echo "  - Client Portal (projects, milestones, deliverables)"
+            echo "  - Admin Dashboard (leads, clients, analytics, team)"
+            echo "  - Integrations (Notion, Supabase, Resend, Stripe)"
+            echo "  - Services (cache, email, messaging, health)"
             ;;
     esac
     echo ""
@@ -933,22 +939,35 @@ cmd_comprehensive() {
     divider
     local errors=0
 
-    if [[ -f "package.json" ]] && grep -q '"test"' package.json 2>/dev/null; then
-        ok "Unit test script found"
+    # Check for test scripts
+    if [[ -f "package.json" ]] && grep -q '"test:backend"' package.json 2>/dev/null; then
+        ok "Backend tests: npm run test:backend"
     else
-        warn "No unit test script in package.json"
+        warn "No backend test script"
     fi
 
-    if [[ -f "playwright.config.ts" ]] || [[ -f "playwright.config.js" ]]; then
-        ok "Playwright configured"
+    if [[ -f "package.json" ]] && grep -q '"test:frontend"' package.json 2>/dev/null; then
+        ok "Frontend tests: npm run test:frontend"
+    else
+        warn "No frontend test script"
+    fi
+
+    if [[ -f "playwright.config.ts" ]]; then
+        ok "Playwright E2E configured"
     else
         warn "No Playwright config"
     fi
 
+    # Check for E2E test files
+    local e2e_count=$(ls -1 e2e/*.spec.ts 2>/dev/null | wc -l || echo 0)
+    if [[ ${e2e_count} -gt 0 ]]; then
+        ok "E2E tests found: ${e2e_count} spec files"
+    else
+        warn "No E2E test files in e2e/"
+    fi
+
     if [[ -d ".ralph/tests" ]]; then
         ok "Test matrix found"
-    else
-        info "No test matrix (will use default)"
     fi
 
     echo ""
@@ -957,89 +976,42 @@ cmd_comprehensive() {
     local prompt_file="${RALPH_LOCAL}/prompts/comprehensive-e2e.md"
     if [[ -f "${prompt_file}" ]]; then
         cat "${prompt_file}" | \
-            sed "s|{{TASK}}|Run comprehensive testing loop for: ${area}|g" | \
-            sed "s|{{REQUIREMENTS}}|Area: ${area}, Max iterations: ${max}, Grep filter: ${grep_filter:-none}|g" \
+            sed "s|{{TASK}}|Run comprehensive SAGE MVP testing for: ${area}|g" | \
+            sed "s|{{REQUIREMENTS}}|Area: ${area}, Max iterations: ${max}|g" \
             > "${PROMPT_FILE}"
     else
-        # Fallback comprehensive prompt
-        cat > "${PROMPT_FILE}" << 'COMPREHENSIVE_EOF'
-# Comprehensive Testing Task
+        # Fallback to SAGE-specific prompt
+        cat > "${PROMPT_FILE}" << 'SAGE_EOF'
+# SAGE MVP Comprehensive Testing
 
 ## Objective
-Run a CONTINUOUS IMPROVEMENT loop testing all critical paths, edge cases, and user journeys.
+Run ALL tests until they pass consistently (3 consecutive runs).
 
-## Test Phases
+## Test Commands
 
-### Phase 1: Unit Tests
+### Unit Tests
 ```bash
-npm test
+npm run test:backend    # Backend (262 tests)
+npm run test:frontend   # Frontend (595 tests)
 ```
-- Must achieve 100% pass rate
-- Fix any failing tests before proceeding
 
-### Phase 2: E2E Critical Paths
+### E2E Tests
 ```bash
-npx playwright test --grep @critical
+npx playwright test e2e/auth.spec.ts
+npx playwright test e2e/checkout.spec.ts
+npx playwright test e2e/intake.spec.ts
+npx playwright test e2e/landing.spec.ts
+npm run test:e2e        # Full suite
 ```
-- Test all authentication flows
-- Test all payment flows
-- Test all onboarding flows
-- Test all messaging flows
-
-### Phase 3: Edge Cases
-```bash
-npx playwright test --grep @edge
-```
-- Empty inputs, max length, special chars
-- Network failures, timeouts
-- Concurrent operations
-- Error handling
-
-### Phase 4: Full Suite
-```bash
-npx playwright test
-```
-- All tests must pass
-- Run 3x to verify no flakiness
-
-## Areas to Cover
-
-### Authentication
-- Email/password login
-- OAuth (Google, Apple, Microsoft)
-- MFA (TOTP, SMS, backup codes)
-- Password reset
-- Session management
-- Rate limiting
-
-### Payments
-- Credit card payment
-- 3D Secure
-- Subscriptions (create, upgrade, downgrade, cancel)
-- Refunds
-- Coupons
-
-### Onboarding
-- Registration
-- Email verification
-- Setup wizard
-- Team invitations
-- Data import
-
-### Messaging
-- Real-time chat
-- Notifications
-- File sharing
-- Offline mode
 
 ## Success Criteria
-- [ ] All unit tests pass (100%)
-- [ ] All E2E tests pass
+- [ ] All backend tests pass
+- [ ] All frontend tests pass
+- [ ] All E2E tests pass (all browsers)
 - [ ] Tests pass 3 consecutive runs
-- [ ] No flaky tests
 
 When ALL criteria met, output: RALPH_COMPLETE
-COMPREHENSIVE_EOF
+SAGE_EOF
     fi
 
     # Show estimated time
@@ -1059,45 +1031,81 @@ COMPREHENSIVE_EOF
 
 cmd_test_matrix() {
     banner
-    echo -e "${W}TEST MATRIX${N}"
+    echo -e "${W}SAGE MVP TEST MATRIX${N}"
     divider
     echo ""
 
     local matrix_file="${RALPH_LOCAL}/tests/test-matrix.json"
 
-    if [[ ! -f "${matrix_file}" ]]; then
-        err "Test matrix not found: ${matrix_file}"
-        return 1
+    # Project info
+    echo -e "${C}Project:${N} SAGE MVP Platform"
+    echo -e "${C}Total Tests:${N} 857 (262 backend + 595 frontend)"
+    echo ""
+
+    # Test suites
+    echo -e "${W}TEST SUITES${N}"
+    divider
+
+    if [[ -f "${matrix_file}" ]] && command -v jq &>/dev/null; then
+        jq -r '.testSuites | to_entries[] | "  \(.key): \(.value.name) [\(.value.priority)]"' "${matrix_file}" 2>/dev/null
+    else
+        echo "  authentication: Authentication & Authorization [critical]"
+        echo "  intake: Lead Intake & Tier Recommendation [critical]"
+        echo "  checkout: Payment & Checkout [critical]"
+        echo "  clientPortal: Client Portal [high]"
+        echo "  adminDashboard: Admin Dashboard [high]"
+        echo "  messaging: Real-time Messaging [high]"
+        echo "  services: Backend Services [high]"
+        echo "  integrations: Third-Party Integrations [medium]"
+        echo "  infrastructure: Infrastructure & Configuration [medium]"
+        echo "  landing: Landing & Marketing [medium]"
     fi
-
-    # Parse and display test suites
-    echo -e "${C}Test Suites:${N}"
     echo ""
 
-    jq -r '.testSuites | to_entries[] | "  \(.key): \(.value.name) [\(.value.priority)]"' "${matrix_file}" 2>/dev/null || \
-        echo "  (Unable to parse test matrix)"
-
+    # Existing E2E tests
+    echo -e "${W}E2E TEST FILES${N}"
+    divider
+    if [[ -d "e2e" ]]; then
+        for f in e2e/*.spec.ts; do
+            if [[ -f "$f" ]]; then
+                local name=$(basename "$f")
+                echo "  ${name}"
+            fi
+        done
+    else
+        echo "  (No e2e/ directory found)"
+    fi
     echo ""
-    echo -e "${C}Total Scenarios:${N}"
 
-    local total=$(jq '[.testSuites[].scenarios | length] | add' "${matrix_file}" 2>/dev/null || echo "?")
-    echo "  ${total} test scenarios"
-
+    # Backend test stats
+    echo -e "${W}BACKEND TESTS${N}"
+    divider
+    local backend_tests=$(find server/src -name "*.test.ts" 2>/dev/null | wc -l || echo 0)
+    echo "  Test files: ${backend_tests}"
+    echo "  Command: npm run test:backend"
     echo ""
-    echo -e "${C}Edge Case Categories:${N}"
 
-    jq -r '.edgeCaseCategories | keys[]' "${matrix_file}" 2>/dev/null | while read cat; do
-        local count=$(jq -r ".edgeCaseCategories.${cat} | length" "${matrix_file}" 2>/dev/null)
-        echo "  ${cat}: ${count} cases"
-    done
-
+    # Frontend test stats
+    echo -e "${W}FRONTEND TESTS${N}"
+    divider
+    local frontend_tests=$(find kaa-app/src -name "*.test.tsx" -o -name "*.test.ts" 2>/dev/null | wc -l || echo 0)
+    echo "  Test files: ${frontend_tests}"
+    echo "  Command: npm run test:frontend"
     echo ""
+
+    # Quick commands
     echo -e "${W}QUICK COMMANDS${N}"
     divider
-    echo "  ./ralph comprehensive 50        # Run all tests"
-    echo "  ./ralph comprehensive 30 auth   # Auth tests only"
-    echo "  ./ralph comprehensive 30 pay    # Payment tests only"
-    echo "  ./ralph e2e critical            # Critical paths only"
+    echo "  ./ralph comprehensive 50          # All tests"
+    echo "  ./ralph comprehensive 30 auth     # Auth tests"
+    echo "  ./ralph comprehensive 30 checkout # Payment tests"
+    echo "  ./ralph comprehensive 30 intake   # Lead intake tests"
+    echo "  ./ralph comprehensive 30 portal   # Client portal tests"
+    echo ""
+    echo "  npm run test:backend              # Backend unit tests"
+    echo "  npm run test:frontend             # Frontend unit tests"
+    echo "  npm run test:e2e                  # Full E2E suite"
+    echo "  npm run test:e2e:ui               # E2E with UI"
     echo ""
 }
 
@@ -1304,8 +1312,8 @@ cmd_help() {
     echo -e "  ${C}Testing${N}"
     echo -e "    e2e [target] [N] Start E2E test loop"
     echo -e "                     Targets: all|web|playwright|mobile|detox|maestro"
-    echo -e "    comprehensive [N] [area]  Full testing loop (all paths + edge cases)"
-    echo -e "                     Areas: all|auth|pay|onboard|msg"
+    echo -e "    comprehensive [N] [area]  SAGE MVP full testing loop"
+    echo -e "                     Areas: all|auth|checkout|intake|portal|landing"
     echo -e "    test-matrix      View test coverage matrix"
     echo -e "    test [zone]      Run tests for zone"
     echo ""
@@ -1331,14 +1339,15 @@ cmd_help() {
     echo "  ./ralph start 30     # Run loop"
     echo "  ./ralph watch        # Monitor progress"
     echo ""
-    echo -e "${W}COMPREHENSIVE TESTING${N}"
+    echo -e "${W}COMPREHENSIVE TESTING (SAGE MVP)${N}"
     divider
     echo ""
-    echo "  ./ralph comprehensive 50        # All tests (auth, pay, onboard, msg...)"
-    echo "  ./ralph comprehensive 30 auth   # Authentication only"
-    echo "  ./ralph comprehensive 30 pay    # Payments only"
-    echo "  ./ralph comprehensive 30 msg    # Messaging only"
-    echo "  ./ralph test-matrix             # View test coverage"
+    echo "  ./ralph comprehensive 50          # All 857 tests"
+    echo "  ./ralph comprehensive 30 auth     # Authentication"
+    echo "  ./ralph comprehensive 30 checkout # Stripe payments"
+    echo "  ./ralph comprehensive 30 intake   # Lead intake"
+    echo "  ./ralph comprehensive 30 portal   # Client portal"
+    echo "  ./ralph test-matrix               # View test coverage"
     echo ""
     echo -e "${W}E2E TESTING${N}"
     divider
