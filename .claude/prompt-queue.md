@@ -344,6 +344,9 @@
 - [x] `update`: IntakePage - Connected to leads API with fallback
 - [x] `update`: PricingPage - Reads from session storage, fallback pricing
 - [x] `integration`: Intake → Pricing → Checkout flow connected
+- [x] `new-middleware`: rateLimit.ts - Configurable rate limiting with pre-built limiters
+- [x] `update`: server/index.ts - Applied rate limiters to all API routes
+- [x] `test`: rateLimit.test.ts - 10 tests for rate limit functionality
 
 ### 2025-01-09
 - [x] Initial project setup

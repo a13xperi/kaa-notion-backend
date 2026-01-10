@@ -20,7 +20,16 @@ import {
 } from './routes';
 import { initNotionSyncService, initStorageService, initAuditService, initAuthService } from './services';
 import { initStripe } from './utils/stripeHelpers';
-import { errorHandler, notFoundHandler } from './middleware';
+import { 
+  errorHandler, 
+  notFoundHandler,
+  apiRateLimiter,
+  authRateLimiter,
+  leadCreationRateLimiter,
+  checkoutRateLimiter,
+  uploadRateLimiter,
+  adminRateLimiter,
+} from './middleware';
 import { logger } from './logger';
 
 dotenv.config();
@@ -92,17 +101,17 @@ initAuthService({
 });
 logger.info('Auth service initialized');
 
-// API Routes
-app.use('/api/projects', createProjectsRouter(prisma));
-app.use('/api', createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
-app.use('/api/leads', createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
-app.use('/api/checkout', createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
-app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints
-app.use('/api/auth', createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+// API Routes with Rate Limiting
+app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
+app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
+app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', adminRateLimiter, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
+app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
+app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
+app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
 
 // Initialize Figma client
 const figmaClient = new FigmaClient({

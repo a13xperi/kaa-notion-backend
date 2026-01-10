@@ -58,3 +58,14 @@ export {
   notFoundHandler,
   asyncHandler,
 } from './errorHandler';
+
+// Rate Limiting
+export {
+  createRateLimiter,
+  apiRateLimiter,
+  authRateLimiter,
+  leadCreationRateLimiter,
+  checkoutRateLimiter,
+  uploadRateLimiter,
+  adminRateLimiter,
+} from './rateLimit';
