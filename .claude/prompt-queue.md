@@ -95,7 +95,7 @@
 - [x] `new-component`: ClientsTable - Client list with tier, projects, status
 
 ### 5.3 Admin Actions
-- [ ] `new-component`: TierOverrideModal - Modal to change lead's recommended tier with reason
+- [x] `new-component`: TierOverrideModal - Modal to change lead's recommended tier with reason
 - [ ] `new-component`: LeadReviewPanel - Detailed lead view with intake data, tier recommendation, actions
 
 ---
@@ -228,6 +228,7 @@
 - [x] `new-component`: LeadQueue - Search/filter toolbar, status dropdown, tier badges, action menu, pagination
 - [x] `new-component`: ProjectsTable - Search/filter, status dropdown, progress bar, deliverable count, pagination
 - [x] `new-component`: ClientsTable - Avatar, tier badge, project count, Stripe status, view projects action
+- [x] `new-component`: TierOverrideModal - Tier selection cards, reason with suggestions, validation, submit state
 
 ---
 
