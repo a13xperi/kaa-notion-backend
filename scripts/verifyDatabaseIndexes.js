@@ -41,14 +41,45 @@ function printInfo(msg) {
 
 /**
  * Extract index definitions from Prisma schema
+ * First pass: collect model -> table name mappings from @@map
+ * Second pass: extract indexes with correct table names
  */
 function extractSchemaIndexes() {
   const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
   const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
   
-  const indexes = [];
+  // First pass: collect model -> table name mappings from @@map
+  const modelToTable = new Map();
   const lines = schemaContent.split('\n');
   let currentModel = null;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Detect model
+    if (line.startsWith('model ')) {
+      currentModel = line.replace('model ', '').split(' ')[0];
+      // Default: convert model name to snake_case table name
+      const defaultTable = currentModel
+        .replace(/([A-Z])/g, '_$1')
+        .toLowerCase()
+        .replace(/^_/, '') + 's';
+      modelToTable.set(currentModel, defaultTable);
+      continue;
+    }
+    
+    // Detect @@map to get actual table name (overrides default)
+    if (line.includes('@@map(')) {
+      const mapMatch = line.match(/@@map\("([^"]+)"/);
+      if (mapMatch && currentModel) {
+        modelToTable.set(currentModel, mapMatch[1]);
+      }
+    }
+  }
+  
+  // Second pass: extract indexes with correct table names
+  const indexes = [];
+  currentModel = null;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -63,19 +94,31 @@ function extractSchemaIndexes() {
     if (line.startsWith('@@index')) {
       const indexMatch = line.match(/@@index\(\[([^\]]+)\]/);
       if (indexMatch && currentModel) {
+        const tableName = modelToTable.get(currentModel);
+        if (!tableName) {
+          console.warn(`Warning: Could not determine table name for model ${currentModel}`);
+          continue;
+        }
+        
         const fields = indexMatch[1]
           .split(',')
           .map(f => f.trim())
           .map(f => {
-            // Handle @map directives and function calls like createdAt(sort: Desc)
+            // Handle function calls like createdAt(sort: Desc)
             if (f.includes('(')) {
               return f.split('(')[0].trim();
             }
             return f;
+          })
+          .map(f => {
+            // Convert camelCase to snake_case for column names
+            // Handle field names like userId -> user_id, createdAt -> created_at
+            return f.replace(/([A-Z])/g, '_$1').toLowerCase();
           });
         
         indexes.push({
           model: currentModel,
+          table: tableName,
           fields: fields,
           line: i + 1,
         });
@@ -137,25 +180,16 @@ async function getDatabaseIndexes() {
 }
 
 /**
- * Convert Prisma model name to database table name
- */
-function modelToTableName(model) {
-  // Prisma uses PascalCase for models, but converts to snake_case for tables
-  // This is a simplified conversion - Prisma's actual mapping may be more complex
-  return model
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '');
-}
-
-/**
  * Match schema indexes to database indexes
+ * Uses actual table names from @@map directives
  */
 function matchIndexes(schemaIndexes, dbIndexes) {
   const results = [];
   
   for (const schemaIndex of schemaIndexes) {
-    const tableName = modelToTableName(schemaIndex.model);
+    // Use table name from schema (already extracted from @@map)
+    const tableName = schemaIndex.table || schemaIndex.model.toLowerCase() + 's';
+    
     const matchingDbIndex = dbIndexes.find(
       dbIndex => dbIndex.table === tableName &&
         arraysEqual(dbIndex.columns.sort(), schemaIndex.fields.sort())
