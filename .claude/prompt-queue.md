@@ -168,9 +168,9 @@
 - [x] `test`: deliverables.test.ts - Test upload, download, file metadata
 
 ### Component Tests
-- [ ] `test`: IntakeForm.test.tsx - Test form validation, submission, tier display
-- [ ] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation
-- [ ] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators
+- [x] `test`: IntakeForm.test.tsx - Test form validation, submission, tier display
+- [x] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation
+- [x] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators
 
 ### E2E Tests
 - [ ] `e2e`: lead-to-client.spec.ts - Full flow: intake form → tier recommendation → checkout → portal access
@@ -257,6 +257,9 @@
 - [x] `test`: projects.test.ts - Project CRUD, milestones, tier gating tests
 - [x] `test`: payments.test.ts - Stripe webhook, checkout, payment status tests
 - [x] `test`: deliverables.test.ts - File upload, download, validation tests
+- [x] `test`: IntakeForm.test.tsx - Multi-step form, validation, submission tests
+- [x] `test`: ProjectDashboard.test.tsx - Loading states, project cards, stats tests
+- [x] `test`: MilestoneTimeline.test.tsx - Timeline rendering, status, progress tests
 
 ---
 
