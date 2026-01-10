@@ -139,7 +139,7 @@
 - [x] `new-util`: AppError.ts - Custom error class with code, message, statusCode, details
 
 ### 8.4 Audit Logging
-- [ ] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
+- [x] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
 - [ ] `audit`: Add audit logging to all state-changing endpoints
 
 ---
