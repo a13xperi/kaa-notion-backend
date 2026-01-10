@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { logger } from './logger';
 
 interface FigmaClientConfig {
   accessToken: string;
@@ -21,15 +22,15 @@ export class FigmaClient {
 
   async getFile(fileKey: string) {
     try {
-      console.log(`Fetching Figma file: ${fileKey}`);
+      logger.info(`Fetching Figma file: ${fileKey}`);
       const response = await axios.get(`${this.baseUrl}/files/${fileKey}`, {
         headers: this.headers,
       });
-      console.log('Figma file fetched successfully');
+      logger.info('Figma file fetched successfully');
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError) {
-        console.error('Figma API Error:', {
+        logger.error('Figma API Error', {
           status: error.response?.status,
           message: error.response?.data?.message || error.message,
         });
@@ -41,18 +42,18 @@ export class FigmaClient {
 
   async getFileNodes(fileKey: string, nodeIds: string[]) {
     try {
-      console.log(`Fetching Figma nodes: ${nodeIds.join(', ')} from file: ${fileKey}`);
+      logger.info(`Fetching Figma nodes: ${nodeIds.join(', ')} from file: ${fileKey}`);
       const response = await axios.get(
         `${this.baseUrl}/files/${fileKey}/nodes?ids=${nodeIds.join(',')}`,
         {
           headers: this.headers,
         }
       );
-      console.log('Figma nodes fetched successfully');
+      logger.info('Figma nodes fetched successfully');
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError) {
-        console.error('Figma API Error:', {
+        logger.error('Figma API Error', {
           status: error.response?.status,
           message: error.response?.data?.message || error.message,
         });
@@ -72,7 +73,7 @@ export class FigmaClient {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching Figma image fills:', error);
+      logger.error('Error fetching Figma image fills', { error });
       throw error;
     }
   }
@@ -84,7 +85,7 @@ export class FigmaClient {
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching Figma comments:', error);
+      logger.error('Error fetching Figma comments', { error });
       throw error;
     }
   }

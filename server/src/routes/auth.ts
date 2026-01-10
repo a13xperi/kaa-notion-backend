@@ -18,15 +18,33 @@ import {
 } from '../services/authService';
 import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
-import { loginProtection, onLoginSuccess, onLoginFailure, validateBody } from '../middleware';
-import {
-  loginSchema,
-  refreshTokenSchema,
-  registerSchema,
-  type LoginInput,
-  type RefreshTokenInput,
-  type RegisterInput,
-} from '../utils';
+import { loginProtection, onLoginSuccess, onLoginFailure } from '../middleware';
+import { recordAuthAttempt } from '../config/metrics';
+
+// ============================================================================
+// SCHEMAS
+// ============================================================================
+
+const registerSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  tier: z.coerce.number().min(1).max(4).optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false),
+});
+
+const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
+});
 
 // ============================================================================
 // INTERFACES
@@ -83,6 +101,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         });
 
         logger.info('User registered', { userId: result.user.id, email });
+        recordAuthAttempt('register', 'success');
 
         res.status(201).json({
           success: true,
@@ -96,6 +115,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
       } catch (error) {
         // Handle duplicate email error
         if ((error as Error).message.includes('already exists')) {
+          recordAuthAttempt('register', 'failed');
           return res.status(409).json({
             success: false,
             error: {
@@ -104,6 +124,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
             },
           });
         }
+        recordAuthAttempt('register', 'failed');
         next(error);
       }
     }
@@ -149,6 +170,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         onLoginSuccess(req);
 
         logger.info('User logged in', { userId: result.user.id, email });
+        recordAuthAttempt('login', 'success');
 
         res.json({
           success: true,
@@ -164,6 +186,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         if ((error as Error).message.includes('Invalid email or password')) {
           // Record failed attempt
           const { locked, attemptsRemaining } = onLoginFailure(req);
+          recordAuthAttempt('login', 'failed');
           
           if (locked) {
             return res.status(429).json({
@@ -184,6 +207,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
             },
           });
         }
+        recordAuthAttempt('login', 'failed');
         next(error);
       }
     }
@@ -243,6 +267,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         // Refresh the tokens
         const result = await refreshAccessToken(prisma, refreshToken);
 
+        recordAuthAttempt('refresh', 'success');
         res.json({
           success: true,
           data: {
@@ -255,6 +280,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         // Handle token errors
         const message = (error as Error).message;
         if (message.includes('expired') || message.includes('Invalid')) {
+          recordAuthAttempt('refresh', 'failed');
           return res.status(401).json({
             success: false,
             error: {
@@ -263,6 +289,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
             },
           });
         }
+        recordAuthAttempt('refresh', 'failed');
         next(error);
       }
     }

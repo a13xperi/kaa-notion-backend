@@ -10,11 +10,12 @@
  * - DELETE /api/deliverables/:id - Delete deliverable (admin only)
  */
 
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from './projects';
 import { logger } from '../logger';
-import { requireAdmin } from '../middleware';
+import { internalError } from '../utils/AppError';
+import { recordDeliverableUploaded } from '../config/metrics';
 
 // ============================================================================
 // TYPES
@@ -210,7 +211,8 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/projects/:projectId/deliverables',
-    async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const { category } = req.query;
@@ -285,15 +287,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
 
         res.json(response);
       } catch (error) {
-        logger.error('Error fetching project deliverables:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to fetch deliverables',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to fetch deliverables', error as Error));
       }
     }
   );
@@ -303,8 +297,9 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.post(
     '/projects/:projectId/deliverables',
-    requireAdmin(),
-    async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const body = req.body as CreateDeliverableBody;
@@ -389,21 +384,14 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
         });
 
         logger.info(`Deliverable ${deliverable.id} uploaded to project ${projectId} by user ${user.id}`);
+        recordDeliverableUploaded(body.category);
 
         res.status(201).json({
           success: true,
           data: toDeliverableDetail(deliverable),
         });
       } catch (error) {
-        logger.error('Error uploading deliverable:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to upload deliverable',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to upload deliverable', error as Error));
       }
     }
   );
@@ -413,7 +401,8 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/deliverables/:id',
-    async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const user = req.user!;
@@ -474,15 +463,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
           },
         });
       } catch (error) {
-        logger.error('Error fetching deliverable:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to fetch deliverable',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to fetch deliverable', error as Error));
       }
     }
   );
@@ -492,7 +473,8 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/deliverables/:id/download',
-    async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const user = req.user!;
@@ -564,15 +546,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
 
         res.json(response);
       } catch (error) {
-        logger.error('Error generating download URL:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to generate download URL',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to generate download URL', error as Error));
       }
     }
   );
@@ -582,8 +556,9 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.delete(
     '/deliverables/:id',
-    requireAdmin(),
-    async (req: AuthenticatedRequest, res: Response) => {
+    requireAuth,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const user = req.user!;
@@ -638,15 +613,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
           message: 'Deliverable deleted successfully',
         });
       } catch (error) {
-        logger.error('Error deleting deliverable:', error);
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: 'Failed to delete deliverable',
-            details: error instanceof Error ? error.message : undefined,
-          },
-        });
+        next(internalError('Failed to delete deliverable', error as Error));
       }
     }
   );

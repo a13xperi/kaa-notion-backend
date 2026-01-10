@@ -3,11 +3,10 @@
  * API endpoints for manual sync operations and status monitoring (JWT-authenticated).
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
-import { NotionSyncService } from '../services';
-import { logger } from '../logger';
-import { requireAdmin } from '../middleware';
+import { getNotionSyncService, NotionSyncService } from '../services';
+import { internalError } from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -83,7 +82,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // GET /api/notion/status - Get sync status and statistics
   // ============================================================================
-  router.get('/status', requireAdmin(), async (req: Request, res: Response) => {
+  router.get('/status', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -116,24 +115,14 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      logger.error('Error getting sync status', {
-        error: (error as Error).message,
-        correlationId: req.correlationId,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to get sync status',
-        },
-      });
+      return next(internalError('Failed to get sync status', error as Error));
     }
   });
 
   // ============================================================================
   // POST /api/notion/sync - Trigger sync for pending entities
   // ============================================================================
-  router.post('/sync', requireAdmin(), async (req: Request, res: Response) => {
+  router.post('/sync', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -157,24 +146,14 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      logger.error('Error triggering sync', {
-        error: (error as Error).message,
-        correlationId: req.correlationId,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to trigger sync',
-        },
-      });
+      return next(internalError('Failed to trigger sync', error as Error));
     }
   });
 
   // ============================================================================
   // POST /api/notion/retry - Retry failed syncs
   // ============================================================================
-  router.post('/retry', requireAdmin(), async (req: Request, res: Response) => {
+  router.post('/retry', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -198,24 +177,14 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      logger.error('Error retrying failed syncs', {
-        error: (error as Error).message,
-        correlationId: req.correlationId,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to retry syncs',
-        },
-      });
+      return next(internalError('Failed to retry syncs', error as Error));
     }
   });
 
   // ============================================================================
   // POST /api/notion/sync/project/:id - Manually sync a specific project
   // ============================================================================
-  router.post('/sync/project/:id', requireAdmin(), async (req: Request, res: Response) => {
+  router.post('/sync/project/:id', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
     try {
@@ -269,25 +238,14 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      logger.error('Error syncing project', {
-        error: (error as Error).message,
-        correlationId: req.correlationId,
-        projectId: id,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to sync project',
-        },
-      });
+      return next(internalError('Failed to sync project', error as Error));
     }
   });
 
   // ============================================================================
   // GET /api/notion/failed - Get list of failed syncs
   // ============================================================================
-  router.get('/failed', requireAdmin(), async (req: Request, res: Response) => {
+  router.get('/failed', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const [projects, milestones, deliverables] = await Promise.all([
         prisma.project.findMany({
@@ -336,17 +294,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
         },
       });
     } catch (error) {
-      logger.error('Error getting failed syncs', {
-        error: (error as Error).message,
-        correlationId: req.correlationId,
-      });
-      return res.status(500).json({
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to get failed syncs',
-        },
-      });
+      return next(internalError('Failed to get failed syncs', error as Error));
     }
   });
 
