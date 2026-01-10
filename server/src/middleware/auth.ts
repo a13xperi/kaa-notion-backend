@@ -30,7 +30,7 @@ export interface AuthenticatedUser {
   clientId?: string;
 }
 
-// Note: Express Request.user type is extended in routes/projects.ts
+// Note: Express Request.user type is extended in src/types/express.d.ts
 // We use the same structure here for consistency
 
 // ============================================================================
