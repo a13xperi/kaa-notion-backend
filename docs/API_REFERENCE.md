@@ -676,6 +676,255 @@ stripe-signature: t=...,v1=...,v0=...
 
 ---
 
+### POST /webhooks/notion
+
+Handle Notion webhook events. Receives updates from Notion when pages or databases are modified.
+
+**Webhook Challenge (Initial Setup):**
+
+When setting up the webhook in Notion, Notion sends a challenge request that must be responded to:
+
+**Request:**
+```json
+{
+  "type": "webhook_challenge",
+  "challenge": "challenge-token-here"
+}
+```
+
+**Response:**
+```json
+{
+  "challenge": "challenge-token-here"
+}
+```
+
+**Page Update Event:**
+
+**Request:**
+```json
+{
+  "type": "page.updated",
+  "object": {
+    "id": "notion-page-id",
+    "last_edited_time": "2025-01-10T12:00:00.000Z",
+    "properties": {
+      "Name": { "title": [{ "plain_text": "Updated Project Name" }] },
+      "Status": { "select": { "name": "IN_PROGRESS" } }
+    }
+  }
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "received": true,
+  "synced": true,
+  "correlationId": "uuid-here"
+}
+```
+
+**Features:**
+- Idempotency: Duplicate events are automatically skipped based on `last_edited_time`
+- Syncs project `name` and `status` from Notion to Postgres
+- Logs all webhook events to audit log
+- Handles pages not linked to projects gracefully
+
+---
+
+## Notion Sync Endpoints
+
+### GET /notion/status
+
+Get sync status and statistics. **Requires admin authentication.**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "initialized": true,
+    "queue": {
+      "pending": 5,
+      "processing": 2,
+      "failed": 1,
+      "completed": 150
+    },
+    "database": {
+      "projects": {
+        "pending": 3,
+        "syncing": 1,
+        "synced": 80,
+        "failed": 2
+      },
+      "milestones": {
+        "pending": 10,
+        "syncing": 2,
+        "synced": 200,
+        "failed": 1
+      },
+      "deliverables": {
+        "pending": 5,
+        "syncing": 0,
+        "synced": 150,
+        "failed": 0
+      }
+    }
+  }
+}
+```
+
+---
+
+### POST /notion/sync
+
+Trigger sync for all pending entities. **Requires admin authentication.**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Sync triggered for pending entities",
+    "queued": {
+      "projects": 3,
+      "milestones": 10,
+      "deliverables": 5
+    }
+  }
+}
+```
+
+---
+
+### POST /notion/sync/project/:id
+
+Manually sync a specific project to Notion. **Requires admin authentication.**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Project sync queued",
+    "taskId": "sync-task-uuid",
+    "projectId": "project-uuid"
+  }
+}
+```
+
+---
+
+### POST /notion/retry
+
+Retry all failed syncs. **Requires admin authentication.**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Retry triggered for failed syncs",
+    "reset": {
+      "projects": 2,
+      "milestones": 1,
+      "deliverables": 0
+    }
+  }
+}
+```
+
+---
+
+### GET /notion/failed
+
+Get list of all failed syncs. **Requires admin authentication.**
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "projects": [
+      {
+        "id": "project-uuid",
+        "name": "Project Name",
+        "syncError": "Notion API rate limit exceeded",
+        "updatedAt": "2025-01-10T12:00:00.000Z"
+      }
+    ],
+    "milestones": [...],
+    "deliverables": [...],
+    "total": 3
+  }
+}
+```
+
+---
+
+## Admin Sync Endpoints
+
+### GET /admin/sync/health
+
+Get Notion-Postgres reconciliation report. **Requires admin authentication.**
+
+This endpoint compares data between Notion and Postgres to identify discrepancies and ensure data consistency.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "timestamp": "2025-01-10T12:00:00.000Z",
+    "projects": {
+      "postgres": {
+        "total": 85,
+        "withNotionPage": 80,
+        "pendingSync": 3,
+        "synced": 75,
+        "failed": 2
+      },
+      "notion": {
+        "total": 82,
+        "linkedToProject": 78,
+        "orphaned": 4
+      },
+      "discrepancies": [
+        {
+          "projectId": "project-uuid",
+          "notionPageId": "notion-page-id",
+          "issue": "name_mismatch",
+          "postgres": { "name": "Project Name (Postgres)" },
+          "notion": { "name": "Project Name (Notion)" },
+          "lastSynced": "2025-01-09T10:00:00.000Z",
+          "notionLastEdited": "2025-01-10T11:00:00.000Z"
+        },
+        {
+          "projectId": "project-uuid-2",
+          "notionPageId": "notion-page-id-2",
+          "issue": "status_mismatch",
+          "postgres": { "status": "IN_PROGRESS" },
+          "notion": { "status": "AWAITING_FEEDBACK" },
+          "lastSynced": "2025-01-09T15:00:00.000Z",
+          "notionLastEdited": "2025-01-10T09:00:00.000Z"
+        }
+      ]
+    },
+    "syncStatus": "mostly_synced"
+  }
+}
+```
+
+**Sync Status Values:**
+- `healthy`: All projects are in sync
+- `mostly_synced`: Minor discrepancies detected
+- `needs_attention`: Multiple discrepancies require review
+- `error`: Error occurred during reconciliation
+
+---
+
 ## Health Check
 
 ### GET /health

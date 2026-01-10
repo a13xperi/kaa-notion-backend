@@ -6,6 +6,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -155,7 +156,10 @@ export class StorageService {
         });
 
       if (error) {
-        console.error('Supabase upload error:', error);
+        logger.error('Supabase upload error', {
+          error: error.message,
+          filePath,
+        });
         return {
           success: false,
           error: error.message,
@@ -174,7 +178,10 @@ export class StorageService {
         fileSize: fileSizeBytes,
       };
     } catch (error) {
-      console.error('Storage upload error:', error);
+      logger.error('Storage upload error', {
+        error: (error as Error).message,
+        contentType: options.contentType,
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Upload failed',

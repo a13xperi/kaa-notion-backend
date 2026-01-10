@@ -79,39 +79,18 @@ Option B - SMTP:
 
 ### Docker Deployment
 
-```bash
-# 1. Build images
-docker compose build
-
-# 2. Run migrations
-docker compose --profile migrate up migrate
-
-# 3. Start services
-docker compose up -d
-
-# 4. Verify health
-curl https://api.yourdomain.com/api/health
-```
+Use the Docker deployment commands in [COMMANDS.md](./COMMANDS.md), then verify
+health with `curl` or your monitoring tooling.
 
 ### Manual Deployment
 
 **Backend:**
-```bash
-cd server
-npm ci --production
-npx prisma generate
-npx prisma migrate deploy
-npm run build
-NODE_ENV=production node dist/index.js
-```
+Follow the backend build and start commands in [COMMANDS.md](./COMMANDS.md), then
+start `dist/index.js` in production mode.
 
 **Frontend:**
-```bash
-cd kaa-app
-npm ci
-REACT_APP_API_URL=https://api.yourdomain.com/api npm run build
-# Deploy build/ folder to static hosting
-```
+Follow the frontend build commands in [COMMANDS.md](./COMMANDS.md), then deploy
+the `build/` folder to static hosting.
 
 ---
 

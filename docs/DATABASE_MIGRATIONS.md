@@ -12,6 +12,7 @@ npm run prisma:generate      # Generate Prisma Client
 npm run prisma:studio        # Open Prisma Studio
 npm run prisma:seed          # Seed database
 npm run prisma:reset         # Reset database (dev only)
+npm run verify-indexes       # Verify all indexes are applied
 
 # Using the helper script
 ./scripts/db-migrate.sh status    # Check migration status
@@ -19,6 +20,22 @@ npm run prisma:reset         # Reset database (dev only)
 ./scripts/db-migrate.sh apply     # Apply pending migrations
 ./scripts/db-migrate.sh rollback  # Get rollback instructions
 ```
+
+## Verifying Database Indexes
+
+After running migrations, verify that all indexes defined in the Prisma schema are actually created in the database:
+
+```bash
+npm run verify-indexes
+```
+
+This script will:
+- Extract all `@@index` definitions from `prisma/schema.prisma`
+- Query the database for existing indexes
+- Match schema indexes with database indexes
+- Report any missing indexes
+
+**Note:** If indexes are missing, you need to create and apply a migration. The schema currently defines 49 indexes that must be applied via migrations for optimal query performance.
 
 ## Creating Migrations
 

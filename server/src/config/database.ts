@@ -5,6 +5,7 @@
 
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../logger';
+import { recordDbQuery } from './metrics';
 
 // ============================================================================
 // TYPES
@@ -130,12 +131,27 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     errorFormat: 'pretty',
   });
 
-  // Set up event handlers for logging and stats
+  // Set up event handlers for logging, stats, and metrics
   if (config.logQueries) {
     // @ts-expect-error - Prisma event types are complex
     prisma.$on('query', (e: Prisma.QueryEvent) => {
       const durationMs = e.duration;
       recordQuery(durationMs);
+      
+      // Record Prometheus metrics
+      // Extract model name from query (simplified - matches common Prisma patterns)
+      const modelMatch = e.query.match(/FROM\s+"?(\w+)"?/i) || e.query.match(/INTO\s+"?(\w+)"?/i);
+      const model = modelMatch ? modelMatch[1] : 'unknown';
+      
+      // Determine operation type
+      let operation = 'query';
+      if (e.query.match(/^INSERT/i)) operation = 'insert';
+      else if (e.query.match(/^UPDATE/i)) operation = 'update';
+      else if (e.query.match(/^DELETE/i)) operation = 'delete';
+      else if (e.query.match(/^SELECT/i)) operation = 'select';
+      
+      // Record metrics
+      recordDbQuery(operation, model, durationMs, true);
       
       if (durationMs > config.slowQueryThreshold) {
         logger.warn('Slow query detected', {
@@ -143,11 +159,33 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
           duration: durationMs,
           params: e.params?.substring(0, 100),
         });
+        // Record slow query as error metric
+        recordDbQuery(operation, model, durationMs, false);
       } else {
         logger.debug('Query executed', {
           duration: durationMs,
         });
       }
+    });
+  } else {
+    // Even if not logging, still record metrics for production monitoring
+    // @ts-expect-error - Prisma event types are complex
+    prisma.$on('query', (e: Prisma.QueryEvent) => {
+      const durationMs = e.duration;
+      
+      // Extract model and operation (simplified)
+      const modelMatch = e.query.match(/FROM\s+"?(\w+)"?/i) || e.query.match(/INTO\s+"?(\w+)"?/i);
+      const model = modelMatch ? modelMatch[1] : 'unknown';
+      
+      let operation = 'query';
+      if (e.query.match(/^INSERT/i)) operation = 'insert';
+      else if (e.query.match(/^UPDATE/i)) operation = 'update';
+      else if (e.query.match(/^DELETE/i)) operation = 'delete';
+      else if (e.query.match(/^SELECT/i)) operation = 'select';
+      
+      // Record metrics
+      const isSlow = durationMs > config.slowQueryThreshold;
+      recordDbQuery(operation, model, durationMs, !isSlow);
     });
   }
 

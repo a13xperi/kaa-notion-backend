@@ -5,8 +5,9 @@
 
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getStorageService, StorageService } from '../services/storageService';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -258,7 +259,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
             category: category || 'Document',
             description: description || null,
             uploadedById: req.user!.id,
-            syncStatus: 'PENDING',
+            syncStatus: 'PENDING' as SyncStatus,
           },
         });
 
@@ -293,7 +294,10 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
       } catch (error) {
-        console.error('Upload error:', error);
+        logger.error('Upload error', {
+          error: (error as Error).message,
+          correlationId: req.correlationId,
+        });
         return res.status(500).json({
           success: false,
           error: { code: 'INTERNAL_ERROR', message: 'Upload failed' },
@@ -380,7 +384,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
                 fileType: file.mimetype,
                 category: category || 'Document',
                 uploadedById: req.user!.id,
-                syncStatus: 'PENDING',
+                syncStatus: 'PENDING' as SyncStatus,
               },
             });
 
@@ -429,7 +433,10 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
       } catch (error) {
-        console.error('Multiple upload error:', error);
+        logger.error('Multiple upload error', {
+          error: (error as Error).message,
+          correlationId: req.correlationId,
+        });
         return res.status(500).json({
           success: false,
           error: { code: 'INTERNAL_ERROR', message: 'Upload failed' },
@@ -487,8 +494,9 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     requireAuth,
     requireAdmin,
     async (req: Request, res: Response) => {
+      const { deliverableId } = req.params;
+      
       try {
-        const { deliverableId } = req.params;
 
         // Get deliverable
         const deliverable = await prisma.deliverable.findUnique({
@@ -508,11 +516,18 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           const deleteResult = await storageService.deleteFile(deliverable.filePath);
 
           if (!deleteResult.success) {
-            console.error('Storage delete failed:', deleteResult.error);
+            logger.warn('Storage delete failed', {
+              error: deleteResult.error,
+              correlationId: req.correlationId,
+              filePath: deliverable.filePath,
+            });
             // Continue with database deletion even if storage delete fails
           }
         } catch (error) {
-          console.error('Storage service error:', error);
+          logger.error('Storage service error', {
+            error: (error as Error).message,
+            correlationId: req.correlationId,
+          });
         }
 
         // Delete from database
@@ -539,7 +554,11 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           data: { message: 'File deleted successfully' },
         });
       } catch (error) {
-        console.error('Delete error:', error);
+        logger.error('Delete error', {
+          error: (error as Error).message,
+          correlationId: req.correlationId,
+          deliverableId,
+        });
         return res.status(500).json({
           success: false,
           error: { code: 'INTERNAL_ERROR', message: 'Delete failed' },
