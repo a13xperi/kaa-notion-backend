@@ -219,7 +219,25 @@ Follow the production build and start commands in
 
 ## 📝 Scripts
 
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development servers |
+| `npm run build` | Build for production |
+| `npm test` | Run all tests |
+| `npm run lint` | Run linting checks |
+| `npm run db:setup` | Setup database with migrations and seed |
+| `npm run db:reset` | Reset database |
+| `npm run install-all` | Install all dependencies |
 See the canonical script list in [docs/COMMANDS.md](./docs/COMMANDS.md).
+
+**Workspace script mapping**
+
+| Root script | Server workspace | KAA app workspace |
+|-------------|------------------|-------------------|
+| `npm run dev` | `npm run dev` | `npm run dev` |
+| `npm run build` | `npm run build` | `npm run build` |
+| `npm test` | `npm test` | `npm test` |
+| `npm run lint` | `npm run lint` | `npm run lint` |
 
 ## 🤝 Contributing
 
