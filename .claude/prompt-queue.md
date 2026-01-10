@@ -290,6 +290,10 @@
 - [x] `new-styles`: AuthForms.css - Auth form styles with dark mode
 - [x] `new-component`: PricingPage - Service tier pricing page with checkout integration
 - [x] `new-styles`: PricingPage.css - Pricing page styles with responsive grid
+- [x] `test`: LoginForm.test.tsx - 9 tests for login form validation and submission
+- [x] `test`: RegisterForm.test.tsx - 15 tests for registration, password strength, validation
+- [x] `new-component`: AppLayout - Main app layout with header, nav, footer
+- [x] `new-styles`: AppLayout.css - Layout styles with responsive design and dark mode
 
 ### 2025-01-09
 - [x] Initial project setup
