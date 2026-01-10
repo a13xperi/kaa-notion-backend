@@ -126,9 +126,9 @@
 ## Phase 8: Security & Polish
 
 ### 8.1 Authentication Middleware
-- [ ] `new-middleware`: auth.ts - JWT verification, attach user to request, handle expired tokens
-- [ ] `new-middleware`: requireTier.ts - Check user has required tier for endpoint access
-- [ ] `new-middleware`: requireAdmin.ts - Check user is admin or team member
+- [x] `new-middleware`: auth.ts - JWT verification, attach user to request, handle expired tokens
+- [x] `new-middleware`: requireTier.ts - Check user has required tier for endpoint access
+- [x] `new-middleware`: requireAdmin.ts - Check user is admin or team member
 
 ### 8.2 Validation
 - [ ] `new-util`: validators.ts - Zod schemas for all API request bodies (lead, project, deliverable)
@@ -239,6 +239,7 @@
 - [x] `new-service`: storageService.ts - Supabase upload, signed URLs, delete, file validation, category limits
 - [x] `new-endpoint`: POST /api/upload - Single/multiple upload, multer, validation, deliverable creation, Notion sync
 - [x] `new-component`: FileUpload - Drag-drop zone, file list with preview, progress, validation, upload actions
+- [x] `new-middleware`: auth.ts - authenticate, optionalAuthenticate, requireRole, requireAdmin, requireTier, requireOwnerOrAdmin
 
 ---
 
