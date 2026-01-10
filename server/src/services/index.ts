@@ -133,3 +133,13 @@ export {
   type EmailOptions,
   type EmailResult,
 } from './emailService';
+
+// Health Service - Health monitoring and checks
+export {
+  performHealthCheck,
+  livenessCheck,
+  readinessCheck,
+  type HealthStatus,
+  type ComponentHealth,
+  type HealthCheckResult,
+} from './healthService';

@@ -1,11 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import { performHealthCheck, livenessCheck, readinessCheck } from './services/healthService';
 import { 
   createProjectsRouter, 
   createMilestonesRouter, 
@@ -57,14 +60,31 @@ if (process.env.STRIPE_SECRET_KEY) {
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',') 
+    : ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-correlation-id', 'x-user-id', 'x-user-type', 'x-client-id'],
+};
+app.use(cors(corsOptions));
+
+// Compression for responses
+app.use(compression());
 
 // Stripe webhooks need raw body - must be before express.json()
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // JSON parsing for all other routes
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Request logging with correlation IDs (skip for health checks)
 app.use((req, res, next) => {
@@ -276,23 +296,19 @@ app.post('/api/stripe/checkout', async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoints
 app.get('/api/health', async (req, res) => {
   try {
-    // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({
-      success: true,
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: 'connected',
-        figma: process.env.FIGMA_ACCESS_TOKEN ? 'configured' : 'not configured',
-        stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
-        notion: process.env.NOTION_API_KEY ? 'configured' : 'not configured',
-        storage: process.env.SUPABASE_URL ? 'configured' : 'not configured',
-        email: process.env.RESEND_API_KEY ? 'resend' : process.env.SMTP_HOST ? 'smtp' : 'console',
-      },
+    const detailed = req.query.detailed === 'true';
+    const result = await performHealthCheck(prisma, { detailed });
+    
+    const statusCode = result.status === 'healthy' ? 200 
+                     : result.status === 'degraded' ? 200 
+                     : 503;
+    
+    res.status(statusCode).json({
+      success: result.status !== 'unhealthy',
+      ...result,
     });
   } catch (error) {
     res.status(503).json({
@@ -301,6 +317,18 @@ app.get('/api/health', async (req, res) => {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
+});
+
+// Kubernetes liveness probe
+app.get('/api/health/live', (_req, res) => {
+  const result = livenessCheck();
+  res.json({ success: true, ...result });
+});
+
+// Kubernetes readiness probe
+app.get('/api/health/ready', async (_req, res) => {
+  const result = await readinessCheck(prisma);
+  res.status(result.ready ? 200 : 503).json({ success: result.ready, ...result });
 });
 
 // 404 handler for unmatched routes
