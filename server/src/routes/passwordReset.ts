@@ -91,7 +91,7 @@ router.post('/forgot-password', passwordResetRateLimit, async (req: Request, res
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
@@ -168,8 +168,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-          details: validation.error.errors,
+          message: validation.error.issues[0].message,
+          details: validation.error.issues,
         },
       });
     }

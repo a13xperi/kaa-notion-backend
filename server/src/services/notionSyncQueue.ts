@@ -759,4 +759,36 @@ export function initNotionSync(config: NotionSyncConfig): NotionSyncQueue {
   return syncQueueInstance;
 }
 
+/**
+ * Queue a project for sync
+ */
+export async function queueProjectSync(projectId: string, operation: SyncOperation): Promise<void> {
+  const queue = getNotionSyncQueue();
+  await queue.queueSync({ entityType: 'PROJECT', entityId: projectId, operation });
+}
+
+/**
+ * Queue a milestone for sync
+ */
+export async function queueMilestoneSync(milestoneId: string, operation: SyncOperation): Promise<void> {
+  const queue = getNotionSyncQueue();
+  await queue.queueSync({ entityType: 'MILESTONE', entityId: milestoneId, operation });
+}
+
+/**
+ * Queue a deliverable for sync
+ */
+export async function queueDeliverableSync(deliverableId: string, operation: SyncOperation): Promise<void> {
+  const queue = getNotionSyncQueue();
+  await queue.queueSync({ entityType: 'DELIVERABLE', entityId: deliverableId, operation });
+}
+
+/**
+ * Queue a lead for sync
+ */
+export async function queueLeadSync(leadId: string, operation: SyncOperation): Promise<void> {
+  const queue = getNotionSyncQueue();
+  await queue.queueSync({ entityType: 'LEAD', entityId: leadId, operation });
+}
+
 export default NotionSyncQueue;

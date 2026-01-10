@@ -16,6 +16,7 @@ import { AuthenticatedRequest } from './projects';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { requireAuth, requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
