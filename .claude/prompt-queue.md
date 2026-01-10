@@ -161,9 +161,9 @@
 ## Testing
 
 ### API Tests
-- [ ] `test`: leads.test.ts - Test lead CRUD, tier router integration, conversion flow
-- [ ] `test`: auth.test.ts - Test registration, login, token refresh, protected routes
-- [ ] `test`: projects.test.ts - Test project CRUD, milestone creation, tier gating
+- [x] `test`: leads.test.ts - Test lead CRUD, tier router integration, conversion flow
+- [x] `test`: auth.test.ts - Test registration, login, token refresh, protected routes
+- [x] `test`: projects.test.ts - Test project CRUD, milestone creation, tier gating
 - [ ] `test`: payments.test.ts - Test Stripe webhook handling, payment status updates
 - [ ] `test`: deliverables.test.ts - Test upload, download, file metadata
 
@@ -251,6 +251,10 @@
 - [x] `new-service`: auditService.ts - AuditActions enum, log functions, query/cleanup, middleware factory
 - [x] `audit`: Add audit logging to leads, auth, projects, milestones, upload routes
 - [x] `prisma-schema`: Complete schema with AuditLog updates (ip, userAgent), Lead tier override fields
+- [x] `test-setup`: Jest config, test setup with mocks, test utilities
+- [x] `test`: leads.test.ts - Lead CRUD, tier router, conversion tests
+- [x] `test`: auth.test.ts - Registration, login, token, RBAC tests
+- [x] `test`: projects.test.ts - Project CRUD, milestones, tier gating tests
 
 ---
 
