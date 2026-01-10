@@ -302,6 +302,9 @@
 - [x] `new-component`: Toast - Toast notification system with provider and hook
 - [x] `new-component`: Skeleton - Loading skeleton components (text, avatar, card, table, list, stats)
 - [x] `new-styles`: Toast.css, Skeleton.css, NotFoundPage.css - Utility component styles
+- [x] `test`: Skeleton.test.tsx - 24 tests for all skeleton variants
+- [x] `test`: Toast.test.tsx - 22 tests for toast provider and notifications
+- [x] `test`: NotFoundPage.test.tsx - 16 tests for 404 page functionality
 
 ### 2025-01-09
 - [x] Initial project setup
