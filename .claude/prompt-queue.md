@@ -104,7 +104,7 @@
 
 ### 6.1 Sync Infrastructure
 - [x] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
-- [ ] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
+- [x] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
 
 ### 6.2 Entity Sync
 - [ ] `notion-sync`: Project - Create Notion page when project created, sync status updates
@@ -231,6 +231,7 @@
 - [x] `new-component`: TierOverrideModal - Tier selection cards, reason with suggestions, validation, submit state
 - [x] `new-component`: LeadReviewPanel - Header with status, contact info, tier card with confidence meter, intake data, status actions, convert button
 - [x] `new-service`: notionSyncQueue.ts - Queue with rate limiter, retry logic, entity sync handlers, job persistence
+- [x] `prisma-migration`: SyncStatus enum, sync columns on Lead/Project/Milestone/Deliverable, SyncJob model
 
 ---
 

@@ -59,6 +59,12 @@ enum ClientStatus {
   CLOSED
 }
 
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+}
+
 // ============================================
 // TABLES
 // ============================================
@@ -110,21 +116,24 @@ model Client {
 }
 
 model Lead {
-  id              String     @id @default(uuid())
+  id              String      @id @default(uuid())
   email           String
   name            String?
-  projectAddress  String     @map("project_address")
-  budgetRange     String?    @map("budget_range")
+  projectAddress  String      @map("project_address")
+  budgetRange     String?     @map("budget_range")
   timeline        String?
-  projectType     String?    @map("project_type")
-  hasSurvey       Boolean    @default(false) @map("has_survey")
-  hasDrawings     Boolean    @default(false) @map("has_drawings")
-  recommendedTier Int        @map("recommended_tier") // 1, 2, 3, or 4
-  routingReason   String?    @map("routing_reason") // Why this tier was recommended
-  status          LeadStatus @default(NEW)
-  clientId        String?    @map("client_id") // Set when lead converts to client
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
+  projectType     String?     @map("project_type")
+  hasSurvey       Boolean     @default(false) @map("has_survey")
+  hasDrawings     Boolean     @default(false) @map("has_drawings")
+  recommendedTier Int         @map("recommended_tier") // 1, 2, 3, or 4
+  routingReason   String?     @map("routing_reason") // Why this tier was recommended
+  status          LeadStatus  @default(NEW)
+  clientId        String?     @map("client_id") // Set when lead converts to client
+  notionPageId    String?     @map("notion_page_id") // Link to Notion CRM page
+  lastSyncedAt    DateTime?   @map("last_synced_at")
+  syncStatus      SyncStatus? @map("sync_status")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
   // Relations
   client        Client?   @relation("ClientLeads", fields: [clientId], references: [id])
@@ -147,6 +156,8 @@ model Project {
   projectAddress String?       @map("project_address")
   notionPageId   String?       @map("notion_page_id") // Link to Notion project page
   paymentStatus  String        @default("pending") @map("payment_status") // 'pending', 'paid', 'refunded'
+  lastSyncedAt   DateTime?     @map("last_synced_at")
+  syncStatus     SyncStatus?   @map("sync_status")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
@@ -177,15 +188,18 @@ model Tier {
 }
 
 model Milestone {
-  id          String          @id @default(uuid())
-  projectId   String          @map("project_id")
-  tier        Int // Which tier this milestone belongs to
-  name        String // "Intake", "Concept", "Draft", "Review", etc.
-  order       Int // Display order
-  status      MilestoneStatus @default(PENDING)
-  dueDate     DateTime?       @map("due_date")
-  completedAt DateTime?       @map("completed_at")
-  createdAt   DateTime        @default(now()) @map("created_at")
+  id            String          @id @default(uuid())
+  projectId     String          @map("project_id")
+  tier          Int // Which tier this milestone belongs to
+  name          String // "Intake", "Concept", "Draft", "Review", etc.
+  order         Int // Display order
+  status        MilestoneStatus @default(PENDING)
+  dueDate       DateTime?       @map("due_date")
+  completedAt   DateTime?       @map("completed_at")
+  notionBlockId String?         @map("notion_block_id") // Link to Notion block in project page
+  lastSyncedAt  DateTime?       @map("last_synced_at")
+  syncStatus    SyncStatus?     @map("sync_status")
+  createdAt     DateTime        @default(now()) @map("created_at")
 
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -221,18 +235,20 @@ model Payment {
 }
 
 model Deliverable {
-  id           String   @id @default(uuid())
-  projectId    String   @map("project_id")
+  id           String      @id @default(uuid())
+  projectId    String      @map("project_id")
   name         String
-  filePath     String   @map("file_path") // Supabase Storage path
-  fileUrl      String   @map("file_url") // Public URL
-  fileSize     Int      @map("file_size") // Bytes
-  fileType     String   @map("file_type") // MIME type
+  filePath     String      @map("file_path") // Supabase Storage path
+  fileUrl      String      @map("file_url") // Public URL
+  fileSize     Int         @map("file_size") // Bytes
+  fileType     String      @map("file_type") // MIME type
   category     String // "Document", "Photo", "Invoice", etc.
   description  String?
-  notionPageId String?  @map("notion_page_id") // Link to Notion showcase page
-  uploadedById String   @map("uploaded_by_id")
-  createdAt    DateTime @default(now()) @map("created_at")
+  notionPageId String?     @map("notion_page_id") // Link to Notion showcase page
+  lastSyncedAt DateTime?   @map("last_synced_at")
+  syncStatus   SyncStatus? @map("sync_status")
+  uploadedById String      @map("uploaded_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
 
   // Relations
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -260,4 +276,26 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+model SyncJob {
+  id           String    @id
+  entityType   String    @map("entity_type") // PROJECT, MILESTONE, DELIVERABLE, LEAD
+  entityId     String    @map("entity_id")
+  operation    String // CREATE, UPDATE, DELETE
+  status       String // PENDING, PROCESSING, COMPLETED, FAILED, RETRYING
+  priority     Int       @default(5)
+  retryCount   Int       @default(0) @map("retry_count")
+  maxRetries   Int       @default(3) @map("max_retries")
+  lastError    String?   @map("last_error")
+  notionPageId String?   @map("notion_page_id")
+  payload      Json?
+  scheduledFor DateTime? @map("scheduled_for")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([entityType, entityId])
+  @@index([scheduledFor])
+  @@map("sync_jobs")
 }
