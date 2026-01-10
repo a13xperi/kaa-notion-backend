@@ -348,7 +348,12 @@ export async function handleCheckoutCompleted(
       });
 
       // Record payment metrics
-      recordPayment(tierNum, 'success', session.amount_total || pricing.amount);
+      recordPayment(
+        tierNum,
+        'success',
+        session.amount_total || pricing.amount,
+        session.currency || pricing.currency
+      );
 
       return { client, project, payment };
     });
@@ -415,11 +420,18 @@ export async function handlePaymentSucceeded(
       where: { stripePaymentIntentId: paymentIntent.id },
     });
 
+    const tierLabel = resolvePaymentTierLabel(payment?.tier, paymentIntent.metadata);
+    const shouldRecordMetric = !payment || payment.status !== 'SUCCEEDED';
+
     if (payment) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: { status: 'SUCCEEDED' },
       });
+    }
+
+    if (shouldRecordMetric) {
+      recordPayment(tierLabel, 'success', paymentIntent.amount, paymentIntent.currency);
     }
 
     return {
@@ -453,6 +465,9 @@ export async function handlePaymentFailed(
       where: { stripePaymentIntentId: paymentIntent.id },
     });
 
+    const tierLabel = resolvePaymentTierLabel(payment?.tier, paymentIntent.metadata);
+    const shouldRecordMetric = !payment || payment.status !== 'FAILED';
+
     if (payment) {
       await prisma.payment.update({
         where: { id: payment.id },
@@ -464,6 +479,10 @@ export async function handlePaymentFailed(
         where: { id: payment.projectId },
         data: { paymentStatus: 'failed' },
       });
+    }
+
+    if (shouldRecordMetric) {
+      recordPayment(tierLabel, 'failed');
     }
 
     return {
@@ -548,6 +567,22 @@ export async function getOrCreateCustomer(
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+function resolvePaymentTierLabel(
+  tier: number | null | undefined,
+  metadata?: Stripe.Metadata
+): number | string {
+  if (typeof tier === 'number' && isValidTier(tier)) {
+    return tier;
+  }
+
+  const metadataTier = metadata?.tier ? parseInt(metadata.tier, 10) : NaN;
+  if (Number.isFinite(metadataTier) && isValidTier(metadataTier)) {
+    return metadataTier;
+  }
+
+  return 'unknown';
+}
 
 /**
  * Formats an amount in cents to a currency string.
