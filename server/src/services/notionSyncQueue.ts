@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma';
+import { syncProjectToNotion } from './notionProjectSync';
 
 /**
  * Notion Sync Queue Service
@@ -416,15 +417,8 @@ class NotionSyncQueue {
     project: any,
     operation: SyncOperation
   ): Promise<string | undefined> {
-    // TODO: Implement Notion API call
-    // - CREATE: Create new page in Projects database
-    // - UPDATE: Update existing page properties
-    // - DELETE: Archive the page
-
-    console.log(`[NotionSync] ${operation} project: ${project.name} (${project.id})`);
-
-    // Return existing notion page ID or generate placeholder
-    return project.notionPageId || `notion-project-${project.id}`;
+    // Use the actual Notion sync implementation
+    return syncProjectToNotion(project.id, operation);
   }
 
   private async updateNotionMilestone(

@@ -107,7 +107,7 @@
 - [x] `prisma-migration`: Add lastSyncedAt, syncStatus columns to projects, milestones, deliverables
 
 ### 6.2 Entity Sync
-- [ ] `notion-sync`: Project - Create Notion page when project created, sync status updates
+- [x] `notion-sync`: Project - Create Notion page when project created, sync status updates
 - [ ] `notion-sync`: Milestone - Add milestone blocks to project page, update on status change
 - [ ] `notion-sync`: Deliverable - Create showcase page for deliverables, link from project page
 - [ ] `notion-sync`: Lead - Optional CRM sync for team visibility
@@ -232,6 +232,7 @@
 - [x] `new-component`: LeadReviewPanel - Header with status, contact info, tier card with confidence meter, intake data, status actions, convert button
 - [x] `new-service`: notionSyncQueue.ts - Queue with rate limiter, retry logic, entity sync handlers, job persistence
 - [x] `prisma-migration`: SyncStatus enum, sync columns on Lead/Project/Milestone/Deliverable, SyncJob model
+- [x] `notion-sync`: Project - notionProjectSync.ts with create/update/archive, page content with milestones, queue triggers
 
 ---
 
