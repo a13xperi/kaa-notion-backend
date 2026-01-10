@@ -1,0 +1,1311 @@
+openapi: 3.0.3
+info:
+  title: SAGE Platform API
+  description: |
+    RESTful API for the SAGE Platform - a project management and client collaboration system.
+
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Rate Limiting
+    - Authentication endpoints: 5 requests per minute
+    - General API: 100 requests per minute
+    - File uploads: 10 requests per minute
+
+    ## Error Responses
+    All errors follow a standard format:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human readable message",
+        "details": {}
+      }
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: SAGE Support
+    email: support@sage-platform.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+  - url: https://api.sage-platform.com/api
+    description: Production
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Leads
+    description: Lead management and tier recommendations
+  - name: Projects
+    description: Project management
+  - name: Milestones
+    description: Project milestone tracking
+  - name: Deliverables
+    description: File deliverables and downloads
+  - name: Notifications
+    description: In-app notifications
+  - name: Messages
+    description: Project messaging
+  - name: Revisions
+    description: Revision requests
+  - name: Push Notifications
+    description: Web push notification management
+  - name: Admin
+    description: Admin dashboard and analytics
+  - name: Checkout
+    description: Stripe payment integration
+
+paths:
+  # Authentication
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+                address:
+                  type: string
+                  description: Property address for KAA authentication
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already exists
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (if email exists)
+
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Invalid or expired token
+
+  # Leads
+  /leads:
+    get:
+      tags: [Leads]
+      summary: List all leads (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/LeadStatus'
+        - name: tier
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+      responses:
+        '200':
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLeads'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Leads]
+      summary: Create a new lead from intake form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntakeFormData'
+      responses:
+        '201':
+          description: Lead created with tier recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadWithRecommendation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /leads/{id}:
+    get:
+      tags: [Leads]
+      summary: Get lead by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Lead details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadWithRecommendation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Leads]
+      summary: Update lead (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/LeadStatus'
+                tierOverride:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                tierOverrideReason:
+                  type: string
+      responses:
+        '200':
+          description: Lead updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /leads/{id}/convert:
+    post:
+      tags: [Leads]
+      summary: Convert lead to client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Lead converted to client
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      clientId:
+                        type: string
+                      projectId:
+                        type: string
+
+  # Projects
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List user's projects
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProjectStatus'
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjects'
+
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      summary: Get project details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Project with milestones and deliverables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Projects]
+      summary: Update project status (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/ProjectStatus'
+      responses:
+        '200':
+          description: Project updated
+
+  # Milestones
+  /projects/{id}/milestones:
+    get:
+      tags: [Milestones]
+      summary: Get milestones for project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: List of milestones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Milestone'
+
+  /milestones/{id}:
+    patch:
+      tags: [Milestones]
+      summary: Update milestone status (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/MilestoneStatus'
+      responses:
+        '200':
+          description: Milestone updated
+
+  # Deliverables
+  /projects/{id}/deliverables:
+    get:
+      tags: [Deliverables]
+      summary: Get deliverables for project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: List of deliverables
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deliverable'
+
+    post:
+      tags: [Deliverables]
+      summary: Upload deliverable (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                category:
+                  type: string
+                  enum: [concept, draft, final, reference, other]
+                milestoneId:
+                  type: string
+      responses:
+        '201':
+          description: Deliverable uploaded
+
+  /deliverables/{id}/download:
+    get:
+      tags: [Deliverables]
+      summary: Get signed download URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Signed download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        format: uri
+                      expiresAt:
+                        type: string
+                        format: date-time
+
+  # Notifications
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get user notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotifications'
+
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Notification marked as read
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete notification
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Notification deleted
+
+  # Messages
+  /projects/{id}/messages:
+    get:
+      tags: [Messages]
+      summary: Get project messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessages'
+
+    post:
+      tags: [Messages]
+      summary: Send project message
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                isInternal:
+                  type: boolean
+                  description: Internal notes visible only to team
+      responses:
+        '201':
+          description: Message sent
+
+  # Revisions
+  /milestones/{id}/revisions:
+    get:
+      tags: [Revisions]
+      summary: Get revisions for milestone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: List of revisions
+
+    post:
+      tags: [Revisions]
+      summary: Submit revision request
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+      responses:
+        '201':
+          description: Revision request created
+
+  /revisions/{id}:
+    patch:
+      tags: [Revisions]
+      summary: Update revision status (team only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, in_progress, completed, rejected]
+                response:
+                  type: string
+      responses:
+        '200':
+          description: Revision updated
+
+  # Push Notifications
+  /push/vapid-key:
+    get:
+      tags: [Push Notifications]
+      summary: Get VAPID public key
+      responses:
+        '200':
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      publicKey:
+                        type: string
+
+  /push/subscribe:
+    post:
+      tags: [Push Notifications]
+      summary: Subscribe to push notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh:
+                      type: string
+                    auth:
+                      type: string
+      responses:
+        '200':
+          description: Subscribed successfully
+
+  /push/unsubscribe:
+    delete:
+      tags: [Push Notifications]
+      summary: Unsubscribe from push notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+      responses:
+        '200':
+          description: Unsubscribed successfully
+
+  /push/status:
+    get:
+      tags: [Push Notifications]
+      summary: Get push subscription status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscription status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      subscribed:
+                        type: boolean
+                      subscriptionCount:
+                        type: integer
+
+  /push/test:
+    post:
+      tags: [Push Notifications]
+      summary: Send test notification
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Test notification sent
+
+  # Checkout
+  /checkout/create-session:
+    post:
+      tags: [Checkout]
+      summary: Create Stripe checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leadId, tier]
+              properties:
+                leadId:
+                  type: string
+                tier:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                successUrl:
+                  type: string
+                  format: uri
+                cancelUrl:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Checkout session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      sessionId:
+                        type: string
+                      url:
+                        type: string
+                        format: uri
+
+  # Admin
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Get dashboard statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+
+  /admin/analytics:
+    get:
+      tags: [Admin]
+      summary: Get analytics summary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, quarter, year, all]
+      responses:
+        '200':
+          description: Analytics summary
+
+  /admin/analytics/conversions:
+    get:
+      tags: [Admin]
+      summary: Get conversion metrics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, quarter, year, all]
+      responses:
+        '200':
+          description: Conversion metrics by tier
+
+  /admin/analytics/revenue:
+    get:
+      tags: [Admin]
+      summary: Get revenue metrics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, quarter, year, all]
+      responses:
+        '200':
+          description: Revenue trends and breakdown
+
+  /admin/analytics/export:
+    get:
+      tags: [Admin]
+      summary: Export analytics as CSV
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [leads, projects, revenue, conversions]
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, quarter, year, all]
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [client, team, admin]
+        createdAt:
+          type: string
+          format: date-time
+
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            client:
+              $ref: '#/components/schemas/Client'
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectSummary'
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tierId:
+          type: integer
+        status:
+          type: string
+          enum: [active, inactive, churned]
+        stripeCustomerId:
+          type: string
+
+    LeadStatus:
+      type: string
+      enum: [new, contacted, qualified, converted, closed]
+
+    IntakeFormData:
+      type: object
+      required: [email, name, address, budget, timeline, projectType]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        budget:
+          type: string
+          enum: [under_500, 500_1500, 1500_3500, 3500_plus, custom]
+        timeline:
+          type: string
+          enum: [asap, 1_2_weeks, 2_4_weeks, 1_2_months, flexible]
+        projectType:
+          type: string
+          enum: [residential, commercial, landscape, interior, mixed]
+        hasSurvey:
+          type: boolean
+        hasDrawings:
+          type: boolean
+        description:
+          type: string
+
+    LeadWithRecommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/LeadStatus'
+        recommendation:
+          type: object
+          properties:
+            tier:
+              type: integer
+            reason:
+              type: string
+            confidence:
+              type: number
+            needsManualReview:
+              type: boolean
+            factors:
+              type: array
+              items:
+                type: object
+                properties:
+                  factor:
+                    type: string
+                  impact:
+                    type: string
+                  weight:
+                    type: number
+
+    ProjectStatus:
+      type: string
+      enum: [pending, active, in_progress, review, completed, on_hold, cancelled]
+
+    ProjectSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        progress:
+          type: number
+        tierId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProjectDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProjectSummary'
+        - type: object
+          properties:
+            milestones:
+              type: array
+              items:
+                $ref: '#/components/schemas/Milestone'
+            deliverables:
+              type: array
+              items:
+                $ref: '#/components/schemas/Deliverable'
+            payments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payment'
+
+    MilestoneStatus:
+      type: string
+      enum: [pending, in_progress, completed, blocked]
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/MilestoneStatus'
+        order:
+          type: integer
+        dueDate:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    Deliverable:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category:
+          type: string
+          enum: [concept, draft, final, reference, other]
+        fileUrl:
+          type: string
+        fileSize:
+          type: integer
+        mimeType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, completed, failed, refunded]
+        stripePaymentId:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        isInternal:
+          type: boolean
+        sender:
+          $ref: '#/components/schemas/User'
+        createdAt:
+          type: string
+          format: date-time
+
+    DashboardStats:
+      type: object
+      properties:
+        leads:
+          type: object
+          properties:
+            total:
+              type: integer
+            byStatus:
+              type: object
+        projects:
+          type: object
+          properties:
+            total:
+              type: integer
+            byTier:
+              type: object
+            byStatus:
+              type: object
+        revenue:
+          type: object
+          properties:
+            total:
+              type: number
+            thisMonth:
+              type: number
+            lastMonth:
+              type: number
+
+    PaginatedLeads:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadWithRecommendation'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedProjects:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedNotifications:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PaginatedMessages:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer

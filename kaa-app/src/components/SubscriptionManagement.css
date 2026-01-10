@@ -1,0 +1,568 @@
+.subscription-management {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 0.25rem;
+}
+
+.page-header p {
+  color: var(--text-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+/* Current Plan Card */
+.current-plan-card {
+  background: white;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.plan-tier {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+}
+
+.plan-tier h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.plan-price {
+  margin-top: 0.5rem;
+}
+
+.plan-price .amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+}
+
+.plan-price .period {
+  color: var(--text-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.plan-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.billing-btn {
+  background: var(--text-primary, #1e293b);
+  color: white;
+  border: none;
+}
+
+.billing-btn:hover {
+  background: #334155;
+}
+
+.cancel-btn {
+  background: transparent;
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-secondary, #64748b);
+}
+
+.cancel-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.resume-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+}
+
+.resume-btn:hover {
+  background: #059669;
+}
+
+.cancel-notice {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.plan-details {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-item .label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-item .value {
+  font-size: 0.875rem;
+  color: var(--text-primary, #1e293b);
+  font-weight: 500;
+}
+
+.plan-features h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 0.75rem;
+}
+
+.plan-features ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #64748b);
+}
+
+.plan-features li svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+/* Pricing Section */
+.pricing-section {
+  margin-bottom: 2rem;
+}
+
+.pricing-section h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 1rem;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.pricing-card {
+  position: relative;
+  background: white;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pricing-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.pricing-card.current {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.popular-badge {
+  position: absolute;
+  top: -10px;
+  right: 1rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pricing-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.tier-num {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.pricing-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 0.5rem;
+}
+
+.pricing-header .price .amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+}
+
+.pricing-header .price .period {
+  color: var(--text-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+.pricing-header .price.custom {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+
+.features-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #64748b);
+  padding: 0.375rem 0;
+}
+
+.features-list li svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.pricing-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pricing-btn.current {
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-tertiary, #94a3b8);
+  border: 1px solid var(--border-color, #e2e8f0);
+  cursor: not-allowed;
+}
+
+.pricing-btn.upgrade {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+}
+
+.pricing-btn.upgrade:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.pricing-btn.downgrade {
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.pricing-btn.downgrade:hover {
+  background: var(--bg-secondary, #f8fafc);
+}
+
+/* Invoices Section */
+.invoices-section {
+  background: white;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.invoices-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.invoices-table {
+  width: 100%;
+}
+
+.invoices-table .table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-secondary, #f8fafc);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.invoices-table .table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  font-size: 0.875rem;
+}
+
+.invoices-table .table-row:last-child {
+  border-bottom: none;
+}
+
+.invoice-number {
+  font-weight: 500;
+  color: var(--text-primary, #1e293b);
+}
+
+.invoice-status {
+  text-transform: capitalize;
+}
+
+.invoice-status.paid {
+  color: #10b981;
+}
+
+.invoice-status.open {
+  color: #f59e0b;
+}
+
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.download-link:hover {
+  text-decoration: underline;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 0.75rem;
+}
+
+.modal-content p {
+  color: var(--text-secondary, #64748b);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-content .warning {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.modal-actions .cancel-btn {
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0.5rem;
+  color: var(--text-secondary, #64748b);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modal-actions .confirm-btn {
+  padding: 0.625rem 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modal-actions .confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-block {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+  height: 80px;
+}
+
+.skeleton-block.large {
+  height: 200px;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .plan-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .plan-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .plan-actions button {
+    width: 100%;
+  }
+
+  .plan-details {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .plan-features ul {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoices-table .table-header {
+    display: none;
+  }
+
+  .invoices-table .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
