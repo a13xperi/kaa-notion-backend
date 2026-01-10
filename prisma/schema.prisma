@@ -83,9 +83,13 @@ model User {
   lastLogin    DateTime? @map("last_login")
 
   // Relations
-  client       Client?
-  auditLogs    AuditLog[]
-  deliverables Deliverable[]
+  client              Client?
+  auditLogs           AuditLog[]
+  deliverables        Deliverable[]
+  notifications       Notification[]
+  messages            Message[]
+  revisionRequests    RevisionRequest[] @relation("RevisionRequester")
+  revisionsResolved   RevisionRequest[] @relation("RevisionResolver")
 
   @@index([email])
   @@index([address])
@@ -169,6 +173,7 @@ model Project {
   milestones   Milestone[]
   payments     Payment[]
   deliverables Deliverable[]
+  messages     Message[]
 
   @@index([clientId])
   @@index([tier])
@@ -204,7 +209,8 @@ model Milestone {
   createdAt     DateTime        @default(now()) @map("created_at")
 
   // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisionRequests RevisionRequest[]
 
   @@index([projectId])
   @@index([tier])
@@ -302,4 +308,84 @@ model SyncJob {
   @@index([entityType, entityId])
   @@index([scheduledFor])
   @@map("sync_jobs")
+}
+
+// ============================================
+// NOTIFICATIONS & MESSAGING
+// ============================================
+
+enum NotificationType {
+  PROJECT_UPDATE
+  MILESTONE_COMPLETED
+  DELIVERABLE_READY
+  MESSAGE_RECEIVED
+  PAYMENT_RECEIVED
+  REVISION_REQUESTED
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  type        NotificationType
+  title       String
+  message     String
+  link        String?          // URL to navigate to
+  resourceType String?         @map("resource_type") // PROJECT, MILESTONE, DELIVERABLE, etc.
+  resourceId  String?          @map("resource_id")
+  read        Boolean          @default(false)
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  senderId    String   @map("sender_id")
+  content     String
+  attachments Json?    // Array of attachment URLs
+  isInternal  Boolean  @default(false) @map("is_internal") // Internal team messages
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id])
+
+  @@index([projectId])
+  @@index([projectId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model RevisionRequest {
+  id          String   @id @default(uuid())
+  milestoneId String   @map("milestone_id")
+  requesterId String   @map("requester_id")
+  description String
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DECLINED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH
+  resolvedAt  DateTime? @map("resolved_at")
+  resolvedBy  String?   @map("resolved_by")
+  resolution  String?   // Admin notes on resolution
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  requester User      @relation("RevisionRequester", fields: [requesterId], references: [id])
+  resolver  User?     @relation("RevisionResolver", fields: [resolvedBy], references: [id])
+
+  @@index([milestoneId])
+  @@index([requesterId])
+  @@index([status])
+  @@map("revision_requests")
 }

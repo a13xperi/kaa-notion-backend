@@ -212,13 +212,24 @@
 - [x] `new-endpoint`: POST /api/auth/forgot-password - Initiate password reset
 - [x] `new-endpoint`: POST /api/auth/reset-password - Complete password reset with token
 
-### Priority 5: Enhanced Features
-- [ ] `new-component`: NotificationCenter - In-app notifications for project updates
-- [ ] `new-endpoint`: GET /api/notifications - User notifications with read/unread status
-- [ ] `new-component`: MessageThread - Client-admin communication on projects
-- [ ] `new-endpoint`: POST /api/projects/:id/messages - Send message on project
-- [ ] `new-component`: RevisionRequest - Client revision request form with details
-- [ ] `new-endpoint`: POST /api/milestones/:id/revisions - Submit revision request
+### Priority 5: Enhanced Features ✅
+- [x] `new-service`: notificationService.ts - In-app notification service with triggers for project events
+- [x] `new-endpoint`: GET /api/notifications - User notifications with filtering and pagination
+- [x] `new-endpoint`: PATCH /api/notifications/:id/read - Mark notification as read
+- [x] `new-endpoint`: POST /api/notifications/read-all - Mark all as read
+- [x] `new-endpoint`: DELETE /api/notifications/:id - Delete notification
+- [x] `new-endpoint`: GET /api/projects/:id/messages - Get project messages with pagination
+- [x] `new-endpoint`: POST /api/projects/:id/messages - Send message with internal option
+- [x] `new-endpoint`: POST /api/milestones/:id/revisions - Submit revision request
+- [x] `new-endpoint`: GET /api/milestones/:id/revisions - Get revisions for milestone
+- [x] `new-endpoint`: PATCH /api/revisions/:id - Update revision status (team only)
+- [x] `new-endpoint`: GET /api/projects/:id/revisions - Get all project revisions
+- [x] `new-hook`: useNotifications - Notifications with mutations for mark read/delete
+- [x] `new-hook`: useMessages - Messages with send mutation and auto-refresh
+- [x] `new-hook`: useRevisions - Revisions with create/update mutations
+- [x] `new-component`: NotificationSystem - Updated to use real API with loading states
+- [x] `new-component`: MessageThread - Project messaging with internal notes support
+- [x] `new-component`: RevisionRequest - Revision request form with team management
 
 ### Priority 6: Analytics & Reporting
 - [ ] `new-endpoint`: GET /api/admin/analytics - Conversion rates, revenue trends, tier distribution
@@ -339,6 +350,21 @@
 ### 2025-01-10
 - [x] `e2e`: lead-to-client.spec.ts - Intake form, tier recommendation, checkout flow, accessibility, responsive tests
 - [x] `e2e`: client-portal.spec.ts - Authentication, dashboard, project detail, deliverables, responsive tests
+- [x] `ci`: GitHub Actions workflows for E2E, unit tests, linting, build validation
+- [x] `devops`: Docker Compose for local development with PostgreSQL, Redis
+- [x] `config`: Redis setup, database seeding, health check endpoints
+- [x] `security`: Rate limiting, CORS, Helmet.js, input sanitization
+- [x] `monitoring`: Sentry integration, performance monitoring, structured logging
+- [x] `new-service`: emailService.ts - Resend integration with email templates
+- [x] `new-endpoint`: Password reset endpoints (forgot-password, reset-password)
+- [x] `new-service`: notificationService.ts - In-app notifications with triggers
+- [x] `new-endpoint`: Notification CRUD endpoints
+- [x] `new-endpoint`: Project messaging endpoints (GET/POST messages)
+- [x] `new-endpoint`: Revision request endpoints (create, update, list)
+- [x] `new-hook`: useNotifications, useMessages, useRevisions
+- [x] `new-component`: NotificationSystem - Updated with API integration
+- [x] `new-component`: MessageThread - Project messaging with internal notes
+- [x] `new-component`: RevisionRequest - Client revision form with team actions
 
 ---
 
