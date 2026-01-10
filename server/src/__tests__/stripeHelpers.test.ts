@@ -8,6 +8,9 @@ import {
   getTierPricing,
   isValidTier,
   formatAmount,
+  initStripe,
+  getStripe,
+  constructWebhookEvent,
 } from '../utils/stripeHelpers';
 
 describe('Stripe Helpers', () => {
@@ -119,6 +122,48 @@ describe('Stripe Helpers', () => {
     it('should respect currency parameter', () => {
       const eurFormatted = formatAmount(29900, 'eur');
       expect(eurFormatted).toContain('299');
+    });
+  });
+
+  describe('constructWebhookEvent', () => {
+    const webhookSecret = 'whsec_test_123';
+    const payload = JSON.stringify({
+      id: 'evt_test_123',
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      data: {
+        object: {
+          id: 'pi_test_123',
+          object: 'payment_intent',
+        },
+      },
+    });
+
+    beforeAll(() => {
+      initStripe({
+        secretKey: 'sk_test_123',
+        webhookSecret,
+        successUrl: 'http://localhost/success',
+        cancelUrl: 'http://localhost/cancel',
+      });
+    });
+
+    it('should verify webhook signature and construct event', () => {
+      const stripe = getStripe();
+      const signature = stripe.webhooks.generateTestHeaderString({
+        payload,
+        secret: webhookSecret,
+      });
+
+      const event = constructWebhookEvent(payload, signature);
+      expect(event.id).toBe('evt_test_123');
+      expect(event.type).toBe('payment_intent.succeeded');
+    });
+
+    it('should reject invalid webhook signatures', () => {
+      expect(() => constructWebhookEvent(payload, 't=123,v1=invalid')).toThrow(
+        'Webhook signature verification failed'
+      );
     });
   });
 });

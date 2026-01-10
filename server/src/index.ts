@@ -99,7 +99,7 @@ app.use(cors(corsOptions));
 // Compression for responses
 app.use(compression());
 
-// Stripe webhooks need raw body - must be before express.json()
+// Stripe webhooks need the raw body for signature verification - keep this before express.json().
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // JSON parsing for all other routes
