@@ -20,6 +20,9 @@ import {
   isUserConnected,
   Notification,
 } from '../realtimeService';
+import { verifyToken } from '../../middleware/auth';
+import { prisma } from '../../utils/prisma';
+import { logger } from '../../logger';
 
 // Mock ws module
 jest.mock('ws', () => {
@@ -44,6 +47,26 @@ jest.mock('ws', () => {
     WebSocketServer: jest.fn(() => mockServer),
   };
 });
+
+jest.mock('../../middleware/auth', () => ({
+  verifyToken: jest.fn(),
+}));
+
+jest.mock('../../utils/prisma', () => ({
+  prisma: {
+    user: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('../../logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
 describe('RealtimeService', () => {
   let mockWss: jest.Mocked<WebSocketServer>;
@@ -180,6 +203,35 @@ describe('RealtimeService', () => {
         admin: 0,
       });
       expect(stats.projectSubscriptions).toBe(0);
+    });
+  });
+
+  describe('handleConnection', () => {
+    it('should reject invalid tokens', async () => {
+      initRealtimeService(mockWss);
+      const connectionHandler = mockWss.on.mock.calls.find(
+        ([event]) => event === 'connection'
+      )?.[1] as (socket: WebSocket, request: { url?: string }) => void;
+
+      (verifyToken as jest.Mock).mockImplementation(() => {
+        throw new Error('bad token');
+      });
+
+      const socket = {
+        close: jest.fn(),
+        on: jest.fn(),
+      } as unknown as WebSocket;
+
+      connectionHandler(socket, { url: 'ws://localhost?token=invalid' });
+
+      await new Promise(process.nextTick);
+
+      expect(socket.close).toHaveBeenCalledWith(4001, 'Invalid token');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'WebSocket connection rejected - invalid token',
+        expect.objectContaining({ error: 'bad token' })
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
   });
 
