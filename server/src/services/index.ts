@@ -119,3 +119,17 @@ export {
   type CreateClientResult,
   type ClientWithDetails,
 } from './clientService';
+
+// Email Service - Transactional emails
+export {
+  initEmailService,
+  sendEmail,
+  sendWelcomeEmail,
+  sendPaymentConfirmation,
+  sendMilestoneNotification,
+  sendDeliverableNotification,
+  EmailTemplates,
+  type EmailConfig,
+  type EmailOptions,
+  type EmailResult,
+} from './emailService';

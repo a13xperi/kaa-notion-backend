@@ -5,6 +5,8 @@
 
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
+import { sendPaymentConfirmation, sendWelcomeEmail } from '../services/emailService';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -328,6 +330,32 @@ export async function handleCheckoutCompleted(
 
       return { client, project, payment };
     });
+
+    // Send confirmation emails (async, don't block webhook response)
+    const customerEmail = session.customer_email || session.customer_details?.email;
+    if (customerEmail) {
+      // Send welcome email for new clients
+      sendWelcomeEmail({
+        to: customerEmail,
+        name: session.customer_details?.name || '',
+        tier: tierNum,
+      }).catch(err => {
+        logger.error('Failed to send welcome email', { error: err.message, email: customerEmail });
+      });
+
+      // Send payment confirmation
+      sendPaymentConfirmation({
+        to: customerEmail,
+        name: session.customer_details?.name || '',
+        amount: session.amount_total || pricing.amount,
+        currency: session.currency || 'usd',
+        tier: tierNum,
+        projectName: result.project.name || 'Landscape Design Project',
+        projectId: result.project.id,
+      }).catch(err => {
+        logger.error('Failed to send payment confirmation', { error: err.message, email: customerEmail });
+      });
+    }
 
     return {
       success: true,

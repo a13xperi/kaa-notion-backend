@@ -18,7 +18,7 @@ import {
   createWebhooksRouter,
   createAuthRouter,
 } from './routes';
-import { initNotionSyncService, initStorageService, initAuditService, initAuthService } from './services';
+import { initNotionSyncService, initStorageService, initAuditService, initAuthService, initEmailService } from './services';
 import { initStripe } from './utils/stripeHelpers';
 import { 
   errorHandler, 
@@ -100,6 +100,26 @@ initAuthService({
   saltRounds: 12,
 });
 logger.info('Auth service initialized');
+
+// Initialize email service
+const emailProvider = process.env.RESEND_API_KEY ? 'resend' : 
+                     process.env.SMTP_HOST ? 'nodemailer' : 'console';
+initEmailService({
+  provider: emailProvider,
+  resendApiKey: process.env.RESEND_API_KEY,
+  smtpConfig: process.env.SMTP_HOST ? {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER || '',
+      pass: process.env.SMTP_PASS || '',
+    },
+  } : undefined,
+  defaultFrom: process.env.EMAIL_FROM || 'SAGE <hello@sage.design>',
+  replyTo: process.env.EMAIL_REPLY_TO || 'support@sage.design',
+});
+logger.info(`Email service initialized with provider: ${emailProvider}`);
 
 // API Routes with Rate Limiting
 app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
@@ -256,6 +276,7 @@ app.get('/api/health', async (req, res) => {
         stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured',
         notion: process.env.NOTION_API_KEY ? 'configured' : 'not configured',
         storage: process.env.SUPABASE_URL ? 'configured' : 'not configured',
+        email: process.env.RESEND_API_KEY ? 'resend' : process.env.SMTP_HOST ? 'smtp' : 'console',
       },
     });
   } catch (error) {

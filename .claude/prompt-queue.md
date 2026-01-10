@@ -347,6 +347,13 @@
 - [x] `new-middleware`: rateLimit.ts - Configurable rate limiting with pre-built limiters
 - [x] `update`: server/index.ts - Applied rate limiters to all API routes
 - [x] `test`: rateLimit.test.ts - 10 tests for rate limit functionality
+- [x] `new-service`: emailService.ts - Transactional email service (Resend/SMTP/Console providers)
+- [x] `email-templates`: Welcome, payment confirmation, milestone notification, deliverable notification
+- [x] `integration`: Payment webhook sends welcome and confirmation emails
+- [x] `test`: emailService.test.ts - 25 tests for email providers, templates, and convenience functions
+- [x] `update`: env.example - Added email configuration (RESEND_API_KEY, SMTP settings)
+- [x] `update`: services/index.ts - Added email service exports
+- [x] `update`: server/index.ts - Initialized email service with provider auto-detection
 
 ### 2025-01-09
 - [x] Initial project setup
