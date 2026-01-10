@@ -20,7 +20,15 @@ import {
   createWebhooksRouter,
   createAuthRouter,
 } from './routes';
-import { initNotionSyncService, initStorageService, initAuditService, initAuthService, initEmailService } from './services';
+import {
+  initNotionSyncService,
+  initStorageService,
+  initAuditService,
+  initAuthService,
+  initEmailService,
+  initRealtimeService,
+  shutdownRealtimeService,
+} from './services';
 import { initStripe } from './utils/stripeHelpers';
 import { 
   errorHandler, 
@@ -193,37 +201,9 @@ const figmaClient = new FigmaClient({
   accessToken: process.env.FIGMA_ACCESS_TOKEN || '',
 });
 
-// WebSocket server for real-time updates
+// WebSocket server for real-time updates (notifications + Figma requests)
 const wss = new WebSocketServer({ port: 3002 });
-
-wss.on('connection', (ws) => {
-  logger.debug('Client connected to WebSocket');
-
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      // Handle different message types
-      switch (data.type) {
-        case 'getFile':
-          const fileData = await figmaClient.getFile(data.fileKey);
-          ws.send(JSON.stringify({ type: 'fileData', data: fileData }));
-          break;
-        case 'getFileNodes':
-          const nodesData = await figmaClient.getFileNodes(data.fileKey, data.nodeIds);
-          ws.send(JSON.stringify({ type: 'nodesData', data: nodesData }));
-          break;
-        // Add more message handlers as needed
-      }
-    } catch (error) {
-      logger.error('Error handling WebSocket message:', error);
-      ws.send(JSON.stringify({ type: 'error', message: 'Error processing request' }));
-    }
-  });
-
-  ws.on('close', () => {
-    logger.debug('Client disconnected from WebSocket');
-  });
-});
+initRealtimeService(wss, {}, figmaClient);
 
 // Test endpoint
 app.get('/test', (req, res) => {
@@ -350,6 +330,7 @@ async function shutdown() {
   logger.info('Shutting down gracefully...');
   
   // Close WebSocket server
+  shutdownRealtimeService();
   wss.close(() => {
     logger.info('WebSocket server closed');
   });
