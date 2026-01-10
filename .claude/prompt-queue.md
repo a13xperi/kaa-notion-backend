@@ -321,6 +321,11 @@
 - [x] `test`: SearchInput.test.tsx - 17 tests for debounce, clear, loading states
 - [x] `test`: Badge.test.tsx - 34 tests for Badge, StatusBadge, TierBadge variants
 - [x] `test`: EmptyState.test.tsx - 22 tests for all empty state presets
+- [x] `integration`: App Router - React Router v6 integration with all routes
+- [x] `new-page`: PortalPages.tsx - ProjectsPage, ProjectDetailPage with mock data
+- [x] `new-page`: AdminPages.tsx - AdminDashboardPage, placeholder admin pages
+- [x] `update`: App.tsx - Complete router setup with protected/admin routes
+- [x] `update`: LandingPage.tsx - Added CTA buttons for Get Started and Pricing
 
 ### 2025-01-09
 - [x] Initial project setup

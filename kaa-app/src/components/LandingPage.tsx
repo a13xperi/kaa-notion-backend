@@ -3,19 +3,66 @@ import SageLogo from './SageLogo';
 import './LandingPage.css';
 
 interface LandingPageProps {
-  onSelectPortal: (portal: 'client' | 'team') => void;
-  onShowDemo: () => void;
+  onSelectPortal?: (portal: 'client' | 'team') => void;
+  onShowDemo?: () => void;
 }
 
+// Navigation helper - uses window.location for simplicity
+const navigateTo = (path: string) => {
+  window.location.href = path;
+};
+
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectPortal, onShowDemo }) => {
+  const handleClientPortal = () => {
+    if (onSelectPortal) {
+      onSelectPortal('client');
+    } else {
+      navigateTo('/login');
+    }
+  };
+
+  const handleTeamPortal = () => {
+    if (onSelectPortal) {
+      onSelectPortal('team');
+    } else {
+      navigateTo('/admin');
+    }
+  };
+
+  const handleDemo = () => {
+    if (onShowDemo) {
+      onShowDemo();
+    } else {
+      navigateTo('/demo');
+    }
+  };
+
+  const handleGetStarted = () => {
+    navigateTo('/get-started');
+  };
+
+  const handlePricing = () => {
+    navigateTo('/pricing');
+  };
+
   return (
     <div className="landing-page">
       <div className="landing-container">
         {/* Header */}
         <div className="landing-header">
           <SageLogo size="xlarge" showText={true} className="landing-logo" />
-          <h1 className="landing-title">KAA Command Center</h1>
-          <p className="landing-subtitle">Workspace Management & Collaboration Hub</p>
+          <h1 className="landing-title">SAGE Landscape Design</h1>
+          <p className="landing-subtitle">Professional Landscape Architecture Services</p>
+        </div>
+
+        {/* CTA Section */}
+        <div className="landing-cta">
+          <button className="cta-button cta-primary" onClick={handleGetStarted}>
+            Get Started →
+          </button>
+          <button className="cta-button cta-secondary" onClick={handlePricing}>
+            View Pricing
+          </button>
         </div>
 
         {/* Portal Cards */}
@@ -23,7 +70,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectPortal, onShowDemo })
           {/* Client Portal Card */}
           <button 
             className="portal-card client-portal"
-            onClick={() => onSelectPortal('client')}
+            onClick={handleClientPortal}
           >
             <div className="portal-icon">👥</div>
             <h2 className="portal-title">Client Portal</h2>
@@ -36,7 +83,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectPortal, onShowDemo })
           {/* Team Dashboard Card */}
           <button 
             className="portal-card team-portal"
-            onClick={() => onSelectPortal('team')}
+            onClick={handleTeamPortal}
           >
             <div className="portal-icon">🎯</div>
             <h2 className="portal-title">Team Dashboard</h2>
@@ -49,7 +96,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectPortal, onShowDemo })
           {/* Feature Demo Card */}
           <button 
             className="portal-card demo-portal"
-            onClick={onShowDemo}
+            onClick={handleDemo}
           >
             <div className="portal-icon">🚀</div>
             <h2 className="portal-title">Feature Demo</h2>
@@ -70,4 +117,5 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectPortal, onShowDemo })
 };
 
 export default LandingPage;
+export { LandingPage };
 
