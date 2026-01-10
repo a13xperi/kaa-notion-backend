@@ -31,68 +31,26 @@ Before deploying, ensure you have:
 
 ## Environment Setup
 
+For complete environment variable documentation, see [ENVIRONMENT_REFERENCE.md](./ENVIRONMENT_REFERENCE.md).
+
 ### Production Environment Variables
 
-Create a `.env.production` file with all required variables:
+Create a `.env.production` file. Key production-specific settings:
 
 ```bash
-# ===================
-# DATABASE
-# ===================
+# Database - Use SSL in production
 DATABASE_URL="postgresql://user:password@db.host.com:5432/sage_production?sslmode=require"
 
-# ===================
-# AUTHENTICATION
-# ===================
-JWT_SECRET="generate-with-openssl-rand-base64-64"
-JWT_EXPIRES_IN="7d"
-
-# ===================
-# STRIPE (Production Keys)
-# ===================
+# Use production Stripe keys
 STRIPE_SECRET_KEY="sk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_PRICE_TIER1="price_..."
-STRIPE_PRICE_TIER2="price_..."
-STRIPE_PRICE_TIER3="price_..."
 
-# ===================
-# EMAIL
-# ===================
-RESEND_API_KEY="re_..."
-EMAIL_FROM="noreply@yourdomain.com"
-
-# ===================
-# PUSH NOTIFICATIONS
-# ===================
-# Generate with: npx web-push generate-vapid-keys
-VAPID_PUBLIC_KEY="..."
-VAPID_PRIVATE_KEY="..."
-VAPID_EMAIL="mailto:admin@yourdomain.com"
-
-# ===================
-# FILE STORAGE
-# ===================
-SUPABASE_URL="https://xxx.supabase.co"
-SUPABASE_SERVICE_KEY="eyJ..."
-
-# ===================
-# MONITORING
-# ===================
-SENTRY_DSN="https://xxx@sentry.io/xxx"
-
-# ===================
-# CACHING
-# ===================
-REDIS_URL="redis://user:password@redis.host.com:6379"
-
-# ===================
-# SERVER
-# ===================
-PORT=3001
+# Production settings
 NODE_ENV=production
 CORS_ORIGIN="https://yourdomain.com"
 ```
+
+See [ENVIRONMENT_REFERENCE.md - Production Checklist](./ENVIRONMENT_REFERENCE.md#production-checklist) for the complete checklist.
 
 ### Generate Secure Keys
 
@@ -551,3 +509,10 @@ Supabase Storage handles replication. Enable point-in-time recovery for addition
 - PM2 logs: `~/.pm2/logs/`
 - Nginx logs: `/var/log/nginx/`
 - Application logs: `/var/log/sage/`
+
+## Related Documentation
+
+- [COMMANDS.md](./COMMANDS.md) - Complete command reference
+- [ENVIRONMENT_REFERENCE.md](./ENVIRONMENT_REFERENCE.md) - Environment variables
+- [DEVELOPMENT.md](./DEVELOPMENT.md) - Local development setup
+- [TESTING.md](./TESTING.md) - Testing strategy

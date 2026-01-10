@@ -8,6 +8,8 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",

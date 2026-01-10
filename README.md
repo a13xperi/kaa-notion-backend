@@ -71,87 +71,38 @@ SAGE Platform features:
 
 ## Quick Start
 
-### Option 1: Docker Compose (Recommended)
+For complete setup instructions, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+### Docker (Recommended)
 
 ```bash
-# Clone the repository
 git clone https://github.com/your-org/sage-platform.git
 cd sage-platform
-
-# Copy environment files
 cp server/.env.example server/.env
 cp kaa-app/.env.example kaa-app/.env
 
-# Start all services
 docker-compose up -d
-
-# Run database migrations
 docker-compose exec server npx prisma migrate dev
-
-# Seed the database (optional)
-docker-compose exec server npx prisma db seed
 ```
 
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:3001
-- Prisma Studio: http://localhost:5555
-
-### Option 2: Manual Setup
-
-#### 1. Install Dependencies
+### Local Development
 
 ```bash
-# Install root dependencies
-npm install
-
-# Install server dependencies
-cd server
-npm install
-
-# Install frontend dependencies
-cd ../kaa-app
-npm install
-```
-
-#### 2. Configure Environment
-
-```bash
-# Server configuration
+npm run install-all
 cp server/.env.example server/.env
-# Edit server/.env with your values
-
-# Frontend configuration
 cp kaa-app/.env.example kaa-app/.env
-# Edit kaa-app/.env with your values
-```
 
-#### 3. Set Up Database
-
-```bash
-# Ensure PostgreSQL is running
-# Run migrations
-cd server
-npx prisma migrate dev --name init
-
-# Generate Prisma client
-npx prisma generate
-
-# Seed database (optional)
-npx prisma db seed
-```
-
-#### 4. Start Development Servers
-
-```bash
-# Terminal 1: Start backend
-cd server
-npm run dev
-
-# Terminal 2: Start frontend
-cd kaa-app
+cd server && npm run db:migrate && cd ..
 npm run dev
 ```
+
+### Access Points
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:3001 |
+| Prisma Studio | http://localhost:5555 |
 
 ## Project Structure
 
@@ -196,68 +147,26 @@ sage-platform/
 
 ## Development
 
-### Running the Server
+For complete command reference, see [docs/COMMANDS.md](docs/COMMANDS.md).
+
+### Common Commands
 
 ```bash
-cd server
-
-# Development with hot reload
+# Start all services
 npm run dev
 
-# Build for production
-npm run build
+# Run tests
+cd server && npm test
+cd kaa-app && npm test
 
-# Run production build
-npm start
-```
-
-### Running the Frontend
-
-```bash
-cd kaa-app
-
-# Development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-### Database Commands
-
-```bash
+# Database operations
 cd server
+npm run db:migrate        # Run migrations
+npm run db:studio         # Open Prisma Studio
 
-# Create a new migration
-npx prisma migrate dev --name <migration_name>
-
-# Apply migrations (production)
-npx prisma migrate deploy
-
-# Reset database
-npx prisma migrate reset
-
-# Open Prisma Studio
-npx prisma studio
-
-# Generate client after schema changes
-npx prisma generate
-```
-
-### Code Quality
-
-```bash
 # Lint code
-npm run lint
-
-# Type check
-npm run typecheck
-
-# Format code
-npm run format
+cd server && npm run lint
+cd kaa-app && npm run lint
 ```
 
 ## API Documentation
@@ -288,45 +197,18 @@ See `docs/openapi.yaml` for complete API documentation.
 
 ## Testing
 
-### Unit Tests
+For complete testing guide, see [docs/TESTING.md](docs/TESTING.md).
 
 ```bash
-# Run server tests
-cd server
-npm test
+# Unit tests
+cd server && npm test
+cd kaa-app && npm test
 
-# Run with coverage
-npm run test:coverage
+# E2E tests (requires running services)
+cd kaa-app && npm run test:e2e
 
-# Run frontend tests
-cd kaa-app
-npm test
-```
-
-### E2E Tests
-
-```bash
-# Install Playwright browsers
-npx playwright install
-
-# Run E2E tests
-npm run test:e2e
-
-# Run with UI
-npm run test:e2e:ui
-
-# Run specific test file
-npx playwright test lead-to-client.spec.ts
-```
-
-### Test Database
-
-```bash
-# Set test database URL
-export DATABASE_URL="postgresql://user:pass@localhost:5432/sage_test"
-
-# Run migrations on test database
-npx prisma migrate deploy
+# E2E with UI
+cd kaa-app && npm run test:e2e:ui
 ```
 
 ## Deployment
@@ -353,68 +235,33 @@ The project is configured for Vercel:
 
 ## Environment Variables
 
-### Server (.env)
+For complete environment variable reference, see [docs/ENVIRONMENT_REFERENCE.md](docs/ENVIRONMENT_REFERENCE.md).
 
+**Quick setup:**
 ```bash
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/sage"
-
-# Authentication
-JWT_SECRET="your-secure-jwt-secret-min-32-chars"
-JWT_EXPIRES_IN="7d"
-
-# Stripe
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_PRICE_TIER1="price_..."
-STRIPE_PRICE_TIER2="price_..."
-STRIPE_PRICE_TIER3="price_..."
-
-# Email (Resend)
-RESEND_API_KEY="re_..."
-EMAIL_FROM="noreply@your-domain.com"
-
-# Push Notifications
-VAPID_PUBLIC_KEY="..."
-VAPID_PRIVATE_KEY="..."
-VAPID_EMAIL="mailto:admin@your-domain.com"
-
-# Notion (optional)
-NOTION_API_KEY="secret_..."
-NOTION_DATABASE_ID="..."
-
-# Supabase Storage
-SUPABASE_URL="https://xxx.supabase.co"
-SUPABASE_SERVICE_KEY="..."
-
-# Sentry
-SENTRY_DSN="https://..."
-
-# Redis
-REDIS_URL="redis://localhost:6379"
-
-# Server
-PORT=3001
-NODE_ENV=development
-CORS_ORIGIN="http://localhost:5173"
+cp server/.env.example server/.env
+cp kaa-app/.env.example kaa-app/.env
 ```
 
-### Frontend (.env)
-
-```bash
-VITE_API_URL="http://localhost:3001/api"
-VITE_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-VITE_SENTRY_DSN="https://..."
-```
+The `.env.example` files in each workspace are the source of truth.
 
 ## Documentation
 
+### Development
+- **[Development Guide](docs/DEVELOPMENT.md)** - Local and Docker setup
+- **[Command Reference](docs/COMMANDS.md)** - All scripts and commands
+- **[Environment Reference](docs/ENVIRONMENT_REFERENCE.md)** - Environment variables
+- **[Testing Guide](docs/TESTING.md)** - Unit and E2E testing
+
+### Architecture
 - **[API Documentation](docs/openapi.yaml)** - OpenAPI specification
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
-- **[User Guide](docs/USER_GUIDE.md)** - Client portal documentation
 - **[Tech Stack](docs/tech-stack.md)** - Technology decisions
 - **[Data Model](docs/data-model.md)** - Database schema
 - **[Tier Router Rules](docs/tier-router-rules.md)** - Tier assignment logic
+
+### Operations
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
+- **[User Guide](docs/USER_GUIDE.md)** - Client portal documentation
 
 ## Contributing
 
