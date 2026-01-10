@@ -251,7 +251,7 @@ export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 5,
   message: 'Too many authentication attempts, please try again in 15 minutes.',
-  keyGenerator: (req) => `auth:${req.ip}`,
+  keyGenerator: (req) => `auth:${req.user?.id ?? req.ip}`,
 });
 
 /**
@@ -293,7 +293,41 @@ export const uploadRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   maxRequests: 20,
   message: 'Too many file uploads, please try again later.',
-  keyGenerator: (req) => `upload:${req.ip}`,
+  keyGenerator: (req) => `upload:${req.user?.id ?? req.ip}`,
+});
+
+/**
+ * Lead creation rate limiter
+ * 5 leads per hour per user/IP
+ */
+export const leadRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 5,
+  message: 'Too many lead submissions. Please try again later.',
+  keyGenerator: (req) => `lead:${req.user?.id ?? req.ip}`,
+});
+
+/**
+ * Checkout rate limiter
+ * 10 checkout attempts per hour per user/IP
+ */
+export const checkoutRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 10,
+  message: 'Too many checkout attempts. Please try again later.',
+  keyGenerator: (req) => `checkout:${req.user?.id ?? req.ip}`,
+});
+
+/**
+ * Admin rate limiter (more lenient)
+ * 500 requests per minute per user/IP
+ */
+export const adminRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 500,
+  message: 'Too many admin requests.',
+  keyGenerator: (req) => `admin:${req.user?.id ?? req.ip}`,
+  skip: (req) => req.path === '/health',
 });
 
 // ============================================================================
@@ -413,4 +447,7 @@ export default {
   publicRateLimit,
   passwordResetRateLimit,
   uploadRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  adminRateLimit,
 };
