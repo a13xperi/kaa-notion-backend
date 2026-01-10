@@ -115,7 +115,7 @@ export type Period = 'week' | 'month' | 'quarter' | 'year' | 'all';
 // API Functions
 // ========================================
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('auth_token');

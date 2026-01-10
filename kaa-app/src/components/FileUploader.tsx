@@ -67,7 +67,7 @@ export function FileUploader({
   helperText,
   disabled = false,
   showPreviews = true,
-}: FileUploaderProps): JSX.Element {
+}: FileUploaderProps): React.ReactElement {
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -363,7 +363,7 @@ function FileUploadItem({
   onRemove,
   onRetry,
   showPreview,
-}: FileUploadItemProps): JSX.Element {
+}: FileUploadItemProps): React.ReactElement {
   const isImage = upload.file.type.startsWith('image/');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -442,7 +442,7 @@ function FileUploadItem({
 // ICONS
 // ============================================================================
 
-function UploadIcon({ className }: { className?: string }): JSX.Element {
+function UploadIcon({ className }: { className?: string }): React.ReactElement {
   return (
     <svg
       className={className}
@@ -462,7 +462,7 @@ function UploadIcon({ className }: { className?: string }): JSX.Element {
   );
 }
 
-function FileIcon({ type }: { type: string }): JSX.Element {
+function FileIcon({ type }: { type: string }): React.ReactElement {
   const getIcon = () => {
     if (type.startsWith('image/')) return '🖼️';
     if (type.includes('pdf')) return '📄';
