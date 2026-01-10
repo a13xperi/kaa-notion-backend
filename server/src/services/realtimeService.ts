@@ -4,6 +4,7 @@
  */
 
 import { WebSocket, WebSocketServer } from 'ws';
+import { FigmaClient } from '../figma-client';
 import { logger } from '../logger';
 
 // ============================================================================
@@ -33,8 +34,23 @@ export interface Notification {
 }
 
 export interface WebSocketMessage {
-  type: 'notification' | 'connection' | 'ping' | 'pong' | 'subscribe' | 'unsubscribe';
+  type:
+    | 'notification'
+    | 'connection'
+    | 'ping'
+    | 'pong'
+    | 'subscribe'
+    | 'unsubscribe'
+    | 'getFile'
+    | 'getFileNodes'
+    | 'fileData'
+    | 'nodesData'
+    | 'error';
   payload?: unknown;
+  data?: unknown;
+  message?: string;
+  fileKey?: string;
+  nodeIds?: string[];
 }
 
 export interface ClientConnection {
@@ -76,6 +92,7 @@ const projectSubscriptions = new Map<string, Set<string>>();
 
 let wss: WebSocketServer | null = null;
 let pingInterval: NodeJS.Timeout | null = null;
+let figmaClient: FigmaClient | null = null;
 
 // ============================================================================
 // INITIALIZATION
@@ -86,10 +103,12 @@ let pingInterval: NodeJS.Timeout | null = null;
  */
 export function initRealtimeService(
   webSocketServer: WebSocketServer,
-  overrides: Partial<RealtimeConfig> = {}
+  overrides: Partial<RealtimeConfig> = {},
+  figmaClientInstance?: FigmaClient
 ): void {
   config = { ...config, ...overrides };
   wss = webSocketServer;
+  figmaClient = figmaClientInstance ?? null;
 
   // Set up connection handler
   wss.on('connection', handleConnection);
@@ -191,7 +210,9 @@ function handleConnection(socket: WebSocket, request: { url?: string }): void {
   });
 
   // Set up message handler
-  socket.on('message', (data) => handleMessage(connection, data));
+  socket.on('message', (data) => {
+    void handleMessage(connection, data);
+  });
 
   // Set up close handler
   socket.on('close', () => handleDisconnect(connection));
@@ -210,7 +231,10 @@ function handleConnection(socket: WebSocket, request: { url?: string }): void {
 /**
  * Handle incoming WebSocket message
  */
-function handleMessage(connection: ClientConnection, data: Buffer | ArrayBuffer | Buffer[]): void {
+async function handleMessage(
+  connection: ClientConnection,
+  data: Buffer | ArrayBuffer | Buffer[]
+): Promise<void> {
   try {
     const message = JSON.parse(data.toString()) as WebSocketMessage;
 
@@ -226,6 +250,14 @@ function handleMessage(connection: ClientConnection, data: Buffer | ArrayBuffer 
 
       case 'unsubscribe':
         handleUnsubscribe(connection, message.payload as { projectIds?: string[] });
+        break;
+
+      case 'getFile':
+        await handleFigmaGetFile(connection, message);
+        break;
+
+      case 'getFileNodes':
+        await handleFigmaGetFileNodes(connection, message);
         break;
 
       default:
@@ -284,6 +316,116 @@ function handleUnsubscribe(connection: ClientConnection, payload: { projectIds?:
     userId: connection.userId,
     projectIds,
   });
+}
+
+/**
+ * Handle Figma file request
+ */
+async function handleFigmaGetFile(connection: ClientConnection, message: WebSocketMessage): Promise<void> {
+  if (!figmaClient) {
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Figma WebSocket support is not configured.',
+    });
+    return;
+  }
+
+  const { fileKey } = getFigmaRequestPayload(message);
+  if (!fileKey) {
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Missing fileKey for getFile request.',
+    });
+    return;
+  }
+
+  try {
+    const fileData = await figmaClient.getFile(fileKey);
+    sendToSocket(connection.socket, {
+      type: 'fileData',
+      data: fileData,
+      payload: fileData,
+    });
+  } catch (error) {
+    logger.error('Error handling Figma getFile request', {
+      userId: connection.userId,
+      error: error instanceof Error ? error.message : error,
+    });
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Error processing getFile request.',
+    });
+  }
+}
+
+/**
+ * Handle Figma file nodes request
+ */
+async function handleFigmaGetFileNodes(
+  connection: ClientConnection,
+  message: WebSocketMessage
+): Promise<void> {
+  if (!figmaClient) {
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Figma WebSocket support is not configured.',
+    });
+    return;
+  }
+
+  const { fileKey, nodeIds } = getFigmaRequestPayload(message);
+  if (!fileKey) {
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Missing fileKey for getFileNodes request.',
+    });
+    return;
+  }
+
+  if (!nodeIds || nodeIds.length === 0) {
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Missing nodeIds for getFileNodes request.',
+    });
+    return;
+  }
+
+  try {
+    const nodesData = await figmaClient.getFileNodes(fileKey, nodeIds);
+    sendToSocket(connection.socket, {
+      type: 'nodesData',
+      data: nodesData,
+      payload: nodesData,
+    });
+  } catch (error) {
+    logger.error('Error handling Figma getFileNodes request', {
+      userId: connection.userId,
+      error: error instanceof Error ? error.message : error,
+    });
+    sendToSocket(connection.socket, {
+      type: 'error',
+      message: 'Error processing getFileNodes request.',
+    });
+  }
+}
+
+function getFigmaRequestPayload(message: WebSocketMessage): { fileKey?: string; nodeIds?: string[] } {
+  const payload = (message.payload ?? {}) as { fileKey?: string; nodeIds?: unknown };
+  const fileKey = payload.fileKey ?? message.fileKey;
+  const rawNodeIds = payload.nodeIds ?? message.nodeIds;
+
+  if (typeof rawNodeIds === 'string') {
+    return { fileKey, nodeIds: rawNodeIds.split(',') };
+  }
+
+  if (Array.isArray(rawNodeIds)) {
+    return {
+      fileKey,
+      nodeIds: rawNodeIds.filter((nodeId): nodeId is string => typeof nodeId === 'string'),
+    };
+  }
+
+  return { fileKey };
 }
 
 /**

@@ -23,7 +23,7 @@ docker compose -f docker-compose.dev.yml exec backend npx prisma db seed
 **Access Points:**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
-- WebSocket: ws://localhost:3002
+- WebSocket (notifications + Figma): ws://localhost:3002
 - Adminer (DB UI): http://localhost:8080 (with `--profile tools`)
 - MailHog (Email): http://localhost:8025 (with `--profile tools`)
 
