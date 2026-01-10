@@ -76,7 +76,39 @@ For the complete list of variables (including Docker/Postgres defaults), see [EN
 
 ## Common Commands
 
+```bash
+# Build specific service
+docker compose build frontend
+docker compose build backend
+
+# View container logs
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Execute command in container
+docker compose exec backend npx prisma studio
+
+# Run backend tests (from repo root)
+npm run test:backend
+
+# Or run backend tests inside the container
+docker compose exec backend npm test
+
+# Database operations
+docker compose exec db psql -U postgres -d sage
+
+# Restart specific service
+docker compose restart backend
+
+# Remove all containers and volumes
+docker compose down -v
+
+# Clean build (no cache)
+docker compose build --no-cache
+```
 See the common Docker operations in [COMMANDS.md](./COMMANDS.md).
+
+See [Testing Strategy](./TESTING_STRATEGY.md) for test prerequisites and command mappings.
 
 ## Production Deployment
 

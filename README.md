@@ -125,7 +125,19 @@ sage-mvp/
 
 ## 🧪 Testing
 
+```bash
+# Run all tests
+npm test
+
+# Backend tests only (262 tests)
+npm run test:backend
+
+# Frontend tests only (595 tests)
+npm run test:frontend
+```
 See the root script commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
+
+See [Testing Strategy](./docs/TESTING_STRATEGY.md) for test types, prerequisites, and E2E setup.
 
 **Test Coverage:**
 
