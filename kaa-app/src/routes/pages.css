@@ -10,6 +10,7 @@
   justify-content: center;
   padding: 2rem;
   background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
+  position: relative;
 }
 
 .auth-page__container {
@@ -33,6 +34,41 @@
   font-size: 1rem;
   color: #6b7280;
   margin: 0;
+}
+
+.auth-page__back-button {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.auth-page__back-button:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  transform: translateX(-2px);
+}
+
+.auth-page__back-button:active {
+  transform: translateX(0);
+}
+
+.auth-page__back-button span {
+  font-size: 1.125rem;
+  line-height: 1;
 }
 
 /* Intake Page */
@@ -79,6 +115,18 @@
     color: #9ca3af;
   }
 
+  .auth-page__back-button {
+    background: #1f2937;
+    border-color: #374151;
+    color: #d1d5db;
+  }
+
+  .auth-page__back-button:hover {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+
   .intake-page {
     background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
   }
@@ -100,6 +148,13 @@
 
   .auth-page__header h1 {
     font-size: 1.5rem;
+  }
+
+  .auth-page__back-button {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
   }
 
   .intake-page {

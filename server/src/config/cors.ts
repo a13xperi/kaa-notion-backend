@@ -63,7 +63,7 @@ function isOriginAllowed(origin: string | undefined): boolean {
 /**
  * Dynamic CORS options based on request origin
  */
-const corsOptionsDelegate: CorsOptionsDelegate = (
+const corsOptionsDelegate: CorsOptionsDelegate<Request> = (
   req: Request,
   callback: (err: Error | null, options?: CorsOptions) => void
 ) => {

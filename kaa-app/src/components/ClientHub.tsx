@@ -11,6 +11,7 @@ interface ClientHubProps {
   onViewMessages: () => void;
   onViewAnalytics: () => void;
   onViewDeliverables?: () => void;
+  onViewCommunity?: () => void;
 }
 
 interface ClientActivity {
@@ -44,7 +45,8 @@ const ClientHub: React.FC<ClientHubProps> = ({
   onUpload,
   onViewMessages,
   onViewAnalytics,
-  onViewDeliverables
+  onViewDeliverables,
+  onViewCommunity
 }) => {
   const [stats, setStats] = useState({
     totalDocuments: 0,
@@ -324,6 +326,18 @@ const ClientHub: React.FC<ClientHubProps> = ({
                 <div className="action-content">
                   <span className="action-title">Deliverables</span>
                   <span className="action-description">Download project files</span>
+                </div>
+              </button>
+            )}
+            {onViewCommunity && (
+              <button
+                className="action-card action-community"
+                onClick={onViewCommunity}
+              >
+                <div className="action-icon">🌱</div>
+                <div className="action-content">
+                  <span className="action-title">Community</span>
+                  <span className="action-description">Share designs & ideas</span>
                 </div>
               </button>
             )}

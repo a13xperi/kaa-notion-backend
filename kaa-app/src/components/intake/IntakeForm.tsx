@@ -248,20 +248,32 @@ export function IntakeForm({
       return;
     }
 
-    // Build IntakeFormData
-    const intakeData: IntakeFormData = {
+    // Build IntakeFormData with all fields including contact info
+    const intakeData = {
+      email: formData.email,
+      name: formData.name,
+      budget: formData.budget,
+      budgetRange: formData.budgetRange,
+      timelineWeeks: formData.timelineWeeks,
+      timeline: formData.timeline,
+      projectType: formData.projectType as ProjectType,
+      hasSurvey: formData.hasSurvey,
+      hasDrawings: formData.hasDrawings,
+      projectAddress: formData.projectAddress,
+      description: formData.description,
+    };
+
+    // Get tier recommendation
+    const recommendation = recommendTier({
       budget: formData.budget,
       timelineWeeks: formData.timelineWeeks,
       projectType: formData.projectType as ProjectType,
       hasSurvey: formData.hasSurvey,
       hasDrawings: formData.hasDrawings,
       projectAddress: formData.projectAddress,
-    };
+    });
 
-    // Get tier recommendation
-    const recommendation = recommendTier(intakeData);
-
-    onSubmit(intakeData, recommendation);
+    onSubmit(intakeData as any, recommendation);
   }, [formData, validateAllSteps, onSubmit]);
 
   // ============================================================================
@@ -498,8 +510,19 @@ export function IntakeForm({
   // MAIN RENDER
   // ============================================================================
 
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    // Only submit if we're on the last step
+    if (currentStep === STEPS.length) {
+      handleSubmit(e);
+    } else {
+      // Otherwise, just move to next step
+      handleNextStep();
+    }
+  }, [currentStep, handleSubmit, handleNextStep]);
+
   return (
-    <form className="intake-form" onSubmit={handleSubmit}>
+    <form className="intake-form" onSubmit={handleFormSubmit}>
       {renderStepIndicator()}
 
       <div className="intake-form__content">
@@ -532,9 +555,12 @@ export function IntakeForm({
 
         {currentStep < STEPS.length ? (
           <button
-            type="button"
+            type="submit"
             className="intake-form__btn intake-form__btn--primary"
-            onClick={handleNextStep}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNextStep();
+            }}
           >
             Continue →
           </button>

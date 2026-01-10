@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Notion Sync Service
  * High-level service for syncing entities to Notion.

@@ -47,7 +47,6 @@ export {
   validateParams,
   validateAll,
   getErrorMessages,
-  getFirstError,
   type ValidationTarget,
   type ValidationOptions,
 } from './validate';

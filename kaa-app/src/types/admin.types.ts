@@ -46,7 +46,7 @@ export interface ActivityItem {
 // LEAD TYPES
 // ============================================================================
 
-export type LeadStatus = 'NEW' | 'QUALIFIED' | 'NEEDS_REVIEW' | 'CLOSED';
+export type LeadStatus = 'NEW' | 'QUALIFIED' | 'NEEDS_REVIEW' | 'CONVERTED' | 'CLOSED';
 
 export interface Lead {
   id: string;
@@ -174,6 +174,7 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: 'New',
   QUALIFIED: 'Qualified',
   NEEDS_REVIEW: 'Needs Review',
+  CONVERTED: 'Converted',
   CLOSED: 'Closed',
 };
 
@@ -181,6 +182,7 @@ export const LEAD_STATUS_COLORS: Record<LeadStatus, string> = {
   NEW: 'status-blue',
   QUALIFIED: 'status-green',
   NEEDS_REVIEW: 'status-yellow',
+  CONVERTED: 'status-purple',
   CLOSED: 'status-gray',
 };
 

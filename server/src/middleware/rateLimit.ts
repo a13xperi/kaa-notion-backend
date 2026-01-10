@@ -346,11 +346,11 @@ export const apiRateLimiter = createRateLimiter('api', {
 
 /**
  * Auth rate limiter (stricter)
- * 10 attempts per 15 minutes per IP
+ * 100 attempts per 15 minutes per IP in dev, 10 in prod
  */
 export const authRateLimiter = createRateLimiter('auth', {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 10,
+  maxRequests: process.env.NODE_ENV === 'development' ? 100 : 10,
   message: 'Too many authentication attempts. Please try again in 15 minutes.',
 });
 
@@ -366,11 +366,11 @@ export const leadCreationRateLimiter = createRateLimiter('lead-creation', {
 
 /**
  * Checkout rate limiter
- * 10 checkout attempts per hour per IP
+ * 100 checkout attempts per hour per IP (increased for dev)
  */
 export const checkoutRateLimiter = createRateLimiter('checkout', {
   windowMs: 60 * 60 * 1000, // 1 hour
-  maxRequests: 10,
+  maxRequests: process.env.NODE_ENV === 'development' ? 100 : 10,
   message: 'Too many checkout attempts. Please try again later.',
 });
 

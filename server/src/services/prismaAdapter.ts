@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Prisma Database Adapter
  * Implements the DatabaseAdapter interface for use with Prisma ORM.

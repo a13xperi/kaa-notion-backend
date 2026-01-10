@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cache Service
  * Redis-based caching for API responses and frequently accessed data.

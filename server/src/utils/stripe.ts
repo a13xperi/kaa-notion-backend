@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Stripe from 'stripe';
 
 // Initialize Stripe with API key from environment

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import logger from '../utils/logger';
 import './UserVerification.css';
 
@@ -9,46 +9,71 @@ interface UserVerificationProps {
 }
 
 const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, onBack }) => {
-  const [lastName, setLastName] = useState('');
-  const [confirmAddress, setConfirmAddress] = useState('');
+  // Pre-populate with demo values if address contains "demo" or if skip flag is set
+  const isDemoAddress = address?.toLowerCase().includes('demo') || !address;
+  const [lastName, setLastName] = useState(isDemoAddress ? 'demo' : '');
+  const [confirmAddress, setConfirmAddress] = useState(isDemoAddress ? (address || 'demo') : '');
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-bypass if skip flag is set (from bypass buttons)
+  useEffect(() => {
+    const skipVerification = sessionStorage.getItem('skip_verification') === 'true' ||
+                            sessionStorage.getItem('skip_onboarding') === 'true';
+    
+    if (skipVerification) {
+      logger.info('[UserVerification] Skip flag detected - Auto-bypassing verification');
+      // Clear the flag
+      sessionStorage.removeItem('skip_verification');
+      // Auto-verify immediately
+      setTimeout(() => {
+        onVerify(address || 'Demo Project', 'Demo');
+      }, 100);
+    }
+  }, [address, onVerify]);
 
   const handleQuickAccess = () => {
     // Bypass verification and go straight to client portal
     logger.info('[UserVerification] Quick access: Bypassing verification');
+    // Set skip flag for future navigation
+    sessionStorage.setItem('skip_verification', 'true');
     onVerify(address || 'Demo Project', 'Demo');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!lastName.trim() || !confirmAddress.trim()) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    // Check if address matches
-    if (confirmAddress.trim().toLowerCase() !== address.toLowerCase()) {
-      setError('Address does not match. Please enter the correct project address.');
-      return;
-    }
-
     setIsVerifying(true);
     setError(null);
 
-    // Demo mode: Auto-accept verification without backend validation
-    // If address contains "demo" (case-insensitive) or is the same as confirmAddress, skip backend
-    const isDemoMode = address.toLowerCase().includes('demo') || 
-                       address.toLowerCase().includes('project') ||
-                       confirmAddress.trim().toLowerCase() === address.toLowerCase();
+    // DEMO MODE: Always accept if address or inputs contain "demo" (case-insensitive)
+    const isDemoMode = address?.toLowerCase().includes('demo') || 
+                       confirmAddress.toLowerCase().includes('demo') ||
+                       lastName.toLowerCase().includes('demo') ||
+                       address?.toLowerCase().includes('project') ||
+                       confirmAddress.toLowerCase().includes('project');
     
-    if (isDemoMode && lastName.trim()) {
-      logger.info('[UserVerification] Demo mode: Auto-accepting verification');
-      // Small delay to simulate processing
+    // In demo mode, skip all validation and auto-accept
+    if (isDemoMode) {
+      logger.info('[UserVerification] Demo mode detected - Auto-accepting verification');
       setTimeout(() => {
-        onVerify(address, lastName.trim());
+        setIsVerifying(false);
+        onVerify(address || confirmAddress || 'Demo Project', lastName.trim() || 'Demo');
       }, 300);
+      return;
+    }
+    
+    // For non-demo mode, validate fields
+    if (!lastName.trim() || !confirmAddress.trim()) {
+      setError('Please fill in all fields');
+      setIsVerifying(false);
+      return;
+    }
+
+    // Check if address matches (only for non-demo mode)
+    if (confirmAddress.trim().toLowerCase() !== address.toLowerCase()) {
+      setError('Address does not match. Please enter the correct project address.');
+      setIsVerifying(false);
       return;
     }
 
@@ -79,23 +104,31 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
           setIsVerifying(false);
         }
       } else {
-        // If backend fails but we have valid inputs, still allow in demo mode
-        if (isDemoMode && lastName.trim()) {
+        // If backend fails, allow in demo mode or if address/inputs contain "demo"
+        const fallbackDemoMode = address?.toLowerCase().includes('demo') || 
+                                 confirmAddress.toLowerCase().includes('demo') ||
+                                 lastName.toLowerCase().includes('demo');
+        
+        if (fallbackDemoMode) {
           logger.info('[UserVerification] Backend unavailable, but demo mode enabled - allowing verification');
-          onVerify(address, lastName.trim());
+          onVerify(address || confirmAddress || 'Demo Project', lastName.trim() || 'Demo');
         } else {
-          setError('Unable to verify. Please contact support.');
+          setError('Unable to verify. Please contact support or use the Quick Access button below to bypass verification.');
           setIsVerifying(false);
         }
       }
     } catch (err) {
       logger.error('User verification error:', err);
-      // If connection fails but we have valid inputs, still allow in demo mode
-      if (isDemoMode && lastName.trim()) {
+      // If connection fails, allow in demo mode or if address/inputs contain "demo"
+      const fallbackDemoMode = address?.toLowerCase().includes('demo') || 
+                               confirmAddress.toLowerCase().includes('demo') ||
+                               lastName.toLowerCase().includes('demo');
+      
+      if (fallbackDemoMode) {
         logger.info('[UserVerification] Connection error, but demo mode enabled - allowing verification');
-        onVerify(address, lastName.trim());
+        onVerify(address || confirmAddress || 'Demo Project', lastName.trim() || 'Demo');
       } else {
-        setError('Connection error. Please try again.');
+        setError('Connection error. Please try again or use the Quick Access button below to bypass verification.');
         setIsVerifying(false);
       }
     }
@@ -141,7 +174,7 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
               type="text"
               id="confirmAddress"
               className="form-input"
-              placeholder="Enter project address again"
+              placeholder={address || "Enter project address again"}
               value={confirmAddress}
               onChange={(e) => setConfirmAddress(e.target.value)}
               autoFocus
@@ -149,7 +182,9 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
               autoComplete="off"
             />
             <p className="form-hint">
-              Re-enter the project address for verification
+              {address ? `Re-enter "${address}" for verification` : 'Re-enter the project address for verification'}
+              <br />
+              <strong style={{ color: 'rgba(255, 255, 255, 0.8)' }}>💡 Tip: Type "demo" in any field to auto-verify</strong>
             </p>
           </div>
 
@@ -161,7 +196,7 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
               type="text"
               id="lastName"
               className="form-input"
-              placeholder="Enter your last name"
+              placeholder="Enter your last name (or 'demo' to skip)"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               disabled={isVerifying}
@@ -169,6 +204,8 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
             />
             <p className="form-hint">
               We use last names to reference and organize projects
+              <br />
+              <strong style={{ color: 'rgba(255, 255, 255, 0.8)' }}>💡 Tip: Type "demo" to auto-verify</strong>
             </p>
           </div>
 
@@ -191,16 +228,52 @@ const UserVerification: React.FC<UserVerificationProps> = ({ address, onVerify, 
           </button>
         </form>
 
-        {/* Quick Access Button */}
-        <div className="quick-access-section">
+        {/* Quick Access Button - Prominent */}
+        <div className="quick-access-section" style={{
+          marginTop: '2rem',
+          paddingTop: '2rem',
+          borderTop: '2px solid rgba(255, 255, 255, 0.3)',
+        }}>
           <button
             type="button"
             className="quick-access-button"
             onClick={handleQuickAccess}
             title="Skip verification and go straight to Client Portal"
+            style={{
+              width: '100%',
+              padding: '1rem 1.5rem',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+              transition: 'all 0.2s',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
+            }}
           >
-            ⚡ Quick Access - Skip to Dashboard
+            🚀 Quick Access - Skip to Dashboard (Bypass All)
           </button>
+          <p style={{
+            fontSize: '0.875rem',
+            color: 'rgba(255, 255, 255, 0.9)',
+            marginTop: '0.75rem',
+            textAlign: 'center',
+            fontStyle: 'italic',
+          }}>
+            Click to skip verification and go directly to the dashboard
+          </p>
         </div>
 
         {/* Help Text */}

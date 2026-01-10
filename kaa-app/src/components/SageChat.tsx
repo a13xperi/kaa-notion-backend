@@ -399,6 +399,12 @@ const SageChat: React.FC<SageChatProps> = ({
   useEffect(() => {
     if (mode !== 'client') return;
     const isOnboardingCompleted = localStorage.getItem('kaa-onboarding-completed') === 'true';
+    const skipOnboarding = sessionStorage.getItem('skip_onboarding') === 'true';
+    
+    // Skip onboarding if explicitly requested or already completed
+    if (skipOnboarding || isOnboardingCompleted) {
+      return;
+    }
     
     if (autoStartOnboarding && !isOnboardingCompleted) {
       // Check if onboarding should start (not completed and auto-start enabled)

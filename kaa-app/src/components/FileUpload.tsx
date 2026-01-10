@@ -105,7 +105,7 @@ export function FileUpload({
   allowedTypes = DEFAULT_ALLOWED_TYPES,
   disabled = false,
   className = '',
-}: FileUploadProps): JSX.Element {
+}: FileUploadProps): React.JSX.Element {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);

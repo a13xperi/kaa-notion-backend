@@ -42,7 +42,7 @@ function NotificationItem({
   onClick,
   onMarkAsRead,
   onDismiss,
-}: NotificationItemProps): JSX.Element {
+}: NotificationItemProps): React.JSX.Element {
   const handleClick = () => {
     if (!notification.read) {
       onMarkAsRead();
@@ -93,7 +93,7 @@ interface ConnectionIndicatorProps {
   onReconnect: () => void;
 }
 
-function ConnectionIndicator({ status, onReconnect }: ConnectionIndicatorProps): JSX.Element | null {
+function ConnectionIndicator({ status, onReconnect }: ConnectionIndicatorProps): React.JSX.Element | null {
   if (status === 'connected') return null;
 
   const statusConfig = {
@@ -126,7 +126,7 @@ export function NotificationCenter({
   token,
   projectIds = [],
   onNotificationClick,
-}: NotificationCenterProps): JSX.Element {
+}: NotificationCenterProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -246,7 +246,7 @@ export function NotificationCenter({
 // HELPER COMPONENTS
 // ============================================================================
 
-function BellIcon(): JSX.Element {
+function BellIcon(): React.JSX.Element {
   return (
     <svg
       width="20"
@@ -264,7 +264,7 @@ function BellIcon(): JSX.Element {
   );
 }
 
-function ConnectionDot({ status }: { status: ConnectionStatus }): JSX.Element {
+function ConnectionDot({ status }: { status: ConnectionStatus }): React.JSX.Element {
   const colors = {
     connected: '#22C55E',
     connecting: '#F59E0B',

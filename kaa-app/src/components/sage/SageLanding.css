@@ -1,0 +1,364 @@
+.sage-landing {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
+  padding: 2rem 1rem;
+}
+
+.sage-landing__container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sage-landing__header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.sage-landing__logo {
+  margin-bottom: 1.5rem;
+}
+
+.sage-landing__title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+  letter-spacing: -1px;
+}
+
+.sage-landing__subtitle {
+  font-size: 1.25rem;
+  color: #6b7280;
+  margin: 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sage-landing__hero {
+  text-align: center;
+  margin-bottom: 4rem;
+  padding: 3rem 0;
+}
+
+.sage-landing__hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.sage-landing__hero-description {
+  font-size: 1.125rem;
+  color: #4b5563;
+  margin: 0 0 2rem 0;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sage-landing__cta {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.sage-landing__cta-primary {
+  padding: 0.875rem 2rem;
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sage-landing__cta-primary:hover {
+  background: #047857;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+.sage-landing__cta-primary--large {
+  padding: 1rem 2.5rem;
+  font-size: 1.125rem;
+}
+
+.sage-landing__cta-secondary {
+  padding: 0.875rem 2rem;
+  background: white;
+  color: #059669;
+  border: 2px solid #059669;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sage-landing__cta-secondary:hover {
+  background: #f0fdf4;
+  transform: translateY(-2px);
+}
+
+.sage-landing__tier-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.sage-landing__tier-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.sage-landing__tier-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.sage-landing__tier-card--popular {
+  border: 2px solid #059669;
+  transform: scale(1.05);
+}
+
+.sage-landing__tier-badge {
+  position: absolute;
+  top: -12px;
+  right: 2rem;
+  background: #059669;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.sage-landing__tier-number {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #d1fae5;
+  margin-bottom: 0.5rem;
+}
+
+.sage-landing__tier-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.sage-landing__tier-price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #059669;
+  margin: 0 0 1rem 0;
+}
+
+.sage-landing__tier-description {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+}
+
+.sage-landing__tier-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sage-landing__tier-features li {
+  padding: 0.5rem 0;
+  color: #4b5563;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.sage-landing__tier-features li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #059669;
+  font-weight: bold;
+}
+
+.sage-landing__how-it-works {
+  margin-bottom: 4rem;
+  padding: 3rem 0;
+}
+
+.sage-landing__section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+  margin: 0 0 3rem 0;
+}
+
+.sage-landing__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.sage-landing__step {
+  text-align: center;
+  padding: 2rem;
+}
+
+.sage-landing__step-number {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #059669;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 auto 1.5rem;
+}
+
+.sage-landing__step-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.75rem 0;
+}
+
+.sage-landing__step-description {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.sage-landing__final-cta {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+}
+
+.sage-landing__cta-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.sage-landing__cta-description {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin: 0 0 2rem 0;
+}
+
+.sage-landing__tier4-notice {
+  text-align: center;
+  padding: 1.5rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  border: 1px solid #fbbf24;
+}
+
+.sage-landing__tier4-text {
+  font-size: 1rem;
+  color: #92400e;
+  margin: 0;
+}
+
+.sage-landing__tier4-link {
+  color: #059669;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.sage-landing__tier4-link:hover {
+  color: #047857;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .sage-landing {
+    background: linear-gradient(135deg, #064e3b 0%, #164e63 100%);
+  }
+
+  .sage-landing__title,
+  .sage-landing__hero-title,
+  .sage-landing__section-title,
+  .sage-landing__cta-title,
+  .sage-landing__tier-name,
+  .sage-landing__step-title {
+    color: #f9fafb;
+  }
+
+  .sage-landing__subtitle,
+  .sage-landing__hero-description,
+  .sage-landing__tier-description,
+  .sage-landing__step-description,
+  .sage-landing__cta-description {
+    color: #d1d5db;
+  }
+
+  .sage-landing__tier-card {
+    background: #1f2937;
+    color: #f9fafb;
+  }
+
+  .sage-landing__final-cta {
+    background: #1f2937;
+  }
+
+  .sage-landing__cta-secondary {
+    background: #1f2937;
+    color: #10b981;
+    border-color: #10b981;
+  }
+
+  .sage-landing__cta-secondary:hover {
+    background: #374151;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .sage-landing__title {
+    font-size: 2rem;
+  }
+
+  .sage-landing__hero-title {
+    font-size: 1.75rem;
+  }
+
+  .sage-landing__tier-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .sage-landing__tier-card--popular {
+    transform: scale(1);
+  }
+
+  .sage-landing__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .sage-landing__cta {
+    flex-direction: column;
+  }
+
+  .sage-landing__cta-primary,
+  .sage-landing__cta-secondary {
+    width: 100%;
+  }
+}

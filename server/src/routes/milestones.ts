@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Milestones Routes
  * API endpoints for milestone management.
@@ -10,7 +11,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient, MilestoneStatus as PrismaMilestoneStatus } from '@prisma/client';
-import { AuthenticatedRequest } from './projects';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';

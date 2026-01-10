@@ -3,7 +3,17 @@
  * Handles authentication-related API calls: register, login, profile, token refresh.
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// Ensure API URL is always set correctly
+const API_BASE_URL = (() => {
+  const envUrl = process.env.REACT_APP_API_URL;
+  if (envUrl) {
+    console.log('[authApi] Using API URL from env:', envUrl);
+    return envUrl;
+  }
+  const defaultUrl = 'http://localhost:3001/api';
+  console.warn('[authApi] REACT_APP_API_URL not set, using default:', defaultUrl);
+  return defaultUrl;
+})();
 
 // ============================================================================
 // TYPES
@@ -122,22 +132,40 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
  * Login with email and password.
  */
 export async function login(input: LoginInput): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
+  try {
+    const url = `${API_BASE_URL}/auth/login`;
+    console.log('[authApi] Login request to:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
 
-  const data = await response.json();
+    console.log('[authApi] Login response status:', response.status);
 
-  if (!response.ok) {
-    throw new Error(data.error?.message || 'Login failed');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: { message: 'Login failed' } }));
+      throw new Error(errorData.error?.message || `Login failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success || !data.data) {
+      throw new Error(data.error?.message || 'Invalid response format');
+    }
+
+    // Store auth data
+    storeAuth(data.data.token, data.data.user);
+
+    return data.data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('[authApi] Network error:', error);
+      throw new Error('Failed to connect to server. Please check if the server is running.');
+    }
+    throw error;
   }
-
-  // Store auth data
-  storeAuth(data.data.token, data.data.user);
-
-  return data.data;
 }
 
 /**
