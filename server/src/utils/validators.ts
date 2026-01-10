@@ -43,11 +43,16 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const addressLoginSchema = z.object({
   address: z.string().min(5, 'Address is required'),
   accessCode: z.string().min(4, 'Access code is required'),
+});
+
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
 // ============================================================================
@@ -83,12 +88,16 @@ export const createLeadSchema = z.object({
   ]).optional(),
   hasSurvey: z.boolean().default(false),
   hasDrawings: z.boolean().default(false),
+  budget: z.coerce.number().positive().optional(),
+  timelineWeeks: z.coerce.number().positive().optional(),
 });
 
 export const updateLeadSchema = z.object({
   status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
   recommendedTier: z.number().int().min(1).max(4).optional(),
   routingReason: z.string().max(500).optional(),
+  tierOverrideReason: z.string().max(500).optional(),
+  name: z.string().max(100).optional(),
 });
 
 export const leadFiltersSchema = paginationSchema.merge(sortSchema).extend({
@@ -196,6 +205,8 @@ export const clientFiltersSchema = paginationSchema.merge(sortSchema).extend({
 export const createCheckoutSchema = z.object({
   leadId: uuidSchema,
   tier: z.number().int().min(1).max(3), // Tier 4 is by invitation only
+  email: emailSchema,
+  projectId: uuidSchema.optional(),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
 });
@@ -234,6 +245,7 @@ export const tierOverrideSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AddressLoginInput = z.infer<typeof addressLoginSchema>;
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
 export type LeadFiltersInput = z.infer<typeof leadFiltersSchema>;
