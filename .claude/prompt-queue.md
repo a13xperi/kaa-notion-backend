@@ -338,6 +338,9 @@
 - [x] `update`: env.example - Added REACT_APP_API_URL documentation
 - [x] `verify`: Backend build and 186 tests passing
 - [x] `verify`: Frontend build successful
+- [x] `new-seed`: prisma/seed.ts - Database seed with tiers, users, leads, projects
+- [x] `new-script`: db-setup.sh - Interactive database setup with migrations
+- [x] `update`: package.json - Added seed config, db:setup, db:reset scripts
 
 ### 2025-01-09
 - [x] Initial project setup
