@@ -262,12 +262,12 @@
 - [x] `perf`: CDN integration - URL generation, cache headers, asset manifest, preload hints
 - [x] `perf`: API response caching - Redis cache service with TTL, tags, invalidation, middleware
 
-### Priority 10: Future Enhancements
-- [ ] `feature`: Multi-project support - Clients with multiple active projects
-- [ ] `feature`: Subscription billing - Recurring payment option for retainer clients
-- [ ] `feature`: Team collaboration - Multiple team members on admin side
-- [ ] `feature`: Client referral system - Referral tracking and rewards
-- [ ] `feature`: Portfolio gallery - Public showcase of completed projects
+### Priority 10: Future Enhancements ✅
+- [x] `feature`: Multi-project support - Tier-based project limits, archiving/restore, project switcher
+- [x] `feature`: Subscription billing - Stripe subscription integration with webhooks and billing portal
+- [x] `feature`: Team collaboration - Role-based permissions (OWNER/ADMIN/DESIGNER/VIEWER), project assignments
+- [x] `feature`: Client referral system - Referral tracking, credits, rewards, leaderboard
+- [x] `feature`: Portfolio gallery - Public gallery with SEO, images, featured projects
 
 ---
 
@@ -391,6 +391,24 @@
 - [x] `perf`: imageService.ts - Sharp-based image optimization with presets and thumbnails
 - [x] `perf`: cdn.ts - CDN URL generation, cache headers, asset manifest
 - [x] `perf`: cacheService.ts - Redis caching with TTL, tags, invalidation, middleware
+- [x] `feature`: Priority 10 - Multi-project support with tier limits, archiving, project switcher
+- [x] `feature`: Priority 10 - Portfolio gallery with schema, API, image management
+- [x] `feature`: Priority 10 - Team collaboration with roles, permissions, project assignments
+- [x] `feature`: Priority 10 - Referral system with tracking, credits, rewards, leaderboard
+- [x] `feature`: Priority 10 - Subscription billing with Stripe, webhooks, billing portal
+- [x] `new-service`: multiProjectService.ts - Project limits, archiving, project switcher data
+- [x] `new-service`: portfolioService.ts - Portfolio CRUD, image gallery, SEO, publishing
+- [x] `new-service`: teamService.ts - Team members, roles, permissions, project assignments
+- [x] `new-service`: referralService.ts - Referrals, credits, rewards, leaderboard
+- [x] `new-service`: subscriptionService.ts - Stripe subscription management, webhooks
+- [x] `new-routes`: portfolioRoutes.ts - Portfolio API endpoints
+- [x] `new-routes`: teamRoutes.ts - Team management API endpoints
+- [x] `new-routes`: referralRoutes.ts - Referral API endpoints
+- [x] `new-routes`: subscriptionRoutes.ts - Subscription/billing API endpoints
+- [x] `new-routes`: multiProjectRoutes.ts - Project limits/archiving API endpoints
+- [x] `new-component`: ProjectSwitcher - Dropdown for switching between projects
+- [x] `new-component`: ReferralDashboard - Referral stats, invite, history
+- [x] `new-component`: SubscriptionManagement - Plan management, pricing, invoices
 
 ---
 

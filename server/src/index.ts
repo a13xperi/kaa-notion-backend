@@ -13,6 +13,11 @@ import milestonesRouter from './routes/milestones';
 import deliverablesRouter from './routes/deliverables';
 import analyticsRouter from './routes/analytics';
 import pushRouter from './routes/push';
+import portfolioRouter from './routes/portfolioRoutes';
+import teamRouter from './routes/teamRoutes';
+import referralRouter from './routes/referralRoutes';
+import subscriptionRouter from './routes/subscriptionRoutes';
+import multiProjectRouter from './routes/multiProjectRoutes';
 
 dotenv.config();
 
@@ -120,6 +125,11 @@ app.use('/api/deliverables', deliverablesRouter);
 app.use('/api', deliverablesRouter); // For /api/projects/:id/deliverables route
 app.use('/api/admin/analytics', analyticsRouter);
 app.use('/api/push', pushRouter);
+app.use('/api/portfolio', portfolioRouter);
+app.use('/api/team', teamRouter);
+app.use('/api/referrals', referralRouter);
+app.use('/api/subscriptions', subscriptionRouter);
+app.use('/api/projects', multiProjectRouter);
 
 // Global error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
