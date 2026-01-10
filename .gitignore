@@ -10,7 +10,7 @@ kaa-app/coverage/
 server/node_modules/
 
 # Prisma
-prisma/migrations/
+# Note: migrations should be tracked in version control
 *.db
 *.db-journal
 
