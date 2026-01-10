@@ -131,8 +131,8 @@
 - [x] `new-middleware`: requireAdmin.ts - Check user is admin or team member
 
 ### 8.2 Validation
-- [ ] `new-util`: validators.ts - Zod schemas for all API request bodies (lead, project, deliverable)
-- [ ] `new-middleware`: validate.ts - Middleware to validate request body against Zod schema
+- [x] `new-util`: validators.ts - Zod schemas for all API request bodies (lead, project, deliverable)
+- [x] `new-middleware`: validate.ts - Middleware to validate request body against Zod schema
 
 ### 8.3 Error Handling
 - [ ] `new-middleware`: errorHandler.ts - Global error handler with proper response formatting, logging
@@ -240,6 +240,8 @@
 - [x] `new-endpoint`: POST /api/upload - Single/multiple upload, multer, validation, deliverable creation, Notion sync
 - [x] `new-component`: FileUpload - Drag-drop zone, file list with preview, progress, validation, upload actions
 - [x] `new-middleware`: auth.ts - authenticate, optionalAuthenticate, requireRole, requireAdmin, requireTier, requireOwnerOrAdmin
+- [x] `new-util`: validators.ts - Zod schemas for Lead, Auth, Project, Milestone, Deliverable, Payment, Client, Admin, Upload
+- [x] `new-middleware`: validate.ts - validateBody, validateQuery, validateParams factory functions with error formatting
 
 ---
 
