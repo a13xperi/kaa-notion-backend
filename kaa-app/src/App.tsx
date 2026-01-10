@@ -8,7 +8,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, RequireAuth, RequireAdmin } from './contexts/AuthContext';
+import { AuthProvider, RequireAuth, RequireAdmin, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './components/common';
 import { DarkModeProvider } from './contexts/DarkModeContext';
 import pwaManager from './utils/pwa';
@@ -34,6 +34,7 @@ import { SageTiers } from './components/sage/SageTiers';
 import { ProjectsPage, ProjectDetailPage } from './pages';
 import { UserProfile } from './components/profile';
 import { DashboardWelcome } from './components/dashboard';
+import ClientWorkspace from './components/ClientWorkspace';
 
 // Admin Pages
 import { 
@@ -89,6 +90,46 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     <RequireAdmin fallback={<Navigate to="/portal" replace />}>
       {children}
     </RequireAdmin>
+  );
+}
+
+/**
+ * Portal Workspace Component
+ * Wraps ClientWorkspace and provides auth context (clientAddress, onLogout)
+ */
+function PortalWorkspace() {
+  const { user, profile, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Get client address from profile or use email as fallback
+  const clientAddress = profile?.client?.projectAddress || 
+                       user?.email?.split('@')[0] || 
+                       'Demo Project Address';
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
+  // Show loading state if auth is still initializing
+  if (!user) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh' 
+      }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <ClientWorkspace 
+      clientAddress={clientAddress}
+      onLogout={handleLogout}
+    />
   );
 }
 
@@ -422,14 +463,12 @@ function App() {
 
               {/* ============ PROTECTED PORTAL ROUTES ============ */}
               
-              {/* Portal Dashboard */}
+              {/* Portal Dashboard - Full ClientWorkspace with all features */}
               <Route
                 path="/portal"
                 element={
                   <ProtectedRoute>
-                    <AppLayout>
-                      <DashboardWelcome />
-                    </AppLayout>
+                    <PortalWorkspace />
                   </ProtectedRoute>
                 }
               />

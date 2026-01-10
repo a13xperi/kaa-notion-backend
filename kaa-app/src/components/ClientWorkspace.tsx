@@ -10,6 +10,7 @@ import NotificationSystem from './NotificationSystem';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import DesignIdeas from './DesignIdeas';
 import Deliverables from './Deliverables';
+import Community from './Community';
 import SageChat from './SageChat';
 import SageLogo from './SageLogo';
 import DarkModeToggle from './DarkModeToggle';
@@ -22,7 +23,7 @@ interface ClientWorkspaceProps {
 }
 
 const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogout }) => {
-  const [currentView, setCurrentView] = useState<'hub' | 'projects' | 'documents' | 'upload' | 'messages' | 'notifications' | 'analytics' | 'design-ideas' | 'deliverables'>('hub');
+  const [currentView, setCurrentView] = useState<'hub' | 'projects' | 'documents' | 'upload' | 'messages' | 'notifications' | 'analytics' | 'design-ideas' | 'deliverables' | 'community'>('hub');
   const [refreshKey, setRefreshKey] = useState(0);
   const [shouldAutoStartOnboarding, setShouldAutoStartOnboarding] = useState(false);
 
@@ -102,6 +103,10 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
     setCurrentView('deliverables');
   };
 
+  const handleCommunityClick = () => {
+    setCurrentView('community');
+  };
+
   return (
     <DarkModeProvider>
       <div className="client-workspace">
@@ -136,6 +141,12 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                       onClick={handleViewDocuments}
                     >
                       📄 Documents
+                    </button>
+                    <button
+                      className={`client-nav-btn ${currentView === 'community' ? 'active' : ''}`}
+                      onClick={handleCommunityClick}
+                    >
+                      🌱 Community
                     </button>
                     <button
                       className={`client-nav-btn ${currentView === 'messages' ? 'active' : ''}`}
@@ -196,6 +207,7 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                 onViewMessages={handleMessagesClick}
                 onViewAnalytics={handleAnalyticsClick}
                 onViewDeliverables={handleDeliverablesClick}
+                onViewCommunity={handleCommunityClick}
               />
             )}
 
@@ -251,6 +263,12 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                     <Deliverables
                       clientAddress={clientAddress}
                       refreshKey={refreshKey}
+                    />
+                  )}
+
+                  {currentView === 'community' && (
+                    <Community
+                      clientAddress={clientAddress}
                     />
                   )}
           </ErrorBoundary>
