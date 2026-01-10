@@ -119,7 +119,7 @@
 ### 7.1 Supabase Storage
 - [x] `new-service`: storageService.ts - Upload files to Supabase Storage, get signed URLs, delete files
 - [x] `new-endpoint`: POST /api/upload - Handle file upload with validation (size, type), store metadata
-- [ ] `new-component`: FileUpload - Drag-drop upload with progress, file type validation, preview
+- [x] `new-component`: FileUpload - Drag-drop upload with progress, file type validation, preview
 
 ---
 
@@ -238,6 +238,7 @@
 - [x] `notion-sync`: Lead - notionLeadSync.ts with CRM database, contact/project/tier details, status tracking
 - [x] `new-service`: storageService.ts - Supabase upload, signed URLs, delete, file validation, category limits
 - [x] `new-endpoint`: POST /api/upload - Single/multiple upload, multer, validation, deliverable creation, Notion sync
+- [x] `new-component`: FileUpload - Drag-drop zone, file list with preview, progress, validation, upload actions
 
 ---
 
