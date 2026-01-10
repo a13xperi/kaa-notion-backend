@@ -1,6 +1,10 @@
 # SAGE MVP Platform
 
-A tiered landscape architecture service platform with automated tier recommendation, Stripe payments, client portal, and admin dashboard.
+A production-ready tiered landscape architecture service platform with automated tier recommendation, Stripe payments, client portal, and admin dashboard.
+
+[![Tests](https://img.shields.io/badge/tests-857%20passing-brightgreen)](./docs/DEPLOYMENT_CHECKLIST.md)
+[![Backend](https://img.shields.io/badge/backend-262%20tests-blue)](./server)
+[![Frontend](https://img.shields.io/badge/frontend-595%20tests-blue)](./kaa-app)
 
 ## 🏗️ Architecture
 
@@ -9,21 +13,27 @@ A tiered landscape architecture service platform with automated tier recommendat
 │                      SAGE MVP Platform                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Frontend (React + TypeScript)                                  │
-│  ├── Intake Form → Tier Recommendation                          │
-│  ├── Client Portal → Projects, Milestones, Deliverables        │
-│  └── Admin Dashboard → Leads, Projects, Clients                │
+│  ├── Landing Page → Service overview, CTAs                      │
+│  ├── Intake Form → Tier recommendation                          │
+│  ├── Pricing Page → Tier selection, Stripe checkout             │
+│  ├── Client Portal → Projects, Milestones, Deliverables         │
+│  └── Admin Dashboard → Leads, Projects, Clients, Stats          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Backend (Node.js + Express + TypeScript)                       │
 │  ├── /api/auth      → Registration, Login, JWT                  │
-│  ├── /api/leads     → Lead management, Tier routing            │
+│  ├── /api/leads     → Lead management, Tier routing             │
 │  ├── /api/checkout  → Stripe payment sessions                   │
-│  ├── /api/projects  → Project management                        │
-│  ├── /api/admin     → Admin dashboard data                      │
-│  └── /api/webhooks  → Stripe payment events                     │
+│  ├── /api/projects  → Project & milestone management            │
+│  ├── /api/admin     → Dashboard stats, admin operations         │
+│  ├── /api/webhooks  → Stripe payment events                     │
+│  ├── /api/upload    → File uploads to Supabase Storage          │
+│  ├── /api/notion    → Notion sync operations                    │
+│  └── /api/health    → Health monitoring endpoints               │
 ├─────────────────────────────────────────────────────────────────┤
-│  Database: PostgreSQL (Supabase)                                │
+│  Database: PostgreSQL (via Prisma ORM)                          │
 │  Storage: Supabase Storage                                      │
-│  Payments: Stripe                                               │
+│  Payments: Stripe Checkout                                      │
+│  Email: Resend / SMTP                                           │
 │  Sync: Notion (optional)                                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -32,7 +42,7 @@ A tiered landscape architecture service platform with automated tier recommendat
 
 | Tier | Name | Price | Description |
 |------|------|-------|-------------|
-| 1 | The Concept | $299 | DIY guidance, automated |
+| 1 | The Concept | $299 | DIY guidance, automated design |
 | 2 | The Builder | $1,499 | Low-touch with checkpoints |
 | 3 | The Concierge | $4,999 | Site visits, hybrid approach |
 | 4 | White Glove | Custom | Full service, invitation-only |
@@ -41,181 +51,263 @@ A tiered landscape architecture service platform with automated tier recommendat
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL (or Supabase account)
-- Stripe account
-- (Optional) Notion integration
+- Node.js 20+
+- PostgreSQL 15+ (or use SQLite for development)
+- Stripe account (for payments)
 
-### Setup
-
-1. **Clone and install dependencies:**
+### 1. Clone and Install
 
 ```bash
-# Install root dependencies
-npm install
+git clone <repository-url>
+cd sage-mvp
 
-# Install server dependencies
-cd server && npm install && cd ..
-
-# Install frontend dependencies
-cd kaa-app && npm install && cd ..
+# Install all dependencies
+npm run install-all
 ```
 
-2. **Configure environment:**
+### 2. Configure Environment
 
 ```bash
-# Copy example env file
 cp env.example .env
-cp env.example server/.env
-
-# Edit .env with your values
 ```
 
-3. **Set up database:**
+Edit `.env` with your configuration:
 
 ```bash
-cd server
-npx prisma db push
-npx prisma generate
+# Required
+DATABASE_URL=postgresql://user:pass@localhost:5432/sage
+JWT_SECRET=your-64-character-secret-key
+
+# Recommended
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-4. **Start development:**
+### 3. Setup Database
 
 ```bash
-# Option 1: Use the dev script
-./scripts/dev-start.sh
-
-# Option 2: Start manually
-cd server && npm start &
-cd kaa-app && npm start
+# Run migrations and seed demo data
+npm run db:setup
 ```
 
-5. **Access the app:**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3001
+### 4. Start Development
+
+```bash
+# Start both frontend and backend
+npm run dev
+```
+
+**Access Points:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- API Docs: http://localhost:3001/api/docs
+- Health Check: http://localhost:3001/api/health
 
 ## 📁 Project Structure
 
 ```
-/workspace
+sage-mvp/
 ├── kaa-app/                 # React frontend
 │   ├── src/
 │   │   ├── components/      # UI components
-│   │   │   ├── intake/      # Intake form components
+│   │   │   ├── admin/       # Admin dashboard components
+│   │   │   ├── auth/        # Login, Register forms
+│   │   │   ├── checkout/    # Payment pages
+│   │   │   ├── common/      # Shared UI components
 │   │   │   ├── portal/      # Client portal components
-│   │   │   └── admin/       # Admin dashboard components
-│   │   ├── api/             # API client
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── types/           # TypeScript types
-│   │   └── utils/           # Utilities
-│   └── public/              # Static assets
+│   │   │   └── pricing/     # Pricing page
+│   │   ├── api/             # API client functions
+│   │   ├── contexts/        # React contexts
+│   │   ├── hooks/           # React Query hooks
+│   │   ├── pages/           # Page components
+│   │   └── types/           # TypeScript types
+│   └── package.json
 │
 ├── server/                  # Node.js backend
 │   ├── src/
-│   │   ├── routes/          # API routes
+│   │   ├── routes/          # API route handlers
 │   │   ├── services/        # Business logic
 │   │   ├── middleware/      # Express middleware
-│   │   ├── utils/           # Utilities
-│   │   └── __tests__/       # Tests
-│   └── prisma/              # Database schema
+│   │   ├── utils/           # Utility functions
+│   │   └── config/          # Configuration
+│   └── package.json
+│
+├── prisma/                  # Database schema
+│   ├── schema.prisma        # Prisma schema
+│   └── seed.ts              # Database seed script
 │
 ├── docs/                    # Documentation
-│   ├── API_REFERENCE.md     # API documentation
-│   └── ENVIRONMENT_SETUP.md # Environment guide
+│   ├── DEPLOYMENT_CHECKLIST.md
+│   ├── DOCKER_SETUP.md
+│   ├── API_REFERENCE.md
+│   └── ENVIRONMENT_SETUP.md
 │
-└── scripts/                 # Utility scripts
-    ├── dev-start.sh         # Development startup
-    └── verify-deployment.sh # Deployment check
+├── docker-compose.yml       # Production Docker config
+├── docker-compose.dev.yml   # Development Docker config
+└── .github/workflows/       # CI/CD pipeline
 ```
 
-## 🔧 Available Scripts
-
-### Server (in `/server`)
+## 🧪 Testing
 
 ```bash
-npm start           # Start production server
-npm run dev         # Start with nodemon
-npm run build       # Build TypeScript
-npm test            # Run tests
-```
+# Run all tests
+npm test
 
-### Frontend (in `/kaa-app`)
-
-```bash
-npm start           # Start development server
-npm run build       # Production build
-npm test            # Run tests
-```
-
-### Root
-
-```bash
-./scripts/dev-start.sh           # Start both services
-./scripts/verify-deployment.sh   # Verify deployment config
-```
-
-## 📊 Test Coverage
-
-| Category | Tests | Status |
-|----------|-------|--------|
-| Backend | 186 | ✅ Passing |
-| Frontend | 314 | ✅ Passing |
-| **Total** | **500** | ✅ |
-
-Run tests:
-```bash
-# Backend tests
+# Backend tests only (262 tests)
 cd server && npm test
 
-# Frontend tests
+# Frontend tests only (595 tests)
 cd kaa-app && npm test
 ```
 
-## 🔐 Environment Variables
+**Test Coverage:**
 
-See [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) for complete configuration.
+| Category | Tests |
+|----------|-------|
+| Backend Unit Tests | 190 |
+| Backend Integration | 36 |
+| Backend Services | 36 |
+| Frontend Components | 400+ |
+| Frontend API/Utils | 195 |
+| **Total** | **857** |
 
-**Required:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - Authentication secret
-- `STRIPE_SECRET_KEY` - Stripe API key
-- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_SERVICE_KEY` - Supabase service key
+## 🐳 Docker Deployment
 
-## 📚 Documentation
+### Development
 
-- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
-- [Environment Setup](docs/ENVIRONMENT_SETUP.md) - Configuration guide
-- [Architecture](/.claude/context/architecture.md) - System architecture
+```bash
+# Start with hot reload
+docker compose -f docker-compose.dev.yml up
 
-## 🛠️ Tech Stack
+# With database tools (Adminer, MailHog)
+docker compose -f docker-compose.dev.yml --profile tools up
+```
 
-**Frontend:**
-- React 19
-- TypeScript
-- CSS Modules
+### Production
 
-**Backend:**
-- Node.js
-- Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL
+```bash
+# Build and start
+docker compose up -d --build
 
-**Services:**
-- Stripe (Payments)
-- Supabase (Database + Storage)
-- Notion (Optional sync)
+# Run migrations
+docker compose --profile migrate up migrate
 
-**Testing:**
-- Jest
-- React Testing Library
+# View logs
+docker compose logs -f
+```
 
-## 📝 License
+See [DOCKER_SETUP.md](./docs/DOCKER_SETUP.md) for detailed instructions.
 
-Private - KAA Design Studio
+## 📚 API Documentation
+
+Interactive API documentation is available at `/api/docs` when running the server.
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/register` | POST | Register new user |
+| `/api/auth/login` | POST | Authenticate user |
+| `/api/leads` | POST | Create lead from intake |
+| `/api/checkout/create-session` | POST | Create Stripe checkout |
+| `/api/projects` | GET | List user's projects |
+| `/api/admin/dashboard` | GET | Admin stats |
+| `/api/health` | GET | Health check |
+
+See [API_REFERENCE.md](./docs/API_REFERENCE.md) for full documentation.
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `JWT_SECRET` | ✅ | 64+ character secret for tokens |
+| `STRIPE_SECRET_KEY` | ⚠️ | Stripe API key (for payments) |
+| `STRIPE_WEBHOOK_SECRET` | ⚠️ | Stripe webhook signing secret |
+| `RESEND_API_KEY` | - | Email service (or use SMTP) |
+| `NOTION_API_KEY` | - | Notion integration |
+| `SUPABASE_URL` | - | File storage |
+
+See [env.example](./env.example) for all options.
+
+## 🔒 Security Features
+
+- **Helmet.js** - Security headers
+- **Rate Limiting** - Per-endpoint limits
+- **JWT Authentication** - Secure token-based auth
+- **Input Validation** - Zod schema validation
+- **CORS** - Configurable origin whitelist
+- **Environment Validation** - Startup config checks
+
+## 📊 Monitoring
+
+### Health Endpoints
+
+```bash
+# Full health check
+curl http://localhost:3001/api/health
+
+# Detailed (includes all components)
+curl "http://localhost:3001/api/health?detailed=true"
+
+# Kubernetes probes
+curl http://localhost:3001/api/health/live
+curl http://localhost:3001/api/health/ready
+```
+
+### Logging
+
+- JSON format in production
+- Correlation IDs for request tracing
+- Configurable log levels
+
+## 🚢 Deployment
+
+See [DEPLOYMENT_CHECKLIST.md](./docs/DEPLOYMENT_CHECKLIST.md) for complete production deployment guide.
+
+### Quick Deploy
+
+```bash
+# 1. Set production environment
+export NODE_ENV=production
+
+# 2. Build
+npm run build
+
+# 3. Run migrations
+npx prisma migrate deploy
+
+# 4. Start
+npm start
+```
+
+## 📝 Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development servers |
+| `npm run build` | Build for production |
+| `npm test` | Run all tests |
+| `npm run db:setup` | Setup database with migrations and seed |
+| `npm run db:reset` | Reset database |
+| `npm run install-all` | Install all dependencies |
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+1. Fork the repository
+2. Create a feature branch
+3. Write tests for new features
+4. Ensure all tests pass
+5. Submit a pull request
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+Proprietary - All rights reserved.
+
+---
+
+Built with ❤️ for landscape architects and their clients.
