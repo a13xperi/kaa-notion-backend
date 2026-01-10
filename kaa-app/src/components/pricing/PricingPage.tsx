@@ -13,6 +13,33 @@ interface PricingPageProps {
   recommendedTier?: number;
 }
 
+// Helper to get stored intake data
+function getStoredIntakeData() {
+  try {
+    const leadId = sessionStorage.getItem('lead_id');
+    const intakeData = sessionStorage.getItem('intake_data');
+    const recommendation = sessionStorage.getItem('tier_recommendation');
+    
+    const parsed = intakeData ? JSON.parse(intakeData) : null;
+    const rec = recommendation ? JSON.parse(recommendation) : null;
+    
+    return {
+      leadId: leadId || undefined,
+      email: parsed?.email || undefined,
+      recommendedTier: rec?.tier || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+// Get recommended tier from URL params
+function getRecommendedTierFromURL(): number | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const tier = params.get('tier');
+  return tier ? parseInt(tier, 10) : undefined;
+}
+
 // Tier features configuration
 const TIER_FEATURES: Record<number, { features: string[]; highlight?: string }> = {
   1: {
@@ -52,12 +79,21 @@ const TIER_FEATURES: Record<number, { features: string[]; highlight?: string }> 
   },
 };
 
-export function PricingPage({ leadId, userEmail, recommendedTier }: PricingPageProps) {
+export function PricingPage({ leadId: propLeadId, userEmail: propEmail, recommendedTier: propRecommendedTier }: PricingPageProps) {
   const [pricing, setPricing] = useState<TierPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTier, setSelectedTier] = useState<number | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  
+  // Get stored data from session storage or URL
+  const storedData = getStoredIntakeData();
+  const urlRecommendedTier = getRecommendedTierFromURL();
+  
+  // Use props first, then stored data, then URL params
+  const leadId = propLeadId || storedData.leadId;
+  const userEmail = propEmail || storedData.email;
+  const recommendedTier = propRecommendedTier || storedData.recommendedTier || urlRecommendedTier;
 
   useEffect(() => {
     async function fetchPricing() {
@@ -65,8 +101,13 @@ export function PricingPage({ leadId, userEmail, recommendedTier }: PricingPageP
         const data = await getTierPricing();
         setPricing(data);
       } catch (err) {
-        setError('Failed to load pricing');
-        console.error('Error fetching pricing:', err);
+        // If API fails, use default pricing
+        setPricing([
+          { tier: 1, name: 'SAGE Tier 1 - DIY Guidance', description: 'Self-guided landscape planning', amount: 29900, currency: 'usd', formattedPrice: '$299' },
+          { tier: 2, name: 'SAGE Tier 2 - Design Package', description: 'Professional design consultation', amount: 149900, currency: 'usd', formattedPrice: '$1,499' },
+          { tier: 3, name: 'SAGE Tier 3 - Full Service', description: 'Complete design and project management', amount: 499900, currency: 'usd', formattedPrice: '$4,999' },
+        ]);
+        console.warn('Using default pricing - API unavailable');
       } finally {
         setLoading(false);
       }
@@ -76,8 +117,9 @@ export function PricingPage({ leadId, userEmail, recommendedTier }: PricingPageP
   }, []);
 
   const handleSelectTier = async (tier: number) => {
-    if (!leadId || !userEmail) {
-      // Navigate to intake form
+    // If no lead ID, store selection and redirect to intake
+    if (!leadId) {
+      sessionStorage.setItem('selected_tier', String(tier));
       window.location.href = '/get-started';
       return;
     }
@@ -89,12 +131,13 @@ export function PricingPage({ leadId, userEmail, recommendedTier }: PricingPageP
       await redirectToCheckout({
         leadId,
         tier: tier as 1 | 2 | 3,
-        email: userEmail,
+        email: userEmail || '',
       });
     } catch (err) {
-      setError('Failed to start checkout');
+      setError('Failed to start checkout. Please try again.');
       console.error('Checkout error:', err);
       setCheckoutLoading(false);
+      setSelectedTier(null);
     }
   };
 

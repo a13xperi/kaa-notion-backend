@@ -341,6 +341,9 @@
 - [x] `new-seed`: prisma/seed.ts - Database seed with tiers, users, leads, projects
 - [x] `new-script`: db-setup.sh - Interactive database setup with migrations
 - [x] `update`: package.json - Added seed config, db:setup, db:reset scripts
+- [x] `update`: IntakePage - Connected to leads API with fallback
+- [x] `update`: PricingPage - Reads from session storage, fallback pricing
+- [x] `integration`: Intake → Pricing → Checkout flow connected
 
 ### 2025-01-09
 - [x] Initial project setup

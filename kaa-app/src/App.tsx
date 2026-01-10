@@ -137,11 +137,46 @@ function RegisterPage() {
  */
 function IntakePage() {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   
   const handleIntakeSubmit = async (data: any, recommendation: any) => {
-    // Store the intake data and recommendation for checkout
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Try to create lead via API
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          name: data.name,
+          projectAddress: data.projectAddress,
+          projectType: data.projectType,
+          budgetRange: data.budgetRange,
+          timeline: data.timeline,
+          hasSurvey: data.hasSurvey,
+          hasDrawings: data.hasDrawings,
+          description: data.description,
+        }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        // Store lead ID for checkout
+        sessionStorage.setItem('lead_id', result.data?.id || result.id || '');
+      }
+    } catch (err) {
+      // API might not be available - continue anyway
+      console.warn('Could not save lead to API:', err);
+    }
+    
+    // Always store local data and navigate
     sessionStorage.setItem('intake_data', JSON.stringify(data));
     sessionStorage.setItem('tier_recommendation', JSON.stringify(recommendation));
+    
+    setIsSubmitting(false);
     
     // Navigate to pricing page with recommended tier highlighted
     navigate(`/pricing?tier=${recommendation.tier}`);
@@ -154,9 +189,21 @@ function IntakePage() {
           <h1>Let's Design Your Dream Landscape</h1>
           <p>Tell us about your project and we'll recommend the perfect service tier</p>
         </div>
+        {error && (
+          <div style={{ 
+            background: '#fee2e2', 
+            color: '#b91c1c', 
+            padding: '1rem', 
+            borderRadius: '8px',
+            marginBottom: '1rem',
+          }}>
+            {error}
+          </div>
+        )}
         <IntakeForm 
           onSubmit={handleIntakeSubmit}
           onCancel={() => navigate('/')}
+          isSubmitting={isSubmitting}
         />
       </div>
     </div>
