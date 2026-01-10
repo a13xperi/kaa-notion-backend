@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AppError, ErrorCodes, internalError, validationError } from '../utils/AppError';
 import { logger } from '../logger';
+import { captureException, setUser, setContext } from '../config/sentry';
 
 // ============================================================================
 // TYPES
@@ -63,6 +64,32 @@ export function errorHandler(
         : err.message,
       err
     );
+  }
+
+  // Set user context for Sentry
+  if (req.user) {
+    setUser({
+      id: req.user.id,
+      email: req.user.email,
+      userType: req.user.userType,
+    });
+  }
+
+  // Set additional context
+  setContext('request', {
+    method: req.method,
+    url: req.originalUrl,
+    correlationId: req.correlationId,
+  });
+
+  // Capture exception in Sentry (only for server errors)
+  if (appError.statusCode >= 500) {
+    captureException(appError, {
+      userId: req.user?.id,
+      correlationId: req.correlationId,
+      errorCode: appError.code,
+      details: appError.details,
+    });
   }
 
   // Log the error

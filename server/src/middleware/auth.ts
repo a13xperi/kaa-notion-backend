@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
 import { AppError, ErrorCodes, unauthorized, invalidToken, tokenExpired } from '../utils/AppError';
+import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -198,7 +199,9 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
       }
 
       // Unknown error
-      console.error('Auth middleware error:', error);
+      logger.error('Auth middleware error', {
+        error: (error as Error).message,
+      });
       res.status(500).json({
         success: false,
         error: {
