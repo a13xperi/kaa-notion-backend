@@ -106,3 +106,9 @@ export {
   generateETag,
   type CompressionConfig,
 } from './compression';
+
+// Feature Flags
+export {
+  requireNotionService,
+  requireStorageService,
+} from './featureFlagGuard';

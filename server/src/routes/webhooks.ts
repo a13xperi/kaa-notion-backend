@@ -17,6 +17,7 @@ import {
 } from '../utils/stripeHelpers';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
+import { requireNotionService } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -194,6 +195,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/notion',
+    requireNotionService,
     async (req: Request<{}, {}, NotionWebhookPayload>, res: Response, next: NextFunction) => {
       const correlationId = req.correlationId || `notion-webhook-${Date.now()}`;
       
@@ -244,19 +246,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
           objectId: event.object.id,
         });
 
-        // Check if Notion API is configured
-        const notionApiKey = process.env.NOTION_API_KEY;
-        if (!notionApiKey) {
-          logger.warn('Notion API not configured, skipping webhook processing', { correlationId });
-          return res.json({
-            success: true,
-            received: true,
-            message: 'Notion API not configured, webhook ignored',
-            correlationId,
-          });
-        }
-
-        const notion = new NotionClient({ auth: notionApiKey });
+        const notion = new NotionClient({ auth: process.env.NOTION_API_KEY! });
         const pageId = event.object.id;
         const lastEditedTime = event.object.last_edited_time;
 

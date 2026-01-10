@@ -181,6 +181,12 @@ if (features.apiDocsEnabled) {
 }
 
 // API Routes with Rate Limiting
+app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
+app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
+app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 const apiAuth = requireAuth(prisma);
 app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
