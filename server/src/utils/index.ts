@@ -35,6 +35,7 @@ export {
   registerSchema,
   loginSchema,
   addressLoginSchema,
+  refreshTokenSchema,
   // Lead
   createLeadSchema,
   updateLeadSchema,
@@ -61,6 +62,7 @@ export {
   type RegisterInput,
   type LoginInput,
   type AddressLoginInput,
+  type RefreshTokenInput,
   type CreateLeadInput,
   type UpdateLeadInput,
   type LeadFiltersInput,

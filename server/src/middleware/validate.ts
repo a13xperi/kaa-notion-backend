@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { AppError, validationError } from '../utils/AppError';
+import { validationError } from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -30,7 +30,7 @@ export function validate(
   target: ValidationTarget = 'body',
   options: ValidationOptions = {}
 ) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       const data = req[target];
 
@@ -47,10 +47,6 @@ export function validate(
 
       next();
     } catch (error) {
-      if (error instanceof AppError) {
-        res.status(error.statusCode).json(error.toJSON());
-        return;
-      }
       next(error);
     }
   };
@@ -85,7 +81,7 @@ export function validateAll(schemas: {
   query?: ZodSchema;
   params?: ZodSchema;
 }) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       const errors: Record<string, unknown> = {};
 
@@ -109,10 +105,6 @@ export function validateAll(schemas: {
 
       next();
     } catch (error) {
-      if (error instanceof AppError) {
-        res.status(error.statusCode).json(error.toJSON());
-        return;
-      }
       next(error);
     }
   };
