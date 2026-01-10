@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma';
 import { syncProjectToNotion } from './notionProjectSync';
 import { syncMilestoneToNotion } from './notionMilestoneSync';
 import { syncDeliverableToNotion } from './notionDeliverableSync';
+import { syncLeadToNotion } from './notionLeadSync';
 
 /**
  * Notion Sync Queue Service
@@ -443,14 +444,8 @@ class NotionSyncQueue {
     lead: any,
     operation: SyncOperation
   ): Promise<string | undefined> {
-    // TODO: Implement Notion API call
-    // - CREATE: Create lead in CRM database
-    // - UPDATE: Update lead properties
-    // - DELETE: Archive the page
-
-    console.log(`[NotionSync] ${operation} lead: ${lead.name} (${lead.id})`);
-
-    return lead.notionPageId || `notion-lead-${lead.id}`;
+    // Use the actual Notion sync implementation
+    return syncLeadToNotion(lead.id, operation);
   }
 
   // ============================================
