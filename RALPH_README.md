@@ -47,13 +47,30 @@ Run Claude Code autonomously with circuit breakers, error detection, and safety 
 
 ## Platform Zones
 
+### Web/Backend
+
 | Zone | Path | Stack |
 |------|------|-------|
 | `frontend` | kaa-app/src | React, TypeScript, Tailwind |
 | `backend` | server/ | Express, Prisma, Node.js |
 | `database` | prisma/ | PostgreSQL, Supabase |
-| `tests` | tests/ | Jest, Playwright |
 | `fullstack` | ./ | End-to-end features |
+
+### Mobile
+
+| Zone | Path | Stack |
+|------|------|-------|
+| `react-native` | mobile/ | React Native, Expo, TypeScript |
+| `flutter` | flutter_app/ | Flutter, Dart, Riverpod |
+| `ios` | ios/ | Swift, SwiftUI, XCTest |
+| `android` | android/ | Kotlin, Jetpack Compose |
+
+### Testing
+
+| Zone | Path | Stack |
+|------|------|-------|
+| `tests` | tests/ | Jest, Vitest |
+| `e2e` | e2e/ | Playwright, Detox, Maestro |
 
 ---
 
@@ -61,24 +78,34 @@ Run Claude Code autonomously with circuit breakers, error detection, and safety 
 
 ```
 TASK CREATION
-  ./ralph new              Interactive wizard
+  ./ralph new              Interactive wizard (all zones)
   ./ralph zone <zone>      Quick zone prompt
   ./ralph edit             Edit PROMPT.md in Cursor
 
 EXECUTION
   ./ralph start [N]        Start with N iterations (default: 30)
-  ./ralph parallel <zones> Run zones in parallel (tmux)
   ./ralph stop             Stop gracefully
+  ./ralph preflight        Run pre-flight checks only
+
+E2E TESTING
+  ./ralph e2e [target] [N] Start E2E continuous test loop
+                           Targets: all|web|playwright|mobile|detox|maestro
+  ./ralph test [zone]      Run tests for a specific zone
+
+MOBILE
+  ./ralph devices          Show simulators/emulators/devices
+  ./ralph mobile-check     Mobile environment pre-flight
 
 MONITORING
   ./ralph status           Current state + circuit breaker info
+  ./ralph health           Health check with budget status
   ./ralph watch            Live activity feed
   ./ralph logs [N]         Last N log entries
   ./ralph dashboard        Auto-refresh status
 
-UTILITIES
+RECOVERY
+  ./ralph rollback         Revert to git checkpoint
   ./ralph reset            Clear state
-  ./ralph help             Show help
 ```
 
 ---
@@ -114,6 +141,137 @@ Ralph stops and provides detailed guidance:
     "consecutiveFailures": 3
   }
 }
+```
+
+---
+
+## E2E Testing Loop
+
+The E2E testing loop runs continuous test-fix-retest cycles until all tests pass.
+
+### Quick Start
+
+```bash
+# Web E2E (Playwright)
+./ralph e2e web 20
+
+# Mobile E2E (Detox for React Native)
+./ralph e2e detox 20
+
+# Mobile E2E (Maestro)
+./ralph e2e maestro 20
+
+# All E2E tests
+./ralph e2e all 30
+```
+
+### How It Works
+
+```
+┌─────────────────────────────────────┐
+│  1. Run E2E tests                   │
+│  2. Analyze failures                │
+│  3. Fix the APPLICATION code        │
+│  4. Re-run tests                    │
+│  5. Repeat until all pass (3x)      │
+└─────────────────────────────────────┘
+```
+
+### E2E Frameworks
+
+| Framework | Target | Command |
+|-----------|--------|---------|
+| Playwright | Web | `npx playwright test` |
+| Detox | React Native | `detox test -c ios.sim.debug` |
+| Maestro | Any Mobile | `maestro test .maestro/` |
+| Appium | Cross-platform | `npx appium` |
+
+### Success Criteria
+
+The E2E loop considers tests "passing" when:
+1. All tests pass
+2. Tests pass 3 consecutive times (no flakiness)
+3. No regressions introduced
+
+---
+
+## Mobile Development
+
+### Check Your Environment
+
+```bash
+# See all simulators/emulators/devices
+./ralph devices
+
+# Run mobile pre-flight checks
+./ralph mobile-check
+```
+
+### Mobile Zones
+
+```bash
+# React Native
+./ralph zone react-native "Add login screen"
+./ralph start 30
+
+# Flutter
+./ralph zone flutter "Fix navigation bug"
+./ralph start 20
+
+# Native iOS
+./ralph zone ios "Implement SwiftUI dashboard"
+./ralph start 25
+
+# Native Android
+./ralph zone android "Add Jetpack Compose settings"
+./ralph start 25
+```
+
+### Running Mobile Tests
+
+```bash
+# Run React Native tests
+./ralph test react-native
+
+# Run Flutter tests
+./ralph test flutter
+
+# Run Detox E2E
+./ralph test detox
+
+# Run Maestro flows
+./ralph test maestro
+```
+
+### Device Management
+
+The `./ralph devices` command shows:
+- Running iOS simulators
+- Running Android emulators
+- Connected physical devices
+- Quick commands to boot simulators/emulators
+
+Example output:
+```
+iOS Simulators
+  ✓ Booted simulators: 1
+      iPhone 15 Pro (XXXXXXXX-XXXX-...) (Booted)
+
+Android Emulators
+  ○ No emulators running
+
+  Available AVDs:
+      Pixel_7
+      Pixel_8
+
+QUICK COMMANDS
+  iOS
+    Boot:   xcrun simctl boot 'iPhone 15'
+    List:   xcrun simctl list devices
+
+  Android
+    Boot:   emulator -avd Pixel_7
+    List:   emulator -list-avds
 ```
 
 ---
@@ -313,14 +471,34 @@ git add . && git commit -m "feat: Add JWT auth"
 ## Quick Reference
 
 ```bash
-./ralph new                 # Interactive wizard
-./ralph zone frontend       # Quick zone
+# Task Creation
+./ralph new                 # Interactive wizard (all zones)
+./ralph zone frontend       # Quick web zone
+./ralph zone react-native   # Quick mobile zone
 ./ralph edit                # Edit prompt
+
+# Execution
 ./ralph start 30            # Run loop
-./ralph parallel fe be      # Parallel zones
-./ralph status              # State + safety info
-./ralph watch               # Live feed
 ./ralph stop                # Stop gracefully
+./ralph preflight           # Check environment
+
+# E2E Testing
+./ralph e2e web 20          # Web E2E loop (Playwright)
+./ralph e2e detox 20        # Mobile E2E loop (Detox)
+./ralph e2e maestro 20      # Mobile E2E loop (Maestro)
+./ralph test all            # Run all tests once
+
+# Mobile
+./ralph devices             # Show simulators/emulators
+./ralph mobile-check        # Mobile pre-flight
+
+# Monitoring
+./ralph status              # State + safety info
+./ralph health              # Health check
+./ralph watch               # Live feed
+
+# Recovery
+./ralph rollback            # Revert to checkpoint
 ./ralph reset               # Clear all
 ```
 

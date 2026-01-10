@@ -7,6 +7,7 @@
       "testCommand": "cd kaa-app && npm test",
       "buildCommand": "cd kaa-app && npm run build",
       "lintCommand": "cd kaa-app && npm run lint",
+      "e2eCommand": "npx playwright test",
       "patterns": ["**/*.tsx", "**/*.ts", "**/*.css"],
       "exclude": ["node_modules", "build", "coverage"]
     },
@@ -27,11 +28,53 @@
       "studioCommand": "npx prisma studio",
       "patterns": ["schema.prisma", "migrations/**/*"]
     },
-    "infrastructure": {
-      "path": ".",
-      "stack": ["Vercel", "GitHub Actions", "Docker"],
-      "patterns": ["vercel.json", ".github/**/*", "Dockerfile", "docker-compose.yml"],
-      "exclude": ["node_modules"]
+    "react-native": {
+      "path": "mobile",
+      "stack": ["React Native", "TypeScript", "Expo", "React Navigation"],
+      "startCommand": "npx react-native start",
+      "iosCommand": "npx react-native run-ios",
+      "androidCommand": "npx react-native run-android",
+      "testCommand": "npm test",
+      "e2eCommand": "detox test -c ios.sim.debug",
+      "maestroCommand": "maestro test .maestro/",
+      "patterns": ["**/*.tsx", "**/*.ts"],
+      "exclude": ["node_modules", "ios/Pods", "android/build"]
+    },
+    "flutter": {
+      "path": "flutter_app",
+      "stack": ["Flutter", "Dart", "Riverpod"],
+      "runCommand": "flutter run",
+      "iosCommand": "flutter run -d ios",
+      "androidCommand": "flutter run -d android",
+      "testCommand": "flutter test",
+      "integrationCommand": "flutter test integration_test/",
+      "analyzeCommand": "flutter analyze",
+      "patterns": ["**/*.dart"],
+      "exclude": ["build", ".dart_tool"]
+    },
+    "ios": {
+      "path": "ios",
+      "stack": ["Swift", "SwiftUI", "UIKit", "XCTest"],
+      "buildCommand": "xcodebuild -scheme App -sdk iphonesimulator",
+      "testCommand": "xcodebuild test -scheme App -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15'",
+      "patterns": ["**/*.swift", "**/*.xib", "**/*.storyboard"]
+    },
+    "android": {
+      "path": "android",
+      "stack": ["Kotlin", "Jetpack Compose", "Android SDK"],
+      "buildCommand": "./gradlew assembleDebug",
+      "testCommand": "./gradlew test",
+      "instrumentedCommand": "./gradlew connectedAndroidTest",
+      "patterns": ["**/*.kt", "**/*.xml"]
+    },
+    "e2e": {
+      "path": "e2e",
+      "stack": ["Playwright", "Detox", "Maestro", "Appium"],
+      "webCommand": "npx playwright test",
+      "mobileCommand": "detox test",
+      "maestroCommand": "maestro test",
+      "allCommand": "npm run test:e2e:all",
+      "patterns": ["**/*.spec.ts", "**/*.test.ts", ".maestro/**/*.yaml"]
     },
     "tests": {
       "path": "tests",
@@ -39,10 +82,53 @@
       "testCommand": "npm test",
       "e2eCommand": "npm run test:e2e",
       "patterns": ["**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx"]
+    },
+    "fullstack": {
+      "path": ".",
+      "stack": ["Full Platform"],
+      "testCommand": "npm test",
+      "buildCommand": "npm run build",
+      "e2eCommand": "npm run test:e2e"
     }
+  },
+  "mobile": {
+    "simulators": {
+      "ios": ["iPhone 15", "iPhone 15 Pro", "iPad Pro"],
+      "android": ["Pixel 7", "Pixel 8", "Nexus 5X"]
+    },
+    "frameworks": {
+      "detox": {
+        "config": ".detoxrc.js",
+        "iosCommand": "detox test -c ios.sim.debug",
+        "androidCommand": "detox test -c android.emu.debug"
+      },
+      "maestro": {
+        "flowsDir": ".maestro",
+        "command": "maestro test"
+      },
+      "appium": {
+        "config": "appium.config.js",
+        "command": "npx appium"
+      }
+    }
+  },
+  "e2e": {
+    "playwright": {
+      "config": "playwright.config.ts",
+      "command": "npx playwright test",
+      "uiCommand": "npx playwright test --ui",
+      "debugCommand": "npx playwright test --debug",
+      "reportCommand": "npx playwright show-report"
+    },
+    "retries": 2,
+    "parallel": true,
+    "headless": true,
+    "traceOnFailure": true
   },
   "globalCommands": {
     "test": "npm test",
+    "test:e2e": "npx playwright test",
+    "test:mobile": "maestro test .maestro/",
     "build": "npm run build",
     "lint": "npm run lint",
     "dev": "npm run dev",
@@ -50,6 +136,6 @@
   },
   "validation": {
     "preCommit": ["lint", "typecheck", "test"],
-    "prePush": ["build", "test"]
+    "prePush": ["build", "test", "test:e2e"]
   }
 }

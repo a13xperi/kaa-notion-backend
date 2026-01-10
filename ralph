@@ -360,20 +360,35 @@ cmd_new() {
 
     echo -e "${W}PLATFORM ZONES${N}"
     divider
-    echo -e "  ${C}1${N}) frontend   - React, TypeScript, Tailwind"
-    echo -e "  ${C}2${N}) backend    - Express, Prisma, Node.js"
-    echo -e "  ${C}3${N}) database   - PostgreSQL, migrations"
-    echo -e "  ${C}4${N}) fullstack  - End-to-end features"
-    echo -e "  ${C}5${N}) tests      - Jest, Playwright"
+    echo -e "  ${C}Web/Backend${N}"
+    echo -e "    ${C}1${N}) frontend      - React, TypeScript, Tailwind"
+    echo -e "    ${C}2${N}) backend       - Express, Prisma, Node.js"
+    echo -e "    ${C}3${N}) database      - PostgreSQL, migrations"
+    echo -e "    ${C}4${N}) fullstack     - End-to-end features"
+    echo ""
+    echo -e "  ${C}Mobile${N}"
+    echo -e "    ${C}5${N}) react-native  - React Native, Expo, TypeScript"
+    echo -e "    ${C}6${N}) flutter       - Flutter, Dart, Riverpod"
+    echo -e "    ${C}7${N}) ios           - Swift, SwiftUI, XCTest"
+    echo -e "    ${C}8${N}) android       - Kotlin, Jetpack Compose"
+    echo ""
+    echo -e "  ${C}Testing${N}"
+    echo -e "    ${C}9${N}) tests         - Jest, Playwright"
+    echo -e "    ${C}10${N}) e2e          - E2E Testing Loop (Playwright/Detox/Maestro)"
     echo ""
 
-    read -p "Zone [1-5]: " zone_num
+    read -p "Zone [1-10]: " zone_num
     case "${zone_num}" in
         1) zone="frontend" ;;
         2) zone="backend" ;;
         3) zone="database" ;;
         4) zone="fullstack" ;;
-        5) zone="tests" ;;
+        5) zone="react-native" ;;
+        6) zone="flutter" ;;
+        7) zone="ios" ;;
+        8) zone="android" ;;
+        9) zone="tests" ;;
+        10) zone="e2e" ;;
         *) zone="fullstack" ;;
     esac
 
@@ -657,6 +672,385 @@ cmd_preflight() {
     preflight_check
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MOBILE & E2E COMMANDS
+# ══════════════════════════════════════════════════════════════════════════════
+
+cmd_devices() {
+    banner
+    echo -e "${W}DEVICE & SIMULATOR STATUS${N}"
+    divider
+    echo ""
+
+    # iOS Simulators
+    echo -e "${C}iOS Simulators${N}"
+    if command -v xcrun &>/dev/null; then
+        local booted=$(xcrun simctl list devices booted 2>/dev/null | grep -c "Booted" || echo "0")
+        if [[ ${booted} -gt 0 ]]; then
+            ok "Booted simulators: ${booted}"
+            xcrun simctl list devices booted 2>/dev/null | grep "Booted" | sed 's/^/      /'
+        else
+            info "No simulators running"
+        fi
+        echo ""
+
+        echo -e "  ${DIM}Available:${N}"
+        xcrun simctl list devices available 2>/dev/null | grep -E "iPhone|iPad" | head -5 | sed 's/^/      /'
+        echo -e "      ${DIM}... (run 'xcrun simctl list devices' for all)${N}"
+    else
+        warn "Xcode tools not installed (xcrun not found)"
+    fi
+    echo ""
+
+    # Android Emulators
+    echo -e "${C}Android Emulators${N}"
+    if command -v emulator &>/dev/null || [[ -d "${ANDROID_HOME:-$HOME/Android/Sdk}/emulator" ]]; then
+        local emu_path="${ANDROID_HOME:-$HOME/Android/Sdk}/emulator/emulator"
+
+        # Check running emulators
+        if command -v adb &>/dev/null; then
+            local running=$(adb devices 2>/dev/null | grep -c "emulator" || echo "0")
+            if [[ ${running} -gt 0 ]]; then
+                ok "Running emulators: ${running}"
+                adb devices 2>/dev/null | grep "emulator" | sed 's/^/      /'
+            else
+                info "No emulators running"
+            fi
+        fi
+        echo ""
+
+        # List available AVDs
+        if [[ -x "${emu_path}" ]]; then
+            echo -e "  ${DIM}Available AVDs:${N}"
+            "${emu_path}" -list-avds 2>/dev/null | head -5 | sed 's/^/      /'
+        fi
+    else
+        warn "Android SDK not found"
+    fi
+    echo ""
+
+    # Physical devices
+    echo -e "${C}Physical Devices${N}"
+    if command -v adb &>/dev/null; then
+        local physical=$(adb devices 2>/dev/null | grep -v "emulator" | grep "device$" | wc -l || echo "0")
+        if [[ ${physical} -gt 0 ]]; then
+            ok "Connected Android devices: ${physical}"
+            adb devices 2>/dev/null | grep "device$" | grep -v "emulator" | sed 's/^/      /'
+        else
+            info "No Android devices connected"
+        fi
+    fi
+    if command -v idevice_id &>/dev/null; then
+        local ios_devices=$(idevice_id -l 2>/dev/null | wc -l || echo "0")
+        if [[ ${ios_devices} -gt 0 ]]; then
+            ok "Connected iOS devices: ${ios_devices}"
+        fi
+    fi
+    echo ""
+
+    # Quick commands
+    echo -e "${W}QUICK COMMANDS${N}"
+    divider
+    echo -e "  ${C}iOS${N}"
+    echo "    Boot:   xcrun simctl boot 'iPhone 15'"
+    echo "    List:   xcrun simctl list devices"
+    echo ""
+    echo -e "  ${C}Android${N}"
+    echo "    Boot:   emulator -avd Pixel_7"
+    echo "    List:   emulator -list-avds"
+    echo ""
+}
+
+cmd_e2e() {
+    local target="${1:-all}"
+    local max="${2:-20}"
+
+    banner
+    echo -e "${W}E2E CONTINUOUS TEST LOOP${N}"
+    divider
+    echo ""
+
+    # Pre-flight for E2E
+    echo -e "${W}E2E PRE-FLIGHT${N}"
+    divider
+    local errors=0
+
+    # Check test frameworks
+    if [[ -f "playwright.config.ts" ]] || [[ -f "playwright.config.js" ]]; then
+        ok "Playwright config found"
+    else
+        info "No Playwright config (web E2E may not work)"
+    fi
+
+    if [[ -f ".detoxrc.js" ]] || [[ -f ".detoxrc.json" ]]; then
+        ok "Detox config found"
+    else
+        info "No Detox config (React Native E2E may not work)"
+    fi
+
+    if [[ -d ".maestro" ]]; then
+        ok "Maestro flows found"
+    else
+        info "No .maestro directory (mobile E2E may not work)"
+    fi
+
+    # Check if target tests exist
+    case "${target}" in
+        web|playwright)
+            if ! command -v npx &>/dev/null || ! npx playwright --version &>/dev/null 2>&1; then
+                err "Playwright not installed"
+                errors=$((errors + 1))
+            fi
+            ;;
+        mobile|detox)
+            if ! command -v detox &>/dev/null; then
+                warn "Detox CLI not found globally (may use npx)"
+            fi
+            ;;
+        maestro)
+            if ! command -v maestro &>/dev/null; then
+                err "Maestro not installed"
+                errors=$((errors + 1))
+            fi
+            ;;
+    esac
+
+    echo ""
+
+    if [[ ${errors} -gt 0 ]]; then
+        echo -e "${R}E2E pre-flight failed${N}"
+        return 1
+    fi
+
+    # Generate E2E prompt
+    local e2e_prompt="${RALPH_LOCAL}/prompts/e2e.md"
+    if [[ -f "${e2e_prompt}" ]]; then
+        cat "${e2e_prompt}" | \
+            sed "s|{{TASK}}|Run ${target} E2E tests continuously until all pass|g" | \
+            sed "s|{{REQUIREMENTS}}|Target: ${target}, Max iterations: ${max}|g" \
+            > "${PROMPT_FILE}"
+    else
+        cat > "${PROMPT_FILE}" << EOF
+# E2E Testing Loop
+
+## Target: ${target}
+
+## Task
+Run E2E tests continuously. When tests fail:
+1. Analyze the failure
+2. Fix the APPLICATION code (not the tests unless tests are wrong)
+3. Re-run tests
+4. Repeat until all pass
+
+## Test Commands
+$(case "${target}" in
+    web|playwright)   echo "- npx playwright test" ;;
+    mobile|detox)     echo "- detox test -c ios.sim.debug" ;;
+    maestro)          echo "- maestro test .maestro/" ;;
+    all|*)            echo "- npx playwright test (web)
+- detox test (React Native)
+- maestro test .maestro/ (mobile)" ;;
+esac)
+
+## Success Criteria
+- [ ] All ${target} E2E tests pass
+- [ ] Run tests 3x to verify no flakiness
+- [ ] No regressions introduced
+
+When ALL tests pass consistently (3 runs), output: RALPH_COMPLETE
+EOF
+    fi
+
+    echo -e "${G}E2E loop configured${N}"
+    echo -e "  Target:     ${C}${target}${N}"
+    echo -e "  Iterations: ${W}${max}${N}"
+    echo ""
+    echo -e "${W}Starting E2E loop...${N}"
+    echo ""
+
+    # Start the loop
+    cmd_start "${max}" ""
+}
+
+cmd_mobile_preflight() {
+    local platform="${1:-all}"
+
+    banner
+    echo -e "${W}MOBILE PRE-FLIGHT CHECK${N}"
+    divider
+    echo ""
+
+    local errors=0
+    local warnings=0
+
+    # React Native checks
+    if [[ "${platform}" == "all" ]] || [[ "${platform}" == "react-native" ]]; then
+        echo -e "${C}React Native${N}"
+        if [[ -f "mobile/package.json" ]] || [[ -f "package.json" ]] && grep -q "react-native" package.json 2>/dev/null; then
+            ok "React Native project detected"
+
+            if command -v npx &>/dev/null && npx react-native --version &>/dev/null 2>&1; then
+                ok "React Native CLI available"
+            else
+                warn "React Native CLI not available"
+                warnings=$((warnings + 1))
+            fi
+
+            if [[ -f "metro.config.js" ]]; then
+                ok "Metro bundler config found"
+            fi
+        else
+            info "No React Native project"
+        fi
+        echo ""
+    fi
+
+    # Flutter checks
+    if [[ "${platform}" == "all" ]] || [[ "${platform}" == "flutter" ]]; then
+        echo -e "${C}Flutter${N}"
+        if [[ -f "flutter_app/pubspec.yaml" ]] || [[ -f "pubspec.yaml" ]]; then
+            ok "Flutter project detected"
+
+            if command -v flutter &>/dev/null; then
+                ok "Flutter CLI installed"
+                local flutter_doctor=$(flutter doctor -v 2>/dev/null | grep -E "^\[" | head -5)
+                echo -e "${DIM}${flutter_doctor}${N}" | sed 's/^/      /'
+            else
+                err "Flutter CLI not installed"
+                errors=$((errors + 1))
+            fi
+        else
+            info "No Flutter project"
+        fi
+        echo ""
+    fi
+
+    # iOS checks
+    if [[ "${platform}" == "all" ]] || [[ "${platform}" == "ios" ]]; then
+        echo -e "${C}iOS${N}"
+        if [[ -d "ios" ]] || [[ -f "*.xcodeproj" ]] || [[ -f "*.xcworkspace" ]]; then
+            ok "iOS project detected"
+
+            if command -v xcodebuild &>/dev/null; then
+                ok "Xcode installed"
+                local xcode_version=$(xcodebuild -version 2>/dev/null | head -1)
+                echo -e "      ${DIM}${xcode_version}${N}"
+            else
+                err "Xcode not installed"
+                errors=$((errors + 1))
+            fi
+
+            if command -v pod &>/dev/null; then
+                ok "CocoaPods installed"
+            else
+                warn "CocoaPods not installed"
+                warnings=$((warnings + 1))
+            fi
+        else
+            info "No iOS project"
+        fi
+        echo ""
+    fi
+
+    # Android checks
+    if [[ "${platform}" == "all" ]] || [[ "${platform}" == "android" ]]; then
+        echo -e "${C}Android${N}"
+        if [[ -d "android" ]] || [[ -f "build.gradle" ]] || [[ -f "build.gradle.kts" ]]; then
+            ok "Android project detected"
+
+            if [[ -n "${ANDROID_HOME:-}" ]] || [[ -d "$HOME/Android/Sdk" ]]; then
+                ok "Android SDK found"
+            else
+                err "ANDROID_HOME not set"
+                errors=$((errors + 1))
+            fi
+
+            if command -v adb &>/dev/null; then
+                ok "ADB available"
+            else
+                warn "ADB not in PATH"
+                warnings=$((warnings + 1))
+            fi
+
+            if [[ -f "android/gradlew" ]] || [[ -f "gradlew" ]]; then
+                ok "Gradle wrapper found"
+            fi
+        else
+            info "No Android project"
+        fi
+        echo ""
+    fi
+
+    # Summary
+    divider
+    if [[ ${errors} -gt 0 ]]; then
+        echo -e "${R}Pre-flight failed: ${errors} error(s), ${warnings} warning(s)${N}"
+        return 1
+    elif [[ ${warnings} -gt 0 ]]; then
+        echo -e "${Y}Pre-flight passed with ${warnings} warning(s)${N}"
+        return 0
+    else
+        echo -e "${G}All mobile pre-flight checks passed${N}"
+        return 0
+    fi
+}
+
+cmd_test() {
+    local zone="${1:-all}"
+
+    banner
+    echo -e "${W}RUNNING TESTS${N}"
+    divider
+    echo ""
+
+    case "${zone}" in
+        web|frontend)
+            echo -e "${C}Running web tests...${N}"
+            npm test 2>&1 || true
+            ;;
+        e2e|playwright)
+            echo -e "${C}Running Playwright E2E tests...${N}"
+            npx playwright test 2>&1 || true
+            ;;
+        mobile|react-native)
+            echo -e "${C}Running React Native tests...${N}"
+            if [[ -d "mobile" ]]; then
+                cd mobile && npm test 2>&1 || true
+                cd ..
+            else
+                npm test 2>&1 || true
+            fi
+            ;;
+        detox)
+            echo -e "${C}Running Detox E2E tests...${N}"
+            npx detox test -c ios.sim.debug 2>&1 || true
+            ;;
+        maestro)
+            echo -e "${C}Running Maestro tests...${N}"
+            maestro test .maestro/ 2>&1 || true
+            ;;
+        flutter)
+            echo -e "${C}Running Flutter tests...${N}"
+            if [[ -d "flutter_app" ]]; then
+                cd flutter_app && flutter test 2>&1 || true
+                cd ..
+            else
+                flutter test 2>&1 || true
+            fi
+            ;;
+        all|*)
+            echo -e "${C}Running all tests...${N}"
+            echo ""
+            npm test 2>&1 || true
+            echo ""
+            if [[ -f "playwright.config.ts" ]]; then
+                echo -e "${C}Playwright tests...${N}"
+                npx playwright test 2>&1 || true
+            fi
+            ;;
+    esac
+}
+
 cmd_help() {
     banner
 
@@ -664,14 +1058,28 @@ cmd_help() {
     divider
     echo ""
     echo -e "  ${C}Task Creation${N}"
-    echo -e "    new              Interactive task wizard"
-    echo -e "    zone <zone>      Quick zone (frontend|backend|database|fullstack|tests)"
+    echo -e "    new              Interactive task wizard (all zones)"
+    echo -e "    zone <zone>      Quick zone prompt"
     echo -e "    edit             Edit PROMPT.md"
+    echo ""
+    echo -e "  ${C}Zones${N}"
+    echo -e "    Web:    frontend, backend, database, fullstack"
+    echo -e "    Mobile: react-native, flutter, ios, android"
+    echo -e "    Test:   tests, e2e"
     echo ""
     echo -e "  ${C}Execution${N}"
     echo -e "    start [N]        Start loop (default: 30 iterations)"
     echo -e "    stop             Stop gracefully"
     echo -e "    preflight        Run pre-flight checks only"
+    echo ""
+    echo -e "  ${C}E2E Testing${N}"
+    echo -e "    e2e [target] [N] Start E2E test loop"
+    echo -e "                     Targets: all|web|playwright|mobile|detox|maestro"
+    echo -e "    test [zone]      Run tests for zone"
+    echo ""
+    echo -e "  ${C}Mobile${N}"
+    echo -e "    devices          Show simulators/emulators/devices"
+    echo -e "    mobile-check     Mobile environment pre-flight"
     echo ""
     echo -e "  ${C}Monitoring${N}"
     echo -e "    status           State + circuit breaker"
@@ -687,9 +1095,25 @@ cmd_help() {
     echo -e "${W}QUICK START${N}"
     divider
     echo ""
-    echo "  ./ralph new          # Create task"
+    echo "  ./ralph new          # Interactive wizard"
     echo "  ./ralph start 30     # Run loop"
-    echo "  ./ralph watch        # Monitor"
+    echo "  ./ralph watch        # Monitor progress"
+    echo ""
+    echo -e "${W}E2E TESTING${N}"
+    divider
+    echo ""
+    echo "  ./ralph e2e web      # Web E2E tests (Playwright)"
+    echo "  ./ralph e2e mobile   # Mobile E2E (Detox)"
+    echo "  ./ralph e2e maestro  # Mobile E2E (Maestro)"
+    echo "  ./ralph e2e all      # All E2E tests"
+    echo ""
+    echo -e "${W}MOBILE DEVELOPMENT${N}"
+    divider
+    echo ""
+    echo "  ./ralph devices      # Check simulators/emulators"
+    echo "  ./ralph mobile-check # Mobile pre-flight"
+    echo "  ./ralph zone react-native 'Add login screen'"
+    echo "  ./ralph zone flutter 'Fix navigation bug'"
     echo ""
     echo -e "${W}SAFETY FEATURES${N}"
     divider
@@ -698,6 +1122,7 @@ cmd_help() {
     echo "  • Git checkpoint (rollback)"
     echo "  • Pre-flight checks"
     echo "  • Cost estimation"
+    echo "  • E2E test-fix-retest loop"
     echo ""
 }
 
@@ -706,20 +1131,38 @@ cmd_help() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 case "${1:-help}" in
+    # Task Creation
     new)        cmd_new ;;
+    zone)       cmd_zone "${2:-fullstack}" "${3:-}" ;;
+    edit)       cmd_edit ;;
+
+    # Execution
     start)      cmd_start "${2:-30}" "${3:-}" ;;
     stop)       cmd_stop ;;
+    preflight)  cmd_preflight ;;
+
+    # E2E Testing
+    e2e)        cmd_e2e "${2:-all}" "${3:-20}" ;;
+    test)       cmd_test "${2:-all}" ;;
+
+    # Mobile
+    devices)    cmd_devices ;;
+    mobile-check|mobile-preflight) cmd_mobile_preflight "${2:-all}" ;;
+
+    # Monitoring
     status)     cmd_status ;;
     health)     cmd_health ;;
     watch)      cmd_watch ;;
     logs)       cmd_logs "${2:-50}" ;;
     dashboard)  cmd_dashboard ;;
-    preflight)  cmd_preflight ;;
+
+    # Recovery
     rollback)   cmd_rollback ;;
     reset)      cmd_reset ;;
-    zone)       cmd_zone "${2:-fullstack}" "${3:-}" ;;
-    edit)       cmd_edit ;;
+
+    # Help
     help|-h|--help) cmd_help ;;
+
     *)
         echo -e "${R}Unknown: $1${N}"
         echo "Run './ralph help'"
