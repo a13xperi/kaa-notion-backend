@@ -3,7 +3,7 @@
  * Displays real-time notifications with bell icon and dropdown.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, JSX } from 'react';
 import {
   useRealtimeNotifications,
   Notification,

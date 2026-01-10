@@ -209,12 +209,12 @@ const ProjectSwitcher: React.FC<ProjectSwitcherProps> = ({
             ))}
           </div>
 
-          {summary?.archivedCount > 0 && (
+          {(summary?.archivedCount ?? 0) > 0 && (
             <div className="archived-info">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M12.5 2h-9a.5.5 0 00-.5.5v2a.5.5 0 00.5.5h9a.5.5 0 00.5-.5v-2a.5.5 0 00-.5-.5zM3 6v7.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V6H3zm4.5 2h1v3h-1V8z" />
               </svg>
-              <span>{summary.archivedCount} archived</span>
+              <span>{summary?.archivedCount ?? 0} archived</span>
             </div>
           )}
 
