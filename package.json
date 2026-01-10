@@ -27,7 +27,12 @@
     "db:reset": "npm run prisma:reset",
     "lint": "cd server && npm run lint && cd ../kaa-app && npm run lint",
     "docker:dev": "docker compose -f docker-compose.dev.yml up",
-    "docker:prod": "docker compose up -d --build"
+    "docker:prod": "docker compose up -d --build",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:report": "npx playwright show-report",
+    "generate:api-types": "npx ts-node scripts/generate-api-types.ts"
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0",
@@ -43,9 +48,11 @@
     "stripe": "^17.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@prisma/client": "^5.22.0",
     "@types/bcrypt": "^5.0.2",
     "concurrently": "^8.2.2",
+    "openapi-typescript": "^7.10.1",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
