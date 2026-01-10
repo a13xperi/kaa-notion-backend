@@ -1,0 +1,55 @@
+{
+  "name": "SAGE MVP Platform",
+  "zones": {
+    "frontend": {
+      "path": "kaa-app/src",
+      "stack": ["React", "TypeScript", "TailwindCSS", "React Query"],
+      "testCommand": "cd kaa-app && npm test",
+      "buildCommand": "cd kaa-app && npm run build",
+      "lintCommand": "cd kaa-app && npm run lint",
+      "patterns": ["**/*.tsx", "**/*.ts", "**/*.css"],
+      "exclude": ["node_modules", "build", "coverage"]
+    },
+    "backend": {
+      "path": "server",
+      "stack": ["Node.js", "Express", "TypeScript", "Prisma"],
+      "testCommand": "npm run test:backend",
+      "buildCommand": "npm run build:backend",
+      "lintCommand": "npm run lint:backend",
+      "patterns": ["**/*.ts", "**/*.js"],
+      "exclude": ["node_modules", "dist"]
+    },
+    "database": {
+      "path": "prisma",
+      "stack": ["PostgreSQL", "Prisma", "Supabase"],
+      "migrateCommand": "npx prisma migrate dev",
+      "generateCommand": "npx prisma generate",
+      "studioCommand": "npx prisma studio",
+      "patterns": ["schema.prisma", "migrations/**/*"]
+    },
+    "infrastructure": {
+      "path": ".",
+      "stack": ["Vercel", "GitHub Actions", "Docker"],
+      "patterns": ["vercel.json", ".github/**/*", "Dockerfile", "docker-compose.yml"],
+      "exclude": ["node_modules"]
+    },
+    "tests": {
+      "path": "tests",
+      "stack": ["Jest", "Playwright", "Testing Library"],
+      "testCommand": "npm test",
+      "e2eCommand": "npm run test:e2e",
+      "patterns": ["**/*.test.ts", "**/*.spec.ts", "**/*.test.tsx"]
+    }
+  },
+  "globalCommands": {
+    "test": "npm test",
+    "build": "npm run build",
+    "lint": "npm run lint",
+    "dev": "npm run dev",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "validation": {
+    "preCommit": ["lint", "typecheck", "test"],
+    "prePush": ["build", "test"]
+  }
+}

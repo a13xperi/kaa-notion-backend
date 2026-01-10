@@ -1,0 +1,22 @@
+{
+  "id": "codex",
+  "name": "OpenAI Codex",
+  "type": "generator",
+  "command": "codex",
+  "flags": [],
+  "capabilities": [
+    "code-generation",
+    "boilerplate",
+    "translations",
+    "completions"
+  ],
+  "zones": ["frontend", "backend"],
+  "maxIterations": 20,
+  "costPerIteration": 0.50,
+  "strengths": [
+    "Fast code generation",
+    "Boilerplate creation",
+    "Language translations",
+    "Pattern completion"
+  ]
+}

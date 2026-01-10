@@ -1,278 +1,266 @@
-# RALPH - Autonomous Loop for Claude Code
+# RALPH - Multi-Agent Platform Orchestrator
 
-Run Claude Code autonomously for hours. Give it a task, walk away, come back to completed work.
+Run autonomous AI loops across your entire platform.
 
-## Your Stack
-- **Warp** - Terminal
-- **Cursor** - IDE
-- **Claude Code** - AI assistant
-- **Codex** - Code generation
+```
+  ╦═╗╔═╗╦  ╔═╗╦ ╦
+  ╠╦╝╠═╣║  ╠═╝╠═╣
+  ╩╚═╩ ╩╩═╝╩  ╩ ╩
+```
+
+**Your Stack:** Warp + Cursor + Claude Code + Codex
 
 ---
 
-## Quick Start (30 seconds)
+## Platform Zones
 
-### Step 1: Edit Your Task
+| Zone | Path | Stack |
+|------|------|-------|
+| `frontend` | kaa-app/src | React, TypeScript, Tailwind |
+| `backend` | server/ | Express, Prisma, Node.js |
+| `database` | prisma/ | PostgreSQL, Supabase |
+| `tests` | tests/ | Jest, Playwright |
+| `fullstack` | ./ | All of the above |
+
+---
+
+## Quick Start
+
+### Option 1: Interactive (Recommended)
 ```bash
-./ralph edit
+./ralph new
 ```
-This opens `PROMPT.md` in Cursor. Write what you want done.
+Select zone → Describe task → Start
 
-**Example PROMPT.md:**
-```markdown
-# Task: Add user authentication
-
-## Objective
-Implement JWT-based authentication for the API.
-
-## Requirements
-1. Login endpoint POST /api/auth/login
-2. Register endpoint POST /api/auth/register
-3. Protected route middleware
-4. Password hashing with bcrypt
-
-## Success Criteria
-- [ ] All endpoints working
-- [ ] Tests pass: npm test
-- [ ] No TypeScript errors
-
-## Workflow
-Run tests after each change. When ALL criteria met, output: RALPH_COMPLETE
-```
-
-### Step 2: Start the Loop
+### Option 2: Quick Zone
 ```bash
-./ralph start 30
-```
-This launches Claude Code with your task. It will iterate up to 30 times until complete.
-
-### Step 3: Walk Away
-Ralph runs autonomously. Check status anytime:
-```bash
-./ralph status
-./ralph watch    # Live activity feed
+./ralph zone frontend        # Generate prompt for zone
+./ralph edit                 # Customize in Cursor
+./ralph start 30             # Run 30 iterations
 ```
 
-### Step 4: Stop (if needed)
+### Option 3: Parallel (Advanced)
 ```bash
-./ralph stop
+./ralph parallel frontend backend
 ```
+Runs both zones simultaneously in tmux.
 
 ---
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `./ralph start [N]` | Start loop with N iterations (default: 30) |
-| `./ralph stop` | Stop gracefully on next iteration |
-| `./ralph status` | Show current status |
-| `./ralph watch` | Live activity feed |
-| `./ralph logs` | Show log history |
-| `./ralph reset` | Reset to idle state |
-| `./ralph edit` | Edit PROMPT.md in Cursor |
-| `./ralph help` | Show all commands |
+```
+TASK CREATION
+  ./ralph new              Interactive wizard
+  ./ralph zone <zone>      Quick: frontend|backend|database|tests|fullstack
+  ./ralph edit             Edit PROMPT.md in Cursor
+
+EXECUTION
+  ./ralph start [N]        Start with N iterations (default: 30)
+  ./ralph parallel <zones> Run multiple zones in parallel
+  ./ralph stop             Stop gracefully
+
+MONITORING
+  ./ralph status           Current state
+  ./ralph watch            Live activity feed
+  ./ralph logs [N]         Last N log entries
+  ./ralph dashboard        Auto-refresh status
+
+UTILITIES
+  ./ralph reset            Clear state
+  ./ralph help             Show help
+```
 
 ---
 
-## Workflow for Warp + Cursor
+## Workflows
 
-### Terminal 1 (Warp) - Run Ralph
+### Single Zone
+
+**Frontend:**
 ```bash
-cd /path/to/project
-./ralph start 30
+./ralph zone frontend
+# Edit PROMPT.md: "Build user profile page with avatar upload"
+./ralph start 25
 ```
 
-### Terminal 2 (Warp) - Monitor
+**Backend:**
 ```bash
-./ralph watch
+./ralph zone backend
+# Edit: "Create CRUD endpoints for milestones"
+./ralph start 20
 ```
 
-### Cursor - View Changes
-Open the project in Cursor. Watch files update in real-time as Claude works.
+**Full-Stack:**
+```bash
+./ralph new
+# Select: fullstack
+# Describe: "Add notifications with email + in-app"
+./ralph start 50
+```
+
+### Parallel Zones
+
+```bash
+# Run frontend and backend simultaneously
+./ralph parallel frontend backend
+
+# Attach to see both panes
+tmux attach -t ralph-parallel-*
+
+# tmux controls:
+# Ctrl+B → D     Detach (keeps running)
+# Ctrl+B → ←/→   Switch panes
+# Ctrl+B → z     Zoom current pane
+```
 
 ---
 
-## How It Works
+## Warp + Cursor Flow
 
+### Warp Terminal 1 - Ralph
+```bash
+./ralph new           # Create task
+./ralph start 30      # Launch
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  1. You run: ./ralph start 30                               │
-│                                                             │
-│  2. Claude Code starts with your PROMPT.md                  │
-│                                                             │
-│  3. Claude works on the task...                             │
-│                                                             │
-│  4. Claude tries to exit                                    │
-│     └─► Stop Hook intercepts                                │
-│         └─► Checks: Complete? Max iterations?               │
-│             ├─► NO  → Re-inject prompt, continue (go to 3)  │
-│             └─► YES → Allow exit                            │
-│                                                             │
-│  5. Loop ends when:                                         │
-│     - Claude outputs "RALPH_COMPLETE"                       │
-│     - Max iterations reached                                │
-│     - You run ./ralph stop                                  │
-└─────────────────────────────────────────────────────────────┘
+
+### Warp Terminal 2 - Monitor
+```bash
+./ralph watch         # Live feed
 ```
+
+### Cursor
+- Files update in real-time as Claude works
+- Use diff view to review changes
+- AI chat for quick questions
 
 ---
 
 ## Writing Good Prompts
 
-### DO: Clear Success Criteria
+### Example (Good)
 ```markdown
+# Task: Add dark mode to settings
+
+## Objective
+Toggle that persists user preference.
+
+## Requirements
+1. Toggle switch in Settings page
+2. Theme context provider
+3. Persist to localStorage
+4. Apply to all components
+
 ## Success Criteria
-- [ ] All tests pass
-- [ ] Coverage > 80%
-- [ ] No linting errors
+- [ ] Toggle works
+- [ ] Theme persists on refresh
+- [ ] All components styled
+- [ ] Tests pass
+
 When complete, output: RALPH_COMPLETE
 ```
 
-### DO: Incremental Phases
+### Bad Examples
 ```markdown
-## Phases
-1. Database models (then test)
-2. API endpoints (then test)
-3. Frontend components (then test)
-Complete each phase before moving on.
-```
+# Too vague
+Make the app look better.
 
-### DON'T: Vague Instructions
-```markdown
-# Bad
-Make the app better.
-
-# Good
-Add input validation to all API endpoints using Zod schemas.
-Validate: email format, password length (8+), required fields.
-```
-
----
-
-## Configuration
-
-Edit `.ralph.json`:
-```json
-{
-  "maxIterations": 30,
-  "completionPromise": "RALPH_COMPLETE"
-}
+# No success criteria
+Add some features.
 ```
 
 ---
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `ralph` | Main CLI script |
-| `PROMPT.md` | Your task instructions |
-| `.ralph.json` | Configuration |
-| `.ralph-output.log` | Activity log |
-| `.claude/hooks/stop-hook.sh` | Loop mechanism |
-| `.claude/settings.json` | Claude Code hook config |
+```
+project/
+├── ralph                    # CLI
+├── PROMPT.md               # Current task
+├── .ralph.json             # Config
+├── .ralph-output.log       # Activity
+└── .ralph/
+    ├── platform.json       # Platform config
+    ├── agents/             # Agent configs
+    │   ├── claude-code.json
+    │   └── codex.json
+    └── prompts/            # Zone templates
+        ├── frontend.md
+        ├── backend.md
+        ├── fullstack.md
+        └── tests.md
+```
 
 ---
 
-## Cost Estimate
+## Cost Estimates
 
-| Iterations | Estimated Cost |
-|------------|----------------|
-| 10 | $5-15 |
-| 30 | $15-50 |
-| 50 | $25-100 |
-
-Costs vary by task complexity and model.
+| Iterations | Est. Cost | Use Case |
+|------------|-----------|----------|
+| 10 | $5-15 | Small fix |
+| 30 | $15-50 | Feature |
+| 50 | $25-100 | Large feature |
 
 ---
 
 ## Troubleshooting
 
-### Loop exits immediately
-- Check `PROMPT.md` exists
-- Run `./ralph reset` then `./ralph start`
+**Loop exits immediately:**
+```bash
+./ralph reset && ./ralph start
+```
 
-### Claude seems stuck
+**Stuck on same error:**
 ```bash
 ./ralph stop
-# Edit PROMPT.md with more specific instructions
+./ralph edit  # Add more specific instructions
 ./ralph start
 ```
 
-### Check what's happening
+**Check activity:**
 ```bash
-./ralph status
-./ralph logs
-tail -f .ralph-output.log
+./ralph watch
+./ralph logs 100
 ```
 
 ---
 
-## Example: Full Development Session
+## Example Session
 
 ```bash
-# Morning: Start a big task
-./ralph edit  # Write: "Migrate all tests from Jest to Vitest"
+# Morning
+./ralph new
+# Zone: fullstack
+# Task: "Add project timeline with milestones"
 ./ralph start 50
 
 # Go to meetings...
 
-# Afternoon: Check progress
+# Afternoon
 ./ralph status
 
-# Evening: Review completed work in Cursor
+# Evening - Review in Cursor
 git diff
 npm test
 ```
 
 ---
 
-## Pro Tips
-
-1. **Start small** - Try 10 iterations first to calibrate
-2. **Be specific** - "Add X to Y" not "improve Z"
-3. **Include tests** - Ralph works best when it can verify itself
-4. **Watch first run** - See how Claude interprets your prompt
-5. **Iterate prompts** - Refine based on results
-
----
-
-## Integration with Your Tools
-
-### Warp
-- Use split panes: Ralph in one, `./ralph watch` in another
-- Warp's AI features complement Ralph for quick fixes
-
-### Cursor
-- Keep project open to see real-time file changes
-- Use Cursor's diff view to review Ralph's work
-- Cursor's chat can help refine your PROMPT.md
-
-### Codex
-- Use Codex for quick one-off generations
-- Use Ralph for multi-step, iterative development
-- They complement each other
-
----
-
 ## Quick Reference
 
 ```bash
-# Start working
-./ralph edit          # Write your task
-./ralph start 30      # Begin loop
-
-# Monitor
-./ralph status        # Check status
-./ralph watch         # Live feed
-
-# Control
-./ralph stop          # Stop gracefully
-./ralph reset         # Start fresh
+./ralph new                 # Create task (interactive)
+./ralph zone frontend       # Quick zone prompt
+./ralph edit                # Edit in Cursor
+./ralph start 30            # Run loop
+./ralph parallel fe be      # Parallel zones
+./ralph status              # Check state
+./ralph watch               # Live feed
+./ralph stop                # Stop gracefully
+./ralph reset               # Clear all
 ```
 
 ---
 
-*Ralph Wiggum: "Me fail English? That's unpossible!"*
-*Also Ralph: Ships code for 6 hours straight without failing.*
+*"Me fail English? That's unpossible!"*
+*Also Ralph: Ships your entire platform while you sleep.*

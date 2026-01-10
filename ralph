@@ -1,236 +1,477 @@
 #!/bin/bash
 #
-# RALPH - Autonomous Loop for Claude Code
-# Usage: ./ralph [command] [options]
+# RALPH - Multi-Agent Orchestrator for Claude Code
+# Runs autonomous loops across your entire platform
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RALPH_DIR="${HOME}/.ralph"
-RALPH_STATE="${RALPH_DIR}/state.json"
-RALPH_LOG="${RALPH_DIR}/ralph.log"
-CONFIG_FILE="${SCRIPT_DIR}/.ralph.json"
-PROMPT_FILE="${SCRIPT_DIR}/PROMPT.md"
-OUTPUT_LOG="${SCRIPT_DIR}/.ralph-output.log"
+RALPH_DIR="${SCRIPT_DIR}/.ralph"
+RALPH_STATE="${HOME}/.ralph/state.json"
+RALPH_LOG="${HOME}/.ralph/ralph.log"
+QUEUE_DIR="${RALPH_DIR}/queue"
 
 # Colors
-R='\033[0;31m' G='\033[0;32m' Y='\033[1;33m' B='\033[0;34m' C='\033[0;36m' W='\033[1;37m' N='\033[0m'
+R='\033[0;31m' G='\033[0;32m' Y='\033[1;33m' B='\033[0;34m'
+C='\033[0;36m' M='\033[0;35m' W='\033[1;37m' N='\033[0m' DIM='\033[2m'
 
-mkdir -p "${RALPH_DIR}"
+mkdir -p "${HOME}/.ralph" "${QUEUE_DIR}"
+[[ -f "${RALPH_STATE}" ]] || echo '{"agents":{},"queue":[],"status":"idle"}' > "${RALPH_STATE}"
 
-# Initialize state if needed
-[[ -f "${RALPH_STATE}" ]] || echo '{"iteration":0,"status":"idle","started":""}' > "${RALPH_STATE}"
-
-# Initialize config if needed
-[[ -f "${CONFIG_FILE}" ]] || cat > "${CONFIG_FILE}" << 'CONF'
-{
-  "maxIterations": 30,
-  "completionPromise": "RALPH_COMPLETE",
-  "model": "claude-sonnet-4-20250514"
-}
-CONF
+# ══════════════════════════════════════════════════════════════
+# UI Components
+# ══════════════════════════════════════════════════════════════
 
 banner() {
     echo -e "${C}"
     cat << 'EOF'
-  ____      _     _     ____  _   _
- |  _ \    / \   | |   |  _ \| | | |
- | |_) |  / _ \  | |   | |_) | |_| |
- |  _ <  / ___ \ | |___|  __/|  _  |
- |_| \_\/_/   \_\|_____|_|   |_| |_|
-
+  ╦═╗╔═╗╦  ╔═╗╦ ╦
+  ╠╦╝╠═╣║  ╠═╝╠═╣
+  ╩╚═╩ ╩╩═╝╩  ╩ ╩
 EOF
-    echo -e "${N}  Autonomous Loop for Claude Code"
+    echo -e "${N}  ${DIM}Multi-Agent Platform Orchestrator${N}"
     echo ""
 }
 
-status() {
-    local iter=$(jq -r '.iteration // 0' "${RALPH_STATE}" 2>/dev/null || echo 0)
-    local status=$(jq -r '.status // "idle"' "${RALPH_STATE}" 2>/dev/null || echo "idle")
-    local max=$(jq -r '.maxIterations // 30' "${CONFIG_FILE}" 2>/dev/null || echo 30)
-    local last=$(jq -r '.lastUpdate // "-"' "${RALPH_STATE}" 2>/dev/null || echo "-")
+divider() {
+    echo -e "${DIM}────────────────────────────────────────${N}"
+}
 
-    echo -e "${W}=== RALPH STATUS ===${N}"
+# ══════════════════════════════════════════════════════════════
+# Platform Info
+# ══════════════════════════════════════════════════════════════
+
+show_platform() {
+    echo -e "${W}PLATFORM: SAGE MVP${N}"
+    divider
+    echo -e "  ${C}frontend${N}    kaa-app/src     React + TypeScript"
+    echo -e "  ${C}backend${N}     server/         Express + Prisma"
+    echo -e "  ${C}database${N}    prisma/         PostgreSQL"
+    echo -e "  ${C}tests${N}       tests/          Jest + Playwright"
+    echo -e "  ${C}infra${N}       ./              Vercel + GitHub"
     echo ""
+}
 
-    case "${status}" in
-        running) echo -e "  Status:     ${G}RUNNING${N}" ;;
-        complete) echo -e "  Status:     ${G}COMPLETE${N}" ;;
-        stopped) echo -e "  Status:     ${Y}STOPPED${N}" ;;
-        max_iterations) echo -e "  Status:     ${Y}MAX ITERATIONS${N}" ;;
-        *) echo -e "  Status:     ${B}IDLE${N}" ;;
+show_agents() {
+    echo -e "${W}AGENTS${N}"
+    divider
+    echo -e "  ${G}claude-code${N}  Primary AI     Complex tasks, refactoring"
+    echo -e "  ${B}codex${N}        Generator      Fast code generation"
+    echo ""
+}
+
+# ══════════════════════════════════════════════════════════════
+# Task Management
+# ══════════════════════════════════════════════════════════════
+
+create_task() {
+    local zone="$1"
+    local task="$2"
+    local agent="${3:-claude-code}"
+    local iterations="${4:-30}"
+    local task_id=$(date +%s)
+    local task_file="${QUEUE_DIR}/${task_id}.json"
+
+    # Get template
+    local template=""
+    case "${zone}" in
+        frontend) template="${RALPH_DIR}/prompts/frontend.md" ;;
+        backend)  template="${RALPH_DIR}/prompts/backend.md" ;;
+        database) template="${RALPH_DIR}/prompts/fullstack.md" ;;
+        fullstack|full) template="${RALPH_DIR}/prompts/fullstack.md" ;;
+        *) template="${RALPH_DIR}/prompts/fullstack.md" ;;
     esac
 
-    echo -e "  Iteration:  ${W}${iter}${N} / ${max}"
-    echo -e "  Last:       ${last}"
-    echo ""
+    # Create task
+    cat > "${task_file}" << EOF
+{
+  "id": "${task_id}",
+  "zone": "${zone}",
+  "task": "${task}",
+  "agent": "${agent}",
+  "maxIterations": ${iterations},
+  "status": "pending",
+  "created": "$(date -Iseconds)",
+  "template": "${template}"
+}
+EOF
 
-    if [[ -f "${PROMPT_FILE}" ]]; then
-        echo -e "  ${G}PROMPT.md${N}    Ready"
+    echo "${task_id}"
+}
+
+# ══════════════════════════════════════════════════════════════
+# Prompt Generation
+# ══════════════════════════════════════════════════════════════
+
+generate_prompt() {
+    local zone="$1"
+    local task="$2"
+    local requirements="${3:-}"
+
+    local template="${RALPH_DIR}/prompts/${zone}.md"
+    [[ -f "${template}" ]] || template="${RALPH_DIR}/prompts/fullstack.md"
+
+    if [[ -f "${template}" ]]; then
+        sed -e "s|{{TASK}}|${task}|g" \
+            -e "s|{{REQUIREMENTS}}|${requirements}|g" \
+            "${template}"
     else
-        echo -e "  ${R}PROMPT.md${N}    Missing!"
-    fi
+        cat << EOF
+# Task: ${task}
 
-    if [[ -f "${OUTPUT_LOG}" ]]; then
-        echo ""
-        echo -e "${W}Recent Activity:${N}"
-        tail -5 "${OUTPUT_LOG}" 2>/dev/null | sed 's/^/  /'
+## Zone: ${zone}
+
+## Requirements
+${requirements}
+
+## Verification
+- Run tests: npm test
+- Check build: npm run build
+
+When complete, output: RALPH_COMPLETE
+EOF
     fi
 }
 
-start() {
+# ══════════════════════════════════════════════════════════════
+# Commands
+# ══════════════════════════════════════════════════════════════
+
+cmd_new() {
+    banner
+    show_platform
+
+    echo -e "${W}CREATE NEW TASK${N}"
+    divider
+    echo ""
+
+    # Zone selection
+    echo -e "Select zone:"
+    echo -e "  ${C}1${N}) frontend   - React components, hooks, pages"
+    echo -e "  ${C}2${N}) backend    - API routes, services, middleware"
+    echo -e "  ${C}3${N}) database   - Prisma schema, migrations"
+    echo -e "  ${C}4${N}) fullstack  - End-to-end features"
+    echo -e "  ${C}5${N}) tests      - Test coverage, e2e tests"
+    echo ""
+    read -p "Zone [1-5]: " zone_num
+
+    case "${zone_num}" in
+        1) zone="frontend" ;;
+        2) zone="backend" ;;
+        3) zone="database" ;;
+        4) zone="fullstack" ;;
+        5) zone="tests" ;;
+        *) zone="fullstack" ;;
+    esac
+
+    echo ""
+    read -p "Task description: " task_desc
+    echo ""
+    read -p "Max iterations [30]: " max_iter
+    max_iter="${max_iter:-30}"
+
+    # Generate prompt and save to PROMPT.md
+    generate_prompt "${zone}" "${task_desc}" "" > "${SCRIPT_DIR}/PROMPT.md"
+
+    echo ""
+    echo -e "${G}Task created!${N}"
+    echo ""
+    echo -e "  Zone:       ${C}${zone}${N}"
+    echo -e "  Iterations: ${W}${max_iter}${N}"
+    echo -e "  Prompt:     ${W}PROMPT.md${N}"
+    echo ""
+    echo -e "${Y}Next steps:${N}"
+    echo "  1. Review/edit: ./ralph edit"
+    echo "  2. Start loop:  ./ralph start ${max_iter}"
+}
+
+cmd_start() {
     local max="${1:-30}"
 
     banner
 
-    if [[ ! -f "${PROMPT_FILE}" ]]; then
-        echo -e "${R}Error: PROMPT.md not found${N}"
+    if [[ ! -f "${SCRIPT_DIR}/PROMPT.md" ]]; then
+        echo -e "${R}No PROMPT.md found${N}"
         echo ""
-        echo "Create PROMPT.md with your task first."
-        echo "Example: ./ralph edit"
+        echo "Create a task first:"
+        echo "  ./ralph new      Interactive task creation"
+        echo "  ./ralph edit     Manual prompt editing"
         exit 1
     fi
 
     # Update config
-    jq --arg max "${max}" '.maxIterations = ($max | tonumber)' "${CONFIG_FILE}" > "${CONFIG_FILE}.tmp"
-    mv "${CONFIG_FILE}.tmp" "${CONFIG_FILE}"
+    cat > "${SCRIPT_DIR}/.ralph.json" << EOF
+{
+  "maxIterations": ${max},
+  "completionPromise": "RALPH_COMPLETE",
+  "started": "$(date -Iseconds)"
+}
+EOF
 
     # Reset state
     echo '{"iteration":0,"status":"running","started":"'"$(date -Iseconds)"'"}' > "${RALPH_STATE}"
-    rm -f "${SCRIPT_DIR}/.ralph-stop"
-    > "${OUTPUT_LOG}"
+    rm -f "${SCRIPT_DIR}/.ralph-stop" "${SCRIPT_DIR}/.ralph-output.log"
+    touch "${SCRIPT_DIR}/.ralph-output.log"
 
-    echo -e "${G}Ralph initialized${N}"
+    echo -e "${G}RALPH STARTING${N}"
+    divider
     echo ""
-    echo -e "  Max iterations: ${W}${max}${N}"
-    echo -e "  Prompt:         ${W}PROMPT.md${N}"
-    echo ""
-    echo -e "${Y}Starting Claude Code...${N}"
+    echo -e "  Iterations: ${W}${max}${N}"
+    echo -e "  Agent:      ${C}claude-code${N}"
     echo ""
 
-    # Read prompt and launch Claude
-    local prompt=$(cat "${PROMPT_FILE}")
+    # Show prompt preview
+    echo -e "${W}TASK PREVIEW${N}"
+    divider
+    head -20 "${SCRIPT_DIR}/PROMPT.md" | sed 's/^/  /'
+    echo -e "  ${DIM}...${N}"
+    echo ""
 
-    # Launch Claude Code with the prompt
+    echo -e "${Y}Launching Claude Code...${N}"
+    echo ""
+
+    local prompt=$(cat "${SCRIPT_DIR}/PROMPT.md")
+
     cd "${SCRIPT_DIR}"
     exec claude --dangerously-skip-permissions "${prompt}
 
 ---
-This is a RALPH autonomous loop. Work continuously on this task.
-When fully complete, output: RALPH_COMPLETE"
+RALPH AUTONOMOUS LOOP
+Work continuously. When fully complete, output: RALPH_COMPLETE"
 }
 
-run() {
-    local max="${1:-30}"
+cmd_parallel() {
+    # Run multiple zones in parallel using tmux
+    local zones=("$@")
+
+    if [[ ${#zones[@]} -eq 0 ]]; then
+        zones=("frontend" "backend")
+    fi
 
     banner
+    echo -e "${W}PARALLEL EXECUTION${N}"
+    divider
+    echo ""
 
-    if [[ ! -f "${PROMPT_FILE}" ]]; then
-        echo -e "${R}Error: PROMPT.md not found${N}"
+    if ! command -v tmux &>/dev/null; then
+        echo -e "${R}tmux required for parallel execution${N}"
+        echo "Install with: brew install tmux"
         exit 1
     fi
 
-    # Update config
-    jq --arg max "${max}" '.maxIterations = ($max | tonumber)' "${CONFIG_FILE}" > "${CONFIG_FILE}.tmp"
-    mv "${CONFIG_FILE}.tmp" "${CONFIG_FILE}"
+    local session="ralph-parallel-$(date +%s)"
+    tmux new-session -d -s "${session}"
 
-    # Reset state
-    echo '{"iteration":0,"status":"running","started":"'"$(date -Iseconds)"'"}' > "${RALPH_STATE}"
-    rm -f "${SCRIPT_DIR}/.ralph-stop"
-    > "${OUTPUT_LOG}"
+    local first=true
+    for zone in "${zones[@]}"; do
+        if [[ "${first}" == "true" ]]; then
+            tmux send-keys -t "${session}" "cd ${SCRIPT_DIR} && ./ralph zone ${zone} && ./ralph start" Enter
+            first=false
+        else
+            tmux split-window -t "${session}" -h
+            tmux send-keys -t "${session}" "cd ${SCRIPT_DIR} && ./ralph zone ${zone} && ./ralph start" Enter
+        fi
+    done
 
-    echo -e "${G}Ralph ready${N}"
+    tmux select-layout -t "${session}" tiled
+
+    echo -e "Started parallel loops for: ${C}${zones[*]}${N}"
     echo ""
-    echo -e "  Max iterations: ${W}${max}${N}"
-    echo ""
-    echo -e "${W}Run this in Warp/Terminal:${N}"
-    echo ""
-    echo -e "  ${C}cd ${SCRIPT_DIR} && claude${N}"
-    echo ""
-    echo "Then paste your prompt from PROMPT.md"
-    echo ""
-    echo -e "${Y}Tip: Copy prompt with:${N} cat PROMPT.md | pbcopy"
+    echo -e "Attach with: ${W}tmux attach -t ${session}${N}"
+    echo -e "Detach with: ${DIM}Ctrl+B then D${N}"
 }
 
-stop() {
+cmd_zone() {
+    local zone="$1"
+    local task="${2:-Implement improvements}"
+
+    generate_prompt "${zone}" "${task}" "" > "${SCRIPT_DIR}/PROMPT.md"
+
+    echo -e "${G}Zone prompt created: ${zone}${N}"
+}
+
+cmd_status() {
+    banner
+
+    local iter=$(jq -r '.iteration // 0' "${RALPH_STATE}" 2>/dev/null || echo 0)
+    local status=$(jq -r '.status // "idle"' "${RALPH_STATE}" 2>/dev/null || echo "idle")
+    local max=$(jq -r '.maxIterations // 30' "${SCRIPT_DIR}/.ralph.json" 2>/dev/null || echo 30)
+    local started=$(jq -r '.started // "-"' "${RALPH_STATE}" 2>/dev/null || echo "-")
+
+    echo -e "${W}STATUS${N}"
+    divider
+
+    case "${status}" in
+        running)        echo -e "  State:      ${G}● RUNNING${N}" ;;
+        complete)       echo -e "  State:      ${G}✓ COMPLETE${N}" ;;
+        stopped)        echo -e "  State:      ${Y}■ STOPPED${N}" ;;
+        max_iterations) echo -e "  State:      ${Y}! MAX ITERATIONS${N}" ;;
+        *)              echo -e "  State:      ${DIM}○ IDLE${N}" ;;
+    esac
+
+    echo -e "  Iteration:  ${W}${iter}${N} / ${max}"
+    echo -e "  Started:    ${DIM}${started}${N}"
+    echo ""
+
+    # Show recent activity
+    if [[ -f "${SCRIPT_DIR}/.ralph-output.log" ]] && [[ -s "${SCRIPT_DIR}/.ralph-output.log" ]]; then
+        echo -e "${W}RECENT ACTIVITY${N}"
+        divider
+        tail -8 "${SCRIPT_DIR}/.ralph-output.log" | sed 's/^/  /'
+        echo ""
+    fi
+
+    # Show prompt status
+    if [[ -f "${SCRIPT_DIR}/PROMPT.md" ]]; then
+        local zone=$(grep -m1 "^## Zone" "${SCRIPT_DIR}/PROMPT.md" 2>/dev/null | cut -d: -f2 | tr -d ' ' || echo "unknown")
+        echo -e "${W}CURRENT TASK${N}"
+        divider
+        echo -e "  Prompt:  ${G}PROMPT.md${N}"
+        head -3 "${SCRIPT_DIR}/PROMPT.md" | grep -v "^#" | head -1 | sed 's/^/  /'
+    else
+        echo -e "  Prompt:  ${R}Missing${N} - run ./ralph new"
+    fi
+}
+
+cmd_watch() {
+    banner
+    echo -e "${W}WATCHING RALPH${N} ${DIM}(Ctrl+C to exit)${N}"
+    divider
+    echo ""
+
+    if [[ -f "${SCRIPT_DIR}/.ralph-output.log" ]]; then
+        tail -f "${SCRIPT_DIR}/.ralph-output.log" 2>/dev/null
+    else
+        echo "Waiting for activity..."
+        while true; do
+            if [[ -f "${SCRIPT_DIR}/.ralph-output.log" ]]; then
+                tail -f "${SCRIPT_DIR}/.ralph-output.log"
+                break
+            fi
+            sleep 1
+        done
+    fi
+}
+
+cmd_stop() {
     touch "${SCRIPT_DIR}/.ralph-stop"
-    jq '.status = "stopped"' "${RALPH_STATE}" > "${RALPH_STATE}.tmp"
-    mv "${RALPH_STATE}.tmp" "${RALPH_STATE}"
+    jq '.status = "stopped"' "${RALPH_STATE}" > "${RALPH_STATE}.tmp" 2>/dev/null && \
+        mv "${RALPH_STATE}.tmp" "${RALPH_STATE}"
+
     echo -e "${Y}Stop signal sent${N}"
     echo "Loop will exit on next iteration."
 }
 
-reset() {
+cmd_reset() {
     echo '{"iteration":0,"status":"idle","started":""}' > "${RALPH_STATE}"
-    rm -f "${SCRIPT_DIR}/.ralph-stop" "${OUTPUT_LOG}"
+    rm -f "${SCRIPT_DIR}/.ralph-stop" "${SCRIPT_DIR}/.ralph-output.log"
     echo -e "${G}Ralph reset${N}"
 }
 
-logs() {
+cmd_edit() {
+    if command -v cursor &>/dev/null; then
+        cursor "${SCRIPT_DIR}/PROMPT.md"
+    elif command -v code &>/dev/null; then
+        code "${SCRIPT_DIR}/PROMPT.md"
+    elif [[ -n "${EDITOR:-}" ]]; then
+        "${EDITOR}" "${SCRIPT_DIR}/PROMPT.md"
+    else
+        nano "${SCRIPT_DIR}/PROMPT.md" 2>/dev/null || vi "${SCRIPT_DIR}/PROMPT.md"
+    fi
+}
+
+cmd_logs() {
+    local n="${1:-50}"
     if [[ -f "${RALPH_LOG}" ]]; then
-        echo -e "${W}=== RALPH LOGS ===${N}"
-        tail -${1:-50} "${RALPH_LOG}"
+        echo -e "${W}RALPH LOGS${N} ${DIM}(last ${n})${N}"
+        divider
+        tail -"${n}" "${RALPH_LOG}"
     else
         echo "No logs yet"
     fi
 }
 
-watch_logs() {
-    echo -e "${W}=== WATCHING RALPH (Ctrl+C to exit) ===${N}"
-    echo ""
-    tail -f "${OUTPUT_LOG}" 2>/dev/null || echo "Waiting for activity..."
+cmd_dashboard() {
+    # Live dashboard with watch
+    watch -n 2 -c "./ralph status"
 }
 
-edit() {
-    if command -v cursor &>/dev/null; then
-        cursor "${PROMPT_FILE}"
-    elif [[ -n "${EDITOR:-}" ]]; then
-        "${EDITOR}" "${PROMPT_FILE}"
-    else
-        nano "${PROMPT_FILE}" 2>/dev/null || vi "${PROMPT_FILE}"
-    fi
-}
-
-help() {
+cmd_help() {
     banner
+    show_platform
+
     echo -e "${W}COMMANDS${N}"
+    divider
     echo ""
-    echo -e "  ${C}./ralph start [N]${N}   Start loop with N iterations (default: 30)"
-    echo -e "  ${C}./ralph run [N]${N}     Initialize and show run command"
-    echo -e "  ${C}./ralph stop${N}        Stop the loop gracefully"
-    echo -e "  ${C}./ralph status${N}      Show current status"
-    echo -e "  ${C}./ralph watch${N}       Watch loop activity live"
-    echo -e "  ${C}./ralph logs [N]${N}    Show last N log entries"
-    echo -e "  ${C}./ralph reset${N}       Reset to idle state"
-    echo -e "  ${C}./ralph edit${N}        Edit PROMPT.md in Cursor"
+    echo -e "  ${C}Task Creation${N}"
+    echo -e "    new              Interactive task wizard"
+    echo -e "    zone <zone>      Quick zone prompt (frontend|backend|database|fullstack)"
+    echo -e "    edit             Edit PROMPT.md in Cursor"
+    echo ""
+    echo -e "  ${C}Execution${N}"
+    echo -e "    start [N]        Start loop with N iterations (default: 30)"
+    echo -e "    parallel <zones> Run multiple zones in parallel (requires tmux)"
+    echo -e "    stop             Stop gracefully"
+    echo ""
+    echo -e "  ${C}Monitoring${N}"
+    echo -e "    status           Current state"
+    echo -e "    watch            Live activity feed"
+    echo -e "    logs [N]         Last N log entries"
+    echo -e "    dashboard        Auto-refreshing status"
+    echo ""
+    echo -e "  ${C}Utilities${N}"
+    echo -e "    reset            Clear state"
+    echo -e "    help             This help"
     echo ""
     echo -e "${W}QUICK START${N}"
+    divider
     echo ""
-    echo "  1. Edit your task:     ./ralph edit"
-    echo "  2. Start the loop:     ./ralph start 30"
+    echo "  # Interactive (recommended)"
+    echo -e "  ${G}./ralph new${N}"
     echo ""
-    echo -e "${W}FILES${N}"
+    echo "  # Quick zone task"
+    echo -e "  ${G}./ralph zone frontend${N}"
+    echo -e "  ${G}./ralph edit${N}              # customize"
+    echo -e "  ${G}./ralph start 30${N}"
     echo ""
-    echo "  PROMPT.md        Your task instructions"
-    echo "  .ralph.json      Configuration"
-    echo "  .ralph-output.log   Activity log"
+    echo "  # Parallel (advanced)"
+    echo -e "  ${G}./ralph parallel frontend backend${N}"
+    echo ""
+    echo -e "${W}EXAMPLES${N}"
+    divider
+    echo ""
+    echo "  # Frontend feature"
+    echo "  ./ralph zone frontend"
+    echo "  # Edit PROMPT.md: \"Add dark mode toggle\""
+    echo "  ./ralph start 20"
+    echo ""
+    echo "  # Full-stack feature"
+    echo "  ./ralph new"
+    echo "  # Follow prompts..."
+    echo "  ./ralph start 50"
     echo ""
 }
 
+# ══════════════════════════════════════════════════════════════
 # Main
+# ══════════════════════════════════════════════════════════════
+
 case "${1:-help}" in
-    start)   start "${2:-30}" ;;
-    run)     run "${2:-30}" ;;
-    stop)    stop ;;
-    status)  status ;;
-    watch)   watch_logs ;;
-    logs)    logs "${2:-50}" ;;
-    reset)   reset ;;
-    edit)    edit ;;
-    help|-h|--help) help ;;
+    new)       cmd_new ;;
+    start)     cmd_start "${2:-30}" ;;
+    zone)      cmd_zone "${2:-fullstack}" "${3:-}" ;;
+    parallel)  shift; cmd_parallel "$@" ;;
+    stop)      cmd_stop ;;
+    status)    cmd_status ;;
+    watch)     cmd_watch ;;
+    logs)      cmd_logs "${2:-50}" ;;
+    dashboard) cmd_dashboard ;;
+    reset)     cmd_reset ;;
+    edit)      cmd_edit ;;
+    help|-h|--help) cmd_help ;;
     *)
-        echo -e "${R}Unknown command: $1${N}"
-        echo "Run './ralph help' for usage"
+        echo -e "${R}Unknown: $1${N}"
+        echo "Run './ralph help'"
         exit 1
         ;;
 esac
