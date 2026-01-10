@@ -294,6 +294,10 @@
 - [x] `test`: RegisterForm.test.tsx - 15 tests for registration, password strength, validation
 - [x] `new-component`: AppLayout - Main app layout with header, nav, footer
 - [x] `new-styles`: AppLayout.css - Layout styles with responsive design and dark mode
+- [x] `new-component`: UserProfile - User account profile with tier, projects, actions
+- [x] `new-styles`: UserProfile.css - Profile styles with dark mode
+- [x] `new-component`: DashboardWelcome - Client portal welcome with stats and quick actions
+- [x] `new-styles`: DashboardWelcome.css - Dashboard styles with responsive design
 
 ### 2025-01-09
 - [x] Initial project setup
