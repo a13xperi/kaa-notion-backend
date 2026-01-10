@@ -34,11 +34,11 @@ import {
   errorHandler, 
   notFoundHandler,
   apiRateLimiter,
-  authRateLimiter,
-  leadCreationRateLimiter,
-  checkoutRateLimiter,
-  uploadRateLimiter,
-  adminRateLimiter,
+  authRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  uploadRateLimit,
+  adminRateLimit,
   requireAuth,
 } from './middleware';
 import { logger, requestLogger } from './logger';
@@ -185,20 +185,20 @@ if (features.apiDocsEnabled) {
 app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/admin', adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/notion', adminRateLimit, requireNotionService, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/upload', uploadRateLimit, requireStorageService, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
 const apiAuth = requireAuth(prisma);
 app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
-app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
-app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
+app.use('/api/admin', apiAuth, adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/notion', apiAuth, adminRateLimit, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/upload', apiAuth, uploadRateLimit, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
+app.use('/api/leads', leadRateLimit, createLeadsRouter(prisma)); // Redis-backed lead rate limits (per-user when available).
+app.use('/api/checkout', checkoutRateLimit, createCheckoutRouter(prisma)); // Redis-backed checkout rate limits (per-user when available).
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
-app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+app.use('/api/auth', authRateLimit, createAuthRouter(prisma)); // Redis-backed auth rate limits (per-user when available).
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());

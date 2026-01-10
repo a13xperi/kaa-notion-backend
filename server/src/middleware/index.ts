@@ -68,6 +68,11 @@ export {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  authRateLimit,
+  uploadRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  adminRateLimit,
 } from './rateLimit';
 
 // Login protection
