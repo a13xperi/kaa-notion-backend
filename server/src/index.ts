@@ -30,7 +30,7 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
 } from './middleware';
-import { logger } from './logger';
+import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
 
 dotenv.config();
@@ -65,6 +65,14 @@ app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // JSON parsing for all other routes
 app.use(express.json());
+
+// Request logging with correlation IDs (skip for health checks)
+app.use((req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/test') {
+    return next();
+  }
+  requestLogger(req, res, next);
+});
 
 // Initialize Notion sync service if configured
 if (process.env.NOTION_API_KEY && process.env.NOTION_PROJECTS_DATABASE_ID) {
