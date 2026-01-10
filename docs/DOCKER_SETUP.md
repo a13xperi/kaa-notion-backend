@@ -156,6 +156,11 @@ docker compose logs -f frontend
 
 # Execute command in container
 docker compose exec backend npx prisma studio
+
+# Run backend tests (from repo root)
+npm run test:backend
+
+# Or run backend tests inside the container
 docker compose exec backend npm test
 
 # Database operations
@@ -170,6 +175,8 @@ docker compose down -v
 # Clean build (no cache)
 docker compose build --no-cache
 ```
+
+See [Testing Strategy](./TESTING_STRATEGY.md) for test prerequisites and command mappings.
 
 ## Production Deployment
 

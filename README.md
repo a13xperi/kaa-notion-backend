@@ -154,11 +154,13 @@ sage-mvp/
 npm test
 
 # Backend tests only (262 tests)
-cd server && npm test
+npm run test:backend
 
 # Frontend tests only (595 tests)
-cd kaa-app && npm test
+npm run test:frontend
 ```
+
+See [Testing Strategy](./docs/TESTING_STRATEGY.md) for test types, prerequisites, and E2E setup.
 
 **Test Coverage:**
 
