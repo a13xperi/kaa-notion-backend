@@ -1,0 +1,6 @@
+{
+  "maxIterations": 30,
+  "completionPromise": "RALPH_COMPLETE",
+  "model": "claude-sonnet-4-20250514",
+  "notes": "Edit PROMPT.md with your task. Run ./ralph start"
+}

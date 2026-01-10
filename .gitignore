@@ -39,3 +39,7 @@ coverage/
 # Misc
 *.pem
 .cache/
+
+# Ralph loop runtime files
+.ralph-stop
+.ralph-output.log
