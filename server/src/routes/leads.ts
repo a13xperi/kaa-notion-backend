@@ -8,6 +8,7 @@ import {
   convertLeadSchema,
   CreateLeadInput,
 } from '../utils/validation';
+import { logLeadAction } from '../services/auditService';
 
 const router = Router();
 
@@ -162,6 +163,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
         routingReason: tierRecommendation.reason,
         status: initialStatus,
       },
+    });
+
+    // Log audit event
+    await logLeadAction(req, 'LEAD_CREATE', lead.id, {
+      email: lead.email,
+      recommendedTier: tierRecommendation.tier,
+      confidence: tierRecommendation.confidence,
     });
 
     // Return success response with lead and tier recommendation
@@ -350,6 +358,15 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction): Pr
       data: updateData,
     });
 
+    // Log audit event
+    const auditAction = data.tierOverride !== undefined ? 'LEAD_TIER_OVERRIDE' :
+                        data.status !== undefined ? 'LEAD_STATUS_CHANGE' : 'LEAD_UPDATE';
+    await logLeadAction(req, auditAction, id, {
+      previousStatus: existingLead.status,
+      previousTier: existingLead.tierOverride ?? existingLead.recommendedTier,
+      changes: data,
+    });
+
     // Calculate effective tier
     const effectiveTier = updatedLead.tierOverride ?? updatedLead.recommendedTier;
 
@@ -495,6 +512,14 @@ router.post('/:id/convert', async (req: Request, res: Response, next: NextFuncti
       });
 
       return { user, client, project, payment, lead: updatedLead };
+    });
+
+    // Log audit event
+    await logLeadAction(req, 'LEAD_CONVERT', id, {
+      clientId: result.client.id,
+      projectId: result.project.id,
+      userId: result.user.id,
+      tier: effectiveTier,
     });
 
     res.status(201).json({

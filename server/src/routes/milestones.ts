@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma';
 import { verifyToken } from '../utils/auth';
 import { updateMilestoneStatus } from '../services/projectService';
+import { logMilestoneAction } from '../services/auditService';
 
 const router = Router();
 
@@ -237,6 +238,13 @@ router.patch('/:id', authenticateUser, async (req: Request, res: Response, next:
 
     // Update milestone (this also handles auto-advancing to next milestone)
     const milestone = await updateMilestoneStatus(id, status);
+
+    // Log audit event
+    await logMilestoneAction(req, 'MILESTONE_STATUS_CHANGE', id, {
+      projectId: existing.projectId,
+      previousStatus: existing.status,
+      newStatus: status,
+    });
 
     return res.status(200).json({
       success: true,

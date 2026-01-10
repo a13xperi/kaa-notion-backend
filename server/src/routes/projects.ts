@@ -8,6 +8,7 @@ import {
   getProjects,
   getProjectProgress,
 } from '../services/projectService';
+import { logProjectAction } from '../services/auditService';
 
 const router = Router();
 
@@ -225,6 +226,12 @@ router.patch('/:id', authenticateUser, async (req: Request, res: Response, next:
     }
 
     const project = await updateProjectStatus(id, status);
+
+    // Log audit event
+    await logProjectAction(req, 'PROJECT_STATUS_CHANGE', id, {
+      previousStatus: existing.status,
+      newStatus: status,
+    });
 
     return res.status(200).json({
       success: true,

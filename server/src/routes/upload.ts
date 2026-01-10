@@ -14,6 +14,7 @@ import {
   ALLOWED_TYPES,
 } from '../services/storageService';
 import { onDeliverableCreated } from '../services/notionDeliverableSync';
+import { logFileAction, logDeliverableAction } from '../services/auditService';
 
 const router = Router();
 
@@ -226,6 +227,20 @@ router.post(
         } catch (error) {
           console.error('[Upload] Failed to queue Notion sync:', error);
         }
+
+        // Log audit event
+        await logDeliverableAction(req, 'DELIVERABLE_CREATE', deliverable.id, {
+          projectId,
+          fileName: file.originalname,
+          fileSize: uploadResult.fileSize,
+          category: fileCategory,
+        });
+      } else {
+        // Log file upload without deliverable
+        await logFileAction(req, 'FILE_UPLOAD', uploadResult.filePath, {
+          fileName: file.originalname,
+          fileSize: uploadResult.fileSize,
+        });
       }
 
       return res.status(201).json({
@@ -504,6 +519,9 @@ router.delete(
           },
         });
       }
+
+      // Log audit event
+      await logFileAction(req, 'FILE_DELETE', filePath);
 
       return res.status(200).json({
         success: true,

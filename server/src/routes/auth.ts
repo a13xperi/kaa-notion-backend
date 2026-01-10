@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { prisma } from '../utils/prisma';
 import { registerUserSchema, loginUserSchema, RegisterUserInput, LoginUserInput } from '../utils/validation';
 import { hashPassword, verifyPassword, generateToken, verifyToken } from '../utils/auth';
+import { logAuth } from '../services/auditService';
 
 const router = Router();
 
@@ -78,6 +79,9 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       },
       JWT_SECRET
     );
+
+    // Log audit event
+    await logAuth('REGISTER', user.id, req, { email: user.email, userType });
 
     return res.status(201).json({
       success: true,
@@ -192,6 +196,9 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       client: user.client,
       lastLogin: new Date(),
     };
+
+    // Log audit event
+    await logAuth('LOGIN', user.id, req, { email: user.email });
 
     return res.status(200).json({
       success: true,
@@ -357,6 +364,9 @@ router.post('/set-password', async (req: Request, res: Response, next: NextFunct
       where: { id: payload.userId },
       data: { passwordHash },
     });
+
+    // Log audit event
+    await logAuth('PASSWORD_CHANGE', payload.userId, req);
 
     return res.status(200).json({
       success: true,

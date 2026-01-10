@@ -140,7 +140,7 @@
 
 ### 8.4 Audit Logging
 - [x] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
-- [ ] `audit`: Add audit logging to all state-changing endpoints
+- [x] `audit`: Add audit logging to all state-changing endpoints
 
 ---
 
@@ -244,6 +244,8 @@
 - [x] `new-middleware`: validate.ts - validateBody, validateQuery, validateParams factory functions with error formatting
 - [x] `new-util`: AppError.ts - Custom error class with ErrorCodes, factory functions, type guards, error conversion
 - [x] `new-middleware`: errorHandler.ts - Global handler with Zod/Prisma/Multer normalization, logging, asyncHandler
+- [x] `new-service`: auditService.ts - AuditActions enum, log functions, query/cleanup, middleware factory
+- [x] `audit`: Add audit logging to leads, auth, projects, milestones, upload routes
 
 ---
 
