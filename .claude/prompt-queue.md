@@ -92,7 +92,7 @@
 - [x] `new-component`: AdminDashboard - Overview with stats cards, recent leads, recent projects
 - [x] `new-component`: LeadQueue - Lead management table with status, tier, actions (approve, change tier, close)
 - [x] `new-component`: ProjectsTable - Admin project list with client, tier, status, actions
-- [ ] `new-component`: ClientsTable - Client list with tier, projects, status
+- [x] `new-component`: ClientsTable - Client list with tier, projects, status
 
 ### 5.3 Admin Actions
 - [ ] `new-component`: TierOverrideModal - Modal to change lead's recommended tier with reason
@@ -227,6 +227,7 @@
 - [x] `new-component`: AdminDashboard - Stats cards, lead status chart, tier donut, recent tables, conversion banner
 - [x] `new-component`: LeadQueue - Search/filter toolbar, status dropdown, tier badges, action menu, pagination
 - [x] `new-component`: ProjectsTable - Search/filter, status dropdown, progress bar, deliverable count, pagination
+- [x] `new-component`: ClientsTable - Avatar, tier badge, project count, Stripe status, view projects action
 
 ---
 
