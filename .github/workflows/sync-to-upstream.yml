@@ -1,0 +1,23 @@
+name: Sync to a13xperi (upstream)
+
+on:
+  push:
+    branches:
+      - portal-auth-upload
+      - main
+      - master
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_PAT }}
+
+      - name: Push to a13xperi
+        run: |
+          git remote add upstream https://${{ secrets.UPSTREAM_PAT }}@github.com/a13xperi/kaa-notion-backend.git
+          git push upstream HEAD:${{ github.ref_name }} --force
