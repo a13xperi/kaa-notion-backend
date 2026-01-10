@@ -135,8 +135,8 @@
 - [x] `new-middleware`: validate.ts - Middleware to validate request body against Zod schema
 
 ### 8.3 Error Handling
-- [ ] `new-middleware`: errorHandler.ts - Global error handler with proper response formatting, logging
-- [ ] `new-util`: AppError.ts - Custom error class with code, message, statusCode, details
+- [x] `new-middleware`: errorHandler.ts - Global error handler with proper response formatting, logging
+- [x] `new-util`: AppError.ts - Custom error class with code, message, statusCode, details
 
 ### 8.4 Audit Logging
 - [ ] `new-service`: auditService.ts - Log actions to audit_log table with user, action, resource, details
@@ -242,6 +242,8 @@
 - [x] `new-middleware`: auth.ts - authenticate, optionalAuthenticate, requireRole, requireAdmin, requireTier, requireOwnerOrAdmin
 - [x] `new-util`: validators.ts - Zod schemas for Lead, Auth, Project, Milestone, Deliverable, Payment, Client, Admin, Upload
 - [x] `new-middleware`: validate.ts - validateBody, validateQuery, validateParams factory functions with error formatting
+- [x] `new-util`: AppError.ts - Custom error class with ErrorCodes, factory functions, type guards, error conversion
+- [x] `new-middleware`: errorHandler.ts - Global handler with Zod/Prisma/Multer normalization, logging, asyncHandler
 
 ---
 
