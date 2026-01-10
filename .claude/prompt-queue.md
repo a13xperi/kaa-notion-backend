@@ -173,8 +173,8 @@
 - [x] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators
 
 ### E2E Tests
-- [ ] `e2e`: lead-to-client.spec.ts - Full flow: intake form → tier recommendation → checkout → portal access
-- [ ] `e2e`: client-portal.spec.ts - Login → view projects → view deliverables → download file
+- [x] `e2e`: lead-to-client.spec.ts - Full flow: intake form → tier recommendation → checkout → portal access
+- [x] `e2e`: client-portal.spec.ts - Login → view projects → view deliverables → download file
 
 ---
 
@@ -260,6 +260,10 @@
 - [x] `test`: IntakeForm.test.tsx - Multi-step form, validation, submission tests
 - [x] `test`: ProjectDashboard.test.tsx - Loading states, project cards, stats tests
 - [x] `test`: MilestoneTimeline.test.tsx - Timeline rendering, status, progress tests
+
+### 2025-01-10
+- [x] `e2e`: lead-to-client.spec.ts - Intake form, tier recommendation, checkout flow, accessibility, responsive tests
+- [x] `e2e`: client-portal.spec.ts - Authentication, dashboard, project detail, deliverables, responsive tests
 
 ---
 
