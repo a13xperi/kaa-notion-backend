@@ -1,27 +1,75 @@
 {
-  "name": "KAA Command Center",
-  "short_name": "KAA App",
-  "description": "Workspace Management & Collaboration Hub for KAA Projects",
+  "name": "SAGE Platform",
+  "short_name": "SAGE",
+  "description": "Project Management & Client Collaboration Platform",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#667eea",
+  "theme_color": "#4f46e5",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
   "categories": ["productivity", "business", "utilities"],
   "icons": [
     {
-      "src": "/logo192.png",
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo512.png",
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/logo192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "screenshots": [
@@ -29,48 +77,50 @@
       "src": "/screenshot-mobile.png",
       "sizes": "390x844",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "narrow",
+      "label": "Mobile Dashboard"
     },
     {
       "src": "/screenshot-desktop.png",
       "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "Desktop Dashboard"
     }
   ],
   "shortcuts": [
     {
-      "name": "Client Portal",
-      "short_name": "Client",
-      "description": "Access client portal",
-      "url": "/?portal=client",
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your project dashboard",
+      "url": "/dashboard",
       "icons": [
         {
-          "src": "/logo192.png",
+          "src": "/icons/icon-192x192.png",
           "sizes": "192x192"
         }
       ]
     },
     {
-      "name": "Team Dashboard",
-      "short_name": "Team",
-      "description": "Access team dashboard",
-      "url": "/?portal=team",
+      "name": "Projects",
+      "short_name": "Projects",
+      "description": "View all projects",
+      "url": "/projects",
       "icons": [
         {
-          "src": "/logo192.png",
+          "src": "/icons/icon-192x192.png",
           "sizes": "192x192"
         }
       ]
     },
     {
-      "name": "Feature Demo",
-      "short_name": "Demo",
-      "description": "View feature demo",
-      "url": "/demo",
+      "name": "Messages",
+      "short_name": "Messages",
+      "description": "View messages",
+      "url": "/messages",
       "icons": [
         {
-          "src": "/logo192.png",
+          "src": "/icons/icon-192x192.png",
           "sizes": "192x192"
         }
       ]
@@ -83,5 +133,7 @@
   },
   "launch_handler": {
     "client_mode": "navigate-existing"
-  }
+  },
+  "handle_links": "preferred",
+  "display_override": ["standalone", "minimal-ui"]
 }

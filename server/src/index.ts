@@ -4,6 +4,20 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
+import leadsRouter from './routes/leads';
+import checkoutRouter from './routes/checkout';
+import webhooksRouter from './routes/webhooks';
+import authRouter from './routes/auth';
+import projectsRouter from './routes/projects';
+import milestonesRouter from './routes/milestones';
+import deliverablesRouter from './routes/deliverables';
+import analyticsRouter from './routes/analytics';
+import pushRouter from './routes/push';
+import portfolioRouter from './routes/portfolioRoutes';
+import teamRouter from './routes/teamRoutes';
+import referralRouter from './routes/referralRoutes';
+import subscriptionRouter from './routes/subscriptionRoutes';
+import multiProjectRouter from './routes/multiProjectRoutes';
 
 dotenv.config();
 
@@ -12,6 +26,11 @@ const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// Stripe webhooks need raw body for signature verification
+// Must be before express.json() middleware
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // Initialize Figma client
@@ -94,8 +113,41 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 
 app.post('/webhook', handleFigmaWebhook);
 
+// API Routes
+app.use('/api/leads', leadsRouter);
+app.use('/api/checkout', checkoutRouter);
+app.use('/api/webhooks', webhooksRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/projects', projectsRouter);
+app.use('/api/milestones', milestonesRouter);
+app.use('/api', milestonesRouter); // For /api/projects/:id/milestones route
+app.use('/api/deliverables', deliverablesRouter);
+app.use('/api', deliverablesRouter); // For /api/projects/:id/deliverables route
+app.use('/api/admin/analytics', analyticsRouter);
+app.use('/api/push', pushRouter);
+app.use('/api/portfolio', portfolioRouter);
+app.use('/api/team', teamRouter);
+app.use('/api/referrals', referralRouter);
+app.use('/api/subscriptions', subscriptionRouter);
+app.use('/api/projects', multiProjectRouter);
+
+// Global error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: process.env.NODE_ENV === 'production'
+        ? 'An unexpected error occurred'
+        : err.message,
+    },
+  });
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log('Test the server at: http://localhost:3001/test');
+  console.log('API endpoints available at: http://localhost:3001/api/*');
 }); 

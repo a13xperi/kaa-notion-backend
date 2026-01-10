@@ -1,0 +1,439 @@
+.revision-request {
+  background: var(--bg-primary, #fff);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.revision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.revision-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.request-btn {
+  padding: 8px 16px;
+  background: var(--accent-color, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.request-btn:hover {
+  background: var(--accent-hover, #4338ca);
+}
+
+/* Revision Form */
+.revision-form {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.form-header {
+  margin-bottom: 16px;
+}
+
+.form-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.milestone-name {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #666);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--accent-color, #4f46e5);
+}
+
+.form-group select {
+  background: white;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  transition: background 0.2s;
+}
+
+.cancel-btn:hover {
+  background: var(--bg-tertiary, #e9ecef);
+}
+
+.submit-btn {
+  padding: 10px 20px;
+  background: var(--accent-color, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #4338ca);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Revisions List */
+.revisions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.no-revisions {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary, #666);
+}
+
+.no-revisions-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.no-revisions h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.no-revisions p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Revision Card */
+.revision-card {
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #6b7280;
+}
+
+.revision-card.status-pending {
+  border-left-color: #f59e0b;
+}
+
+.revision-card.status-in_progress {
+  border-left-color: #3b82f6;
+}
+
+.revision-card.status-completed {
+  border-left-color: #10b981;
+}
+
+.revision-card.status-rejected {
+  border-left-color: #ef4444;
+}
+
+.revision-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.revision-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.priority-icon {
+  font-size: 0.8rem;
+}
+
+.milestone-tag {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #666);
+  background: var(--bg-primary, #fff);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.revision-date {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, #999);
+}
+
+.revision-description {
+  font-size: 0.95rem;
+  color: var(--text-primary, #1a1a2e);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.revision-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+  margin-bottom: 8px;
+}
+
+.revision-response {
+  background: var(--bg-primary, #fff);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-top: 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.revision-response strong {
+  color: var(--text-primary, #1a1a2e);
+}
+
+/* Revision Actions */
+.revision-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.manage-btn {
+  padding: 8px 16px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text-primary, #1a1a2e);
+  transition: background 0.2s;
+}
+
+.manage-btn:hover {
+  background: var(--bg-tertiary, #e9ecef);
+}
+
+.action-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  border: none;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn.cancel {
+  background: var(--bg-tertiary, #e9ecef);
+  color: var(--text-secondary, #666);
+}
+
+.action-btn.progress {
+  background: #3b82f6;
+  color: white;
+}
+
+.action-btn.complete {
+  background: #10b981;
+  color: white;
+}
+
+.action-btn.reject {
+  background: #ef4444;
+  color: white;
+}
+
+/* Loading & Error States */
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-secondary, #666);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color, #e0e0e0);
+  border-top-color: var(--accent-color, #4f46e5);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retry-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: var(--accent-color, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.retry-btn:hover {
+  background: var(--accent-hover, #4338ca);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .revision-request {
+    background: #16213e;
+  }
+
+  .revision-header h3 {
+    color: #e0e0e0;
+  }
+
+  .revision-form {
+    background: #1a1a2e;
+    border-color: #2a2a4a;
+  }
+
+  .form-header h4 {
+    color: #e0e0e0;
+  }
+
+  .form-group label {
+    color: #e0e0e0;
+  }
+
+  .form-group textarea,
+  .form-group select {
+    background: #16213e;
+    border-color: #2a2a4a;
+    color: #e0e0e0;
+  }
+
+  .revision-card {
+    background: #1a1a2e;
+  }
+
+  .milestone-tag {
+    background: #16213e;
+    color: #a0a0a0;
+  }
+
+  .revision-description {
+    color: #e0e0e0;
+  }
+
+  .revision-response {
+    background: #16213e;
+    border-color: #2a2a4a;
+  }
+
+  .manage-btn {
+    background: #16213e;
+    border-color: #2a2a4a;
+    color: #e0e0e0;
+  }
+
+  .action-form textarea {
+    background: #16213e;
+    border-color: #2a2a4a;
+    color: #e0e0e0;
+  }
+}
