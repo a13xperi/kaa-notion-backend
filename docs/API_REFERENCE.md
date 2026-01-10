@@ -118,15 +118,22 @@ Get current user's profile. **Requires authentication.**
 
 ### POST /auth/refresh
 
-Refresh authentication token. **Requires authentication.**
+Exchange a refresh token for a new access token. **Does not require authentication.**
+
+**Request Body:**
+```json
+{
+  "refreshToken": "refresh-token"
+}
+```
 
 **Response (200):**
 ```json
 {
   "success": true,
   "data": {
-    "user": { ... },
     "token": "new-jwt-token",
+    "refreshToken": "new-refresh-token",
     "expiresIn": "7d"
   }
 }
