@@ -101,6 +101,11 @@ jest.mock('../utils/prisma', () => ({
 jest.mock('../services/auditService', () => ({
   logAudit: jest.fn().mockResolvedValue(undefined),
   logAuditFromRequest: jest.fn().mockResolvedValue(undefined),
+  getRequestAuditMetadata: jest.fn().mockReturnValue({
+    ip: '127.0.0.1',
+    userAgent: 'jest',
+    requestId: 'test-request-id',
+  }),
   logAuth: jest.fn().mockResolvedValue(undefined),
   logLeadAction: jest.fn().mockResolvedValue(undefined),
   logProjectAction: jest.fn().mockResolvedValue(undefined),
@@ -112,14 +117,23 @@ jest.mock('../services/auditService', () => ({
     LOGIN: 'LOGIN',
     LOGOUT: 'LOGOUT',
     REGISTER: 'REGISTER',
+    TOKEN_REFRESH: 'TOKEN_REFRESH',
     LEAD_CREATE: 'LEAD_CREATE',
     LEAD_UPDATE: 'LEAD_UPDATE',
     LEAD_CONVERT: 'LEAD_CONVERT',
+    CHECKOUT_START: 'CHECKOUT_START',
+    FILE_UPLOAD: 'FILE_UPLOAD',
+    FILE_DELETE: 'FILE_DELETE',
+    ADMIN_VIEW_DASHBOARD: 'ADMIN_VIEW_DASHBOARD',
+    WEBHOOK_STRIPE_RECEIVED: 'WEBHOOK_STRIPE_RECEIVED',
   },
   ResourceTypes: {
     USER: 'USER',
     LEAD: 'LEAD',
     PROJECT: 'PROJECT',
+    DELIVERABLE: 'DELIVERABLE',
+    ADMIN: 'ADMIN',
+    WEBHOOK: 'WEBHOOK',
   },
 }));
 

@@ -8,6 +8,7 @@ import { FigmaClient } from '../figma-client';
 import { logger } from '../logger';
 import { verifyToken, type JwtPayload } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
+import { AuditActions, ResourceTypes, logAudit } from './auditService';
 
 // ============================================================================
 // TYPES
@@ -242,6 +243,15 @@ async function handleConnectionAsync(socket: WebSocket, request: { url?: string 
   connections.set(userId, userConnections);
 
   logger.info('WebSocket client connected', { userId, userType });
+  void logAudit({
+    action: AuditActions.WEBSOCKET_CONNECT,
+    resourceType: ResourceTypes.WEBSOCKET,
+    resourceId: userId,
+    userId,
+    details: {
+      userType,
+    },
+  });
 
   // Send connection confirmation
   sendToSocket(socket, {
@@ -334,6 +344,17 @@ function handleSubscribe(connection: ClientConnection, payload: { projectIds?: s
     userId: connection.userId,
     projectIds,
   });
+  if (projectIds.length > 0) {
+    void logAudit({
+      action: AuditActions.WEBSOCKET_SUBSCRIBE,
+      resourceType: ResourceTypes.WEBSOCKET,
+      resourceId: connection.userId,
+      userId: connection.userId,
+      details: {
+        projectIds,
+      },
+    });
+  }
 }
 
 /**
@@ -360,6 +381,17 @@ function handleUnsubscribe(connection: ClientConnection, payload: { projectIds?:
     userId: connection.userId,
     projectIds,
   });
+  if (projectIds.length > 0) {
+    void logAudit({
+      action: AuditActions.WEBSOCKET_UNSUBSCRIBE,
+      resourceType: ResourceTypes.WEBSOCKET,
+      resourceId: connection.userId,
+      userId: connection.userId,
+      details: {
+        projectIds,
+      },
+    });
+  }
 }
 
 /**
