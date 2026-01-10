@@ -38,6 +38,7 @@ import { setupSwagger } from './config/swagger';
 import { initEnvironment, getFeatureFlags } from './config/environment';
 import { setupSentry, sentryErrorHandler, captureException } from './config/sentry';
 import { metricsMiddleware, createMetricsRouter } from './config/metrics';
+import { createPrismaClient, connectWithRetry, checkDatabaseHealth } from './config/database';
 
 dotenv.config();
 
@@ -45,8 +46,15 @@ dotenv.config();
 const envConfig = initEnvironment();
 const features = getFeatureFlags();
 
-// Initialize Prisma client
-const prisma = new PrismaClient();
+// Initialize Prisma client with connection pooling and monitoring
+const prisma = createPrismaClient({
+  connectionLimit: parseInt(process.env.DATABASE_CONNECTION_LIMIT || '10', 10),
+  connectionTimeout: parseInt(process.env.DATABASE_CONNECTION_TIMEOUT || '5000', 10),
+  queryTimeout: parseInt(process.env.DATABASE_QUERY_TIMEOUT || '10000', 10),
+  idleTimeout: parseInt(process.env.DATABASE_IDLE_TIMEOUT || '60000', 10),
+  logQueries: process.env.NODE_ENV === 'development',
+  slowQueryThreshold: parseInt(process.env.SLOW_QUERY_THRESHOLD || '1000', 10),
+});
 
 // Initialize Stripe client with helpers
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -304,7 +312,9 @@ app.post('/api/stripe/checkout', async (req, res) => {
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error('Error creating Stripe checkout session:', error);
+    logger.error('Error creating Stripe checkout session', {
+      error: (error as Error).message,
+    });
     res.status(500).json({
       error: 'Failed to create checkout session',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -355,6 +365,32 @@ app.use(sentryErrorHandler());
 
 // Global error handler (must be last)
 app.use(errorHandler);
+
+// Connect to database with retry
+connectWithRetry(prisma, 5, 1000)
+  .then((connected) => {
+    if (!connected) {
+      logger.error('Failed to connect to database. Server may not function correctly.');
+      process.exit(1);
+    }
+    
+    // Perform health check
+    checkDatabaseHealth(prisma)
+      .then((health) => {
+        if (health.healthy) {
+          logger.info(`Database health check passed (latency: ${health.latencyMs}ms)`);
+        } else {
+          logger.warn(`Database health check failed: ${health.error}`);
+        }
+      })
+      .catch((error) => {
+        logger.warn('Database health check error', { error });
+      });
+  })
+  .catch((error) => {
+    logger.error('Database connection error', { error });
+    process.exit(1);
+  });
 
 // Start the server
 const server = app.listen(port, () => {
