@@ -27,3 +27,23 @@ export type { Message, MessageSender, MessagesResponse, SendMessageData, UseMess
 
 export { useMilestoneRevisions, useProjectRevisions, useRevisionMutations, revisionKeys } from './useRevisions';
 export type { RevisionRequest, CreateRevisionData, UpdateRevisionData, RevisionsResponse } from './useRevisions';
+
+export {
+  useAnalyticsSummary,
+  useConversionMetrics,
+  useRevenueMetrics,
+  useLeadMetrics,
+  useProjectMetrics,
+  useMonthlyReport,
+  analyticsKeys,
+} from './useAnalytics';
+export type {
+  DashboardSummary,
+  TierDistribution,
+  ConversionMetrics,
+  RevenueMetrics,
+  LeadMetrics,
+  ProjectMetrics,
+  MonthlyReport,
+  Period,
+} from './useAnalytics';
