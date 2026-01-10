@@ -43,10 +43,12 @@ export interface AuthenticatedUser {
   clientId?: string;
 }
 
-export interface AuthenticatedRequest extends Request {
+// AuthenticatedRequest is defined via Express namespace augmentation in src/types/express.d.ts
+// Use this type for requests that are guaranteed to have a user attached after auth middleware
+export type AuthenticatedRequest = Request & {
   user: AuthenticatedUser;
   token?: string;
-}
+};
 
 // Note: Express Request.user type is extended in src/types/express.d.ts
 // We use the same structure here for consistency

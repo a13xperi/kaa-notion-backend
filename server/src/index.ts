@@ -29,7 +29,7 @@ import {
   initRealtimeService,
   shutdownRealtimeService,
 } from './services';
-import { initStripe } from './utils/stripeHelpers';
+import { initStripe, getStripe } from './utils/stripeHelpers';
 import { 
   errorHandler, 
   notFoundHandler,
@@ -40,6 +40,8 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  requireNotionService,
+  requireStorageService,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -268,6 +270,7 @@ app.post('/api/stripe/checkout', async (req, res, next) => {
     }
 
     // Create Stripe Checkout session
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],

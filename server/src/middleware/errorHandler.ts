@@ -65,10 +65,10 @@ interface ErrorHandlerOptions {
  * Convert Zod validation error to AppError
  */
 function normalizeZodError(error: ZodError): AppError {
-  const fieldErrors: FieldError[] = error.errors.map((err) => ({
-    field: err.path.join('.'),
-    message: err.message,
-    code: err.code,
+  const fieldErrors: FieldError[] = error.issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message,
+    code: issue.code,
   }));
 
   return validationError(fieldErrors, 'Validation failed');

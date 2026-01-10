@@ -12,7 +12,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthenticatedRequest } from './projects';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';

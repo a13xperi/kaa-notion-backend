@@ -192,6 +192,14 @@ export function setTag(key: string, value: string): void {
   Sentry.setTag(key, value);
 }
 
+/**
+ * Add a breadcrumb
+ */
+export function addBreadcrumb(breadcrumb: Sentry.Breadcrumb): void {
+  if (!isInitialized) return;
+  Sentry.addBreadcrumb(breadcrumb);
+}
+
 // ============================================================================
 // PERFORMANCE MONITORING
 // ============================================================================

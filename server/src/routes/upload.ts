@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
+import { requireAuth, requireAdmin } from '../middleware/authMiddleware';
 import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
