@@ -117,7 +117,7 @@
 ## Phase 7: File Storage
 
 ### 7.1 Supabase Storage
-- [ ] `new-service`: storageService.ts - Upload files to Supabase Storage, get signed URLs, delete files
+- [x] `new-service`: storageService.ts - Upload files to Supabase Storage, get signed URLs, delete files
 - [ ] `new-endpoint`: POST /api/upload - Handle file upload with validation (size, type), store metadata
 - [ ] `new-component`: FileUpload - Drag-drop upload with progress, file type validation, preview
 
@@ -236,6 +236,7 @@
 - [x] `notion-sync`: Milestone - notionMilestoneSync.ts with to-do blocks, status emoji, section detection, batch sync
 - [x] `notion-sync`: Deliverable - notionDeliverableSync.ts with showcase pages, image preview, project links, metadata
 - [x] `notion-sync`: Lead - notionLeadSync.ts with CRM database, contact/project/tier details, status tracking
+- [x] `new-service`: storageService.ts - Supabase upload, signed URLs, delete, file validation, category limits
 
 ---
 
