@@ -96,6 +96,7 @@ export function initStripe(config: StripeConfig): Stripe {
   stripeInstance = new Stripe(config.secretKey, {
     apiVersion: '2023-10-16',
   });
+  applyPriceIdsFromEnvironment();
   return stripeInstance;
 }
 
@@ -113,6 +114,21 @@ export function getStripeConfig(): StripeConfig {
   return stripeConfig;
 }
 
+function applyPriceIdsFromEnvironment(): void {
+  const envPriceIds = {
+    1: process.env.STRIPE_TIER1_PRICE_ID,
+    2: process.env.STRIPE_TIER2_PRICE_ID,
+    3: process.env.STRIPE_TIER3_PRICE_ID,
+  };
+
+  (Object.keys(envPriceIds) as Array<keyof typeof envPriceIds>).forEach((tierKey) => {
+    const priceId = envPriceIds[tierKey];
+    if (priceId) {
+      TIER_PRICING[tierKey].priceId = priceId;
+    }
+  });
+}
+
 // ============================================================================
 // CHECKOUT SESSION
 // ============================================================================
@@ -126,6 +142,8 @@ export async function createCheckoutSession(
   const stripe = getStripe();
   const config = getStripeConfig();
   const pricing = TIER_PRICING[options.tier];
+  const priceIdEnvVar = `STRIPE_TIER${options.tier}_PRICE_ID`;
+  const priceId = process.env[priceIdEnvVar] || pricing.priceId;
 
   if (options.tier === 4) {
     throw new Error('Tier 4 requires custom pricing and cannot use standard checkout');
@@ -159,10 +177,10 @@ export async function createCheckoutSession(
   };
 
   // Use existing price ID if configured
-  if (pricing.priceId) {
+  if (priceId) {
     sessionParams.line_items = [
       {
-        price: pricing.priceId,
+        price: priceId,
         quantity: 1,
       },
     ];
