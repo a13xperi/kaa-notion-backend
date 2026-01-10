@@ -1,10 +1,10 @@
 # Figma MCP Server
 
-This is a Message Control Protocol (MCP) server for Figma integration. It provides real-time communication between your application and Figma through WebSocket connections and REST API endpoints.
+This is a Message Control Protocol (MCP) server for Figma integration. It provides real-time communication between your application and Figma through a shared WebSocket server and REST API endpoints.
 
 ## Features
 
-- Real-time Figma file updates via WebSocket
+- Real-time notifications and Figma file updates via WebSocket
 - REST API endpoints for Figma file operations
 - Webhook support for Figma events
 - Secure authentication with Figma API
@@ -55,25 +55,60 @@ This is a Message Control Protocol (MCP) server for Figma integration. It provid
 
 ### WebSocket Events
 
+- `subscribe` - Subscribe to project notifications
+- `unsubscribe` - Unsubscribe from project notifications
+- `notification` - Server-pushed notification payloads
 - `getFile` - Request Figma file data
 - `getFileNodes` - Request specific nodes from a Figma file
 
 ## WebSocket Connection
 
-Connect to the WebSocket server at `ws://localhost:3002`. The server supports the following message types:
+Connect to the WebSocket server at `ws://localhost:3002`.
+
+The WebSocket server expects authentication query parameters for all clients:
+
+```
+ws://localhost:3002?userId=<id>&userType=<client|team|admin>&token=<token>
+```
+
+### Notification Payloads
 
 ```typescript
-// Get file data
+// Subscribe to project notifications
+{
+  type: 'subscribe',
+  payload: {
+    projectIds: ['project-id-1', 'project-id-2']
+  }
+}
+
+// Unsubscribe from project notifications
+{
+  type: 'unsubscribe',
+  payload: {
+    projectIds: ['project-id-1']
+  }
+}
+```
+
+### Figma Payloads
+
+```typescript
+// Get file data (payload is preferred; fileKey at the top-level is also accepted)
 {
   type: 'getFile',
-  fileKey: 'your-figma-file-key'
+  payload: {
+    fileKey: 'your-figma-file-key'
+  }
 }
 
 // Get specific nodes
 {
   type: 'getFileNodes',
-  fileKey: 'your-figma-file-key',
-  nodeIds: ['node-id-1', 'node-id-2']
+  payload: {
+    fileKey: 'your-figma-file-key',
+    nodeIds: ['node-id-1', 'node-id-2']
+  }
 }
 ```
 

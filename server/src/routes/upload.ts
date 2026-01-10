@@ -1,12 +1,12 @@
 /**
  * Upload Routes
- * API endpoints for file uploads with validation.
+ * API endpoints for file uploads with validation (JWT-authenticated).
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
-import { getStorageService, StorageService } from '../services/storageService';
+import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
@@ -17,6 +17,10 @@ import { recordDeliverableUploaded } from '../config/metrics';
 
 interface UploadRouterDependencies {
   prisma: PrismaClient;
+}
+
+interface StorageServiceRequest extends Request {
+  storageService?: StorageService;
 }
 
 // Extend Express Request
@@ -46,31 +50,13 @@ const upload = multer({
     files: 10, // Max 10 files per request
   },
   fileFilter: (req, file, cb) => {
-    // Get allowed types from storage service if available
-    try {
-      const storageService = getStorageService();
-      const allowedTypes = storageService.getAllowedMimeTypes();
-      
-      if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`File type not allowed: ${file.mimetype}`));
-      }
-    } catch {
-      // If storage service not initialized, use default list
-      const defaultAllowed = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-      ];
-      
-      if (defaultAllowed.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`File type not allowed: ${file.mimetype}`));
-      }
+    const storageService = (req as StorageServiceRequest).storageService as StorageService;
+    const allowedTypes = storageService.getAllowedMimeTypes();
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type not allowed: ${file.mimetype}`));
     }
   },
 });
@@ -78,64 +64,6 @@ const upload = multer({
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
-
-/**
- * Require authentication
- */
-function requireAuth(req: Request, res: Response, next: Function): void {
-  const userId = req.headers['x-user-id'] as string;
-  const userType = req.headers['x-user-type'] as string;
-  const userEmail = req.headers['x-user-email'] as string;
-
-  if (!userId) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-    });
-    return;
-  }
-
-  const validTypes = ['KAA_CLIENT', 'SAGE_CLIENT', 'TEAM', 'ADMIN'];
-  if (!validTypes.includes(userType)) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Invalid user type' },
-    });
-    return;
-  }
-
-  req.user = {
-    id: userId,
-    email: userEmail || '',
-    userType: userType as 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN',
-  };
-
-  next();
-}
-
-/**
- * Require admin or team access
- */
-function requireAdmin(req: Request, res: Response, next: Function): void {
-  if (!req.user) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-    });
-    return;
-  }
-
-  const adminTypes = ['ADMIN', 'TEAM'];
-  if (!adminTypes.includes(req.user.userType)) {
-    res.status(403).json({
-      success: false,
-      error: { code: 'FORBIDDEN', message: 'Admin access required' },
-    });
-    return;
-  }
-
-  next();
-}
 
 /**
  * Handle multer errors
@@ -186,8 +114,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.post(
     '/',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     upload.single('file'),
     handleMulterError,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -223,15 +150,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
         }
 
         // Get storage service
-        let storageService: StorageService;
-        try {
-          storageService = getStorageService();
-        } catch {
-          return res.status(503).json({
-            success: false,
-            error: { code: 'SERVICE_UNAVAILABLE', message: 'Storage service not configured' },
-          });
-        }
+        const storageService = (req as StorageServiceRequest).storageService as StorageService;
 
         // Upload file
         const uploadResult = await storageService.uploadFile(file.buffer, {
@@ -305,8 +224,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.post(
     '/multiple',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     upload.array('files', 10),
     handleMulterError,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -340,15 +258,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           });
         }
 
-        let storageService: StorageService;
-        try {
-          storageService = getStorageService();
-        } catch {
-          return res.status(503).json({
-            success: false,
-            error: { code: 'SERVICE_UNAVAILABLE', message: 'Storage service not configured' },
-          });
-        }
+        const storageService = (req as StorageServiceRequest).storageService as StorageService;
 
         const results: Array<{
           fileName: string;
@@ -438,24 +348,9 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.get('/config', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let allowedTypes: string[];
-      let maxSizeBytes: number;
-
-      try {
-        const storageService = getStorageService();
-        allowedTypes = storageService.getAllowedMimeTypes();
-        maxSizeBytes = storageService.getMaxFileSizeBytes();
-      } catch {
-        // Default configuration
-        allowedTypes = [
-          'application/pdf',
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'image/webp',
-        ];
-        maxSizeBytes = 50 * 1024 * 1024;
-      }
+      const storageService = (req as StorageServiceRequest).storageService as StorageService;
+      const allowedTypes = storageService.getAllowedMimeTypes();
+      const maxSizeBytes = storageService.getMaxFileSizeBytes();
 
       return res.json({
         success: true,
@@ -497,7 +392,7 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
 
         // Delete from storage
         try {
-          const storageService = getStorageService();
+          const storageService = (req as StorageServiceRequest).storageService as StorageService;
           const deleteResult = await storageService.deleteFile(deliverable.filePath);
 
           if (!deleteResult.success) {

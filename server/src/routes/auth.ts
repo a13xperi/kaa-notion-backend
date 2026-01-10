@@ -8,7 +8,6 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient, UserType } from '@prisma/client';
-import { z } from 'zod';
 import {
   registerUser,
   loginUser,
@@ -88,18 +87,10 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/register',
+    validateBody(registerSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // Validate input
-        const validation = registerSchema.safeParse(req.body);
-        if (!validation.success) {
-          throw validationError(
-            validation.error.issues.map((e: { message: string }) => e.message).join(', '),
-            { errors: validation.error.issues }
-          );
-        }
-
-        const { email, password, tier } = validation.data;
+        const { email, password, tier } = req.body as RegisterInput;
 
         // Register the user
         const result = await registerUser(prisma, {
@@ -167,20 +158,10 @@ export function createAuthRouter(prisma: PrismaClient): Router {
   router.post(
     '/login',
     loginProtection(), // Prevent brute force attacks
+    validateBody(loginSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // Validate input
-        const validation = loginSchema.safeParse(req.body);
-        if (!validation.success) {
-          throw validationError(
-            validation.error.issues.map((e: { message: string }) => e.message).join(', '),
-            { errors: validation.error.issues }
-          );
-        }
-
-        const { email, password } = validation.data;
-
-        const { rememberMe } = validation.data;
+        const { email, password, rememberMe } = req.body as LoginInput;
         
         // Authenticate user
         const result = await loginUser(prisma, { email, password, rememberMe });
@@ -278,18 +259,10 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/refresh',
+    validateBody(refreshTokenSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // Validate input
-        const validation = refreshTokenSchema.safeParse(req.body);
-        if (!validation.success) {
-          throw validationError(
-            'Refresh token is required',
-            { errors: validation.error.issues }
-          );
-        }
-
-        const { refreshToken } = validation.data;
+        const { refreshToken } = req.body as RefreshTokenInput;
         
         // Refresh the tokens
         const result = await refreshAccessToken(prisma, refreshToken);
@@ -376,70 +349,6 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         if ((error as Error).message === 'User not found') {
           throw notFound('User not found');
         }
-        next(error);
-      }
-    }
-  );
-
-  /**
-   * POST /refresh
-   * Refresh an authentication token.
-   */
-  router.post(
-    '/refresh',
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        // Extract and verify current token
-        const token = extractToken(req.headers.authorization);
-        if (!token) {
-          throw unauthorized('Authentication required');
-        }
-
-        let payload;
-        try {
-          payload = verifyToken(token);
-        } catch {
-          throw unauthorized('Invalid or expired token');
-        }
-
-        // Get fresh user data
-        const user = await prisma.user.findUnique({
-          where: { id: payload.userId },
-          select: {
-            id: true,
-            email: true,
-            userType: true,
-            tier: true,
-          },
-        });
-
-        if (!user) {
-          throw notFound('User not found');
-        }
-
-        // Generate new token
-        const { generateToken, getAuthConfig } = await import('../services/authService');
-        
-        if (!user.email) {
-          throw unauthorized('User has no email address');
-        }
-        
-        const newToken = generateToken({
-          userId: user.id,
-          email: user.email,
-          userType: user.userType,
-          tier: user.tier || undefined,
-        });
-
-        res.json({
-          success: true,
-          data: {
-            user,
-            token: newToken,
-            expiresIn: getAuthConfig().jwtExpiresIn,
-          },
-        });
-      } catch (error) {
         next(error);
       }
     }

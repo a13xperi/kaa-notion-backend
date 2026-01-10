@@ -12,7 +12,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { Client as NotionClient } from '@notionhq/client';
-import { AuthenticatedRequest, requireAuth, requireAdmin } from './projects';
+import { AuthenticatedRequest } from './projects';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';

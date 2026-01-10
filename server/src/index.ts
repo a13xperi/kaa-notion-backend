@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
-import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
@@ -21,7 +20,15 @@ import {
   createWebhooksRouter,
   createAuthRouter,
 } from './routes';
-import { initNotionSyncService, initStorageService, initAuditService, initAuthService, initEmailService } from './services';
+import {
+  initNotionSyncService,
+  initStorageService,
+  initAuditService,
+  initAuthService,
+  initEmailService,
+  initRealtimeService,
+  shutdownRealtimeService,
+} from './services';
 import { initStripe } from './utils/stripeHelpers';
 import { 
   errorHandler, 
@@ -32,6 +39,7 @@ import {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  requireAuth,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -55,11 +63,6 @@ const prisma = createPrismaClient({
   idleTimeout: parseInt(process.env.DATABASE_IDLE_TIMEOUT || '60000', 10),
   logQueries: process.env.NODE_ENV === 'development',
   slowQueryThreshold: parseInt(process.env.SLOW_QUERY_THRESHOLD || '1000', 10),
-});
-
-// Initialize Stripe client with helpers
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
 });
 
 // Initialize Stripe helpers for checkout and webhook handling
@@ -99,7 +102,7 @@ app.use(cors(corsOptions));
 // Compression for responses
 app.use(compression());
 
-// Stripe webhooks need raw body - must be before express.json()
+// Stripe webhooks need the raw body for signature verification - keep this before express.json().
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // JSON parsing for all other routes
@@ -183,7 +186,14 @@ app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
 app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+const apiAuth = requireAuth(prisma);
+app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
+app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
+app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
@@ -198,37 +208,9 @@ const figmaClient = new FigmaClient({
   accessToken: process.env.FIGMA_ACCESS_TOKEN || '',
 });
 
-// WebSocket server for real-time updates
+// WebSocket server for real-time updates (notifications + Figma requests)
 const wss = new WebSocketServer({ port: 3002 });
-
-wss.on('connection', (ws) => {
-  logger.debug('Client connected to WebSocket');
-
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      // Handle different message types
-      switch (data.type) {
-        case 'getFile':
-          const fileData = await figmaClient.getFile(data.fileKey);
-          ws.send(JSON.stringify({ type: 'fileData', data: fileData }));
-          break;
-        case 'getFileNodes':
-          const nodesData = await figmaClient.getFileNodes(data.fileKey, data.nodeIds);
-          ws.send(JSON.stringify({ type: 'nodesData', data: nodesData }));
-          break;
-        // Add more message handlers as needed
-      }
-    } catch (error) {
-      logger.error('Error handling WebSocket message:', error);
-      ws.send(JSON.stringify({ type: 'error', message: 'Error processing request' }));
-    }
-  });
-
-  ws.on('close', () => {
-    logger.debug('Client disconnected from WebSocket');
-  });
-});
+initRealtimeService(wss, {}, figmaClient);
 
 // Test endpoint
 app.get('/test', (req, res) => {
@@ -387,6 +369,7 @@ async function shutdown() {
   logger.info('Shutting down gracefully...');
   
   // Close WebSocket server
+  shutdownRealtimeService();
   wss.close(() => {
     logger.info('WebSocket server closed');
   });

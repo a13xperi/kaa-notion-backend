@@ -182,6 +182,8 @@ git add prisma/
 git commit -m "Add user avatar column"
 ```
 
+See [Testing Strategy](./TESTING_STRATEGY.md) for test prerequisites and command mappings.
+
 ### Staging/Production
 
 ```bash

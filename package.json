@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "quickstart": "bash scripts/quickstart.sh",
-    "dev": "concurrently \"cd server && npm run dev\" \"cd kaa-app && npm start\"",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd kaa-app && npm run dev\"",
     "start": "cd server && npm start",
     "build": "cd server && npm run build && cd ../kaa-app && npm run build",
     "test": "cd server && npm test && cd ../kaa-app && npm test -- --watchAll=false",
@@ -36,7 +36,8 @@
     "verify-env": "node scripts/verifyEnv.js",
     "verify-indexes": "node scripts/verifyDatabaseIndexes.js",
     "phase0-setup": "node scripts/phase0-setup.js",
-    "test:e2e-sync": "node scripts/test-end-to-end-sync.js"
+    "test:e2e-sync": "node scripts/test-end-to-end-sync.js",
+    "configure-db": "bash scripts/configure-database.sh"
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0",

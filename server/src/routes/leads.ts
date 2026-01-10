@@ -5,9 +5,17 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient, LeadStatus, Prisma, UserType } from '@prisma/client';
-import { z } from 'zod';
 import { AppError, notFound, validationError, forbidden, internalError } from '../utils/AppError';
 import { recordLeadCreated } from '../config/metrics';
+import {
+  createLeadSchema,
+  leadFiltersSchema,
+  updateLeadSchema,
+  type CreateLeadInput,
+  type LeadFiltersInput,
+  type UpdateLeadInput,
+} from '../utils';
+import { validateBody, validateQuery } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -29,40 +37,6 @@ interface TierRecommendation {
   confidence: 'high' | 'medium' | 'low';
   needsManualReview: boolean;
 }
-
-// ============================================================================
-// VALIDATION SCHEMAS
-// ============================================================================
-
-const createLeadSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  name: z.string().optional(),
-  projectAddress: z.string().min(1, 'Project address is required'),
-  budgetRange: z.string().optional(),
-  timeline: z.string().optional(),
-  projectType: z.string().optional(),
-  hasSurvey: z.boolean().default(false),
-  hasDrawings: z.boolean().default(false),
-  budget: z.number().positive().optional(), // Numeric budget for tier calculation
-  timelineWeeks: z.number().positive().optional(), // Numeric timeline for tier calculation
-});
-
-const updateLeadSchema = z.object({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
-  recommendedTier: z.number().min(1).max(4).optional(),
-  tierOverrideReason: z.string().optional(),
-  name: z.string().optional(),
-});
-
-const queryLeadsSchema = z.object({
-  page: z.coerce.number().default(1),
-  limit: z.coerce.number().default(20),
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
-  tier: z.coerce.number().optional(),
-  search: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-});
 
 // ============================================================================
 // TIER ROUTER (Server-side implementation)
@@ -194,14 +168,12 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
    *       422:
    *         $ref: '#/components/responses/ValidationError'
    */
-  router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+  router.post(
+    '/',
+    validateBody(createLeadSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validation = createLeadSchema.safeParse(req.body);
-      if (!validation.success) {
-        throw validationError('Invalid lead data', validation.error.flatten().fieldErrors);
-      }
-
-      const data = validation.data;
+      const data = req.body as CreateLeadInput;
 
       // Check for existing lead with same email
       const existingLead = await prisma.lead.findFirst({
@@ -323,7 +295,10 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
    *       403:
    *         $ref: '#/components/responses/ForbiddenError'
    */
-  router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  router.get(
+    '/',
+    validateQuery(leadFiltersSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthenticatedRequest;
       // Check admin/team access
@@ -331,8 +306,8 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
         throw forbidden('Admin or team access required');
       }
 
-      const query = queryLeadsSchema.parse(req.query);
-      const { page, limit, status, tier, search, startDate, endDate } = query;
+      const { page, limit, status, tier, search, startDate, endDate } =
+        req.query as LeadFiltersInput;
       const skip = (page - 1) * limit;
 
       // Build where clause
@@ -484,7 +459,10 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
   // ============================================================================
   // PATCH /api/leads/:id - Update lead status/tier (admin only)
   // ============================================================================
-  router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  router.patch(
+    '/:id',
+    validateBody(updateLeadSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthenticatedRequest;
       // Check admin/team access
@@ -493,12 +471,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
       }
 
       const { id } = req.params;
-      const validation = updateLeadSchema.safeParse(req.body);
-      if (!validation.success) {
-        throw validationError('Invalid update data', validation.error.flatten().fieldErrors);
-      }
-
-      const data = validation.data;
+      const data = req.body as UpdateLeadInput;
 
       // Check lead exists
       const existingLead = await prisma.lead.findUnique({ where: { id } });

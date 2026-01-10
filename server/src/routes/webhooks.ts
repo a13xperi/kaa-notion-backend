@@ -17,13 +17,14 @@ import {
 } from '../utils/stripeHelpers';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
+import { requireNotionService } from '../middleware';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 interface StripeWebhookRequest extends Request {
-  rawBody?: Buffer;
+  body: Buffer;
 }
 
 interface NotionWebhookPayload {
@@ -65,7 +66,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
         }
 
         // Get raw body (should be set by express.raw middleware)
-        const rawBody = req.rawBody || req.body;
+        const rawBody = req.body;
         if (!rawBody) {
           logger.warn('Webhook received without body');
           return res.status(400).json({
@@ -194,6 +195,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/notion',
+    requireNotionService,
     async (req: Request<{}, {}, NotionWebhookPayload>, res: Response, next: NextFunction) => {
       const correlationId = req.correlationId || `notion-webhook-${Date.now()}`;
       
@@ -244,19 +246,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
           objectId: event.object.id,
         });
 
-        // Check if Notion API is configured
-        const notionApiKey = process.env.NOTION_API_KEY;
-        if (!notionApiKey) {
-          logger.warn('Notion API not configured, skipping webhook processing', { correlationId });
-          return res.json({
-            success: true,
-            received: true,
-            message: 'Notion API not configured, webhook ignored',
-            correlationId,
-          });
-        }
-
-        const notion = new NotionClient({ auth: notionApiKey });
+        const notion = new NotionClient({ auth: process.env.NOTION_API_KEY! });
         const pageId = event.object.id;
         const lastEditedTime = event.object.last_edited_time;
 
@@ -454,34 +444,4 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
   );
 
   return router;
-}
-
-// ============================================================================
-// MIDDLEWARE FOR RAW BODY CAPTURE
-// ============================================================================
-
-/**
- * Middleware to capture raw body for webhook signature verification.
- * Use this before express.json() for webhook routes.
- */
-export function captureRawBody(
-  req: StripeWebhookRequest,
-  _res: Response,
-  next: NextFunction
-): void {
-  if (req.headers['stripe-signature']) {
-    let data = '';
-    req.setEncoding('utf8');
-    
-    req.on('data', (chunk) => {
-      data += chunk;
-    });
-    
-    req.on('end', () => {
-      req.rawBody = Buffer.from(data);
-      next();
-    });
-  } else {
-    next();
-  }
 }

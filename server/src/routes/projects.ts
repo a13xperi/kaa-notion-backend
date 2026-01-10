@@ -2,13 +2,13 @@
  * Projects Routes
  * API endpoints for project management.
  *
- * Routes:
+ * Routes (JWT-authenticated):
  * - GET /api/projects - List user's projects with status and progress
  * - GET /api/projects/:id - Get single project with full details
  * - PATCH /api/projects/:id - Update project status (admin only)
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
@@ -23,13 +23,7 @@ import { internalError } from '../utils/AppError';
  * Extended request with authenticated user info
  */
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    userType: 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN';
-    tier?: number;
-    clientId?: string;
-  };
+  user?: AuthenticatedUser;
 }
 
 /**
@@ -79,67 +73,6 @@ interface ProjectSummary {
   } | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-// ============================================================================
-// MIDDLEWARE
-// ============================================================================
-
-/**
- * Middleware to require authentication
- * TODO: Replace with proper JWT verification in Phase 8
- */
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  // For now, check for user info in headers (temporary solution)
-  // This should be replaced with proper JWT verification
-  const userId = req.headers['x-user-id'] as string;
-  const userType = req.headers['x-user-type'] as string;
-  const clientId = req.headers['x-client-id'] as string;
-
-  if (!userId) {
-    res.status(401).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required',
-      },
-    });
-    return;
-  }
-
-  // Validate userType
-  const validUserTypes = ['KAA_CLIENT', 'SAGE_CLIENT', 'TEAM', 'ADMIN'] as const;
-  const validatedUserType = validUserTypes.includes(userType as any)
-    ? (userType as 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN')
-    : 'SAGE_CLIENT';
-
-  req.user = {
-    id: userId,
-    email: (req.headers['x-user-email'] as string) || '',
-    userType: validatedUserType,
-    tier: req.headers['x-user-tier'] ? parseInt(req.headers['x-user-tier'] as string) : undefined,
-    clientId: clientId || undefined,
-  };
-
-  next();
-}
-
-/**
- * Middleware to require admin or team access
- */
-export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  if (!req.user || (req.user.userType !== 'ADMIN' && req.user.userType !== 'TEAM')) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Admin or team access required',
-      },
-    });
-    return;
-  }
-
-  next();
 }
 
 // ============================================================================

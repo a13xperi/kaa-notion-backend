@@ -125,6 +125,13 @@ const errorsTotal = new Counter({
   registers: [register],
 });
 
+const serviceDisabledTotal = new Counter({
+  name: 'service_disabled_total',
+  help: 'Total attempts to access disabled services',
+  labelNames: ['service'],
+  registers: [register],
+});
+
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
@@ -287,6 +294,13 @@ export function recordError(type: string, code: string): void {
   errorsTotal.inc({ type, code });
 }
 
+/**
+ * Record a disabled service access attempt
+ */
+export function recordServiceDisabled(service: string): void {
+  serviceDisabledTotal.inc({ service });
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -304,6 +318,7 @@ export {
   projectsCreatedTotal,
   authAttemptsTotal,
   errorsTotal,
+  serviceDisabledTotal,
 };
 
 export default {
@@ -317,4 +332,5 @@ export default {
   recordAuthAttempt,
   setActiveSessions,
   recordError,
+  recordServiceDisabled,
 };
