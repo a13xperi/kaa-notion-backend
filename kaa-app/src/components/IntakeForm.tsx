@@ -159,7 +159,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     }
   };
 
-  const renderProgressBar = (): JSX.Element => (
+  const renderProgressBar = (): React.JSX.Element => (
     <div className="intake-progress">
       <div className="intake-progress-bar">
         <div
@@ -181,7 +181,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     </div>
   );
 
-  const renderStep1 = (): JSX.Element => (
+  const renderStep1 = (): React.JSX.Element => (
     <div className="intake-step">
       <h2 className="intake-step-title">Let's get started</h2>
       <p className="intake-step-description">Tell us how to reach you and where your project is located.</p>
@@ -236,7 +236,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     </div>
   );
 
-  const renderStep2 = (): JSX.Element => (
+  const renderStep2 = (): React.JSX.Element => (
     <div className="intake-step">
       <h2 className="intake-step-title">What's your budget?</h2>
       <p className="intake-step-description">This helps us recommend the right service tier for you.</p>
@@ -266,7 +266,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     </div>
   );
 
-  const renderStep3 = (): JSX.Element => (
+  const renderStep3 = (): React.JSX.Element => (
     <div className="intake-step">
       <h2 className="intake-step-title">When do you need this done?</h2>
       <p className="intake-step-description">Your timeline helps us plan accordingly.</p>
@@ -296,7 +296,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     </div>
   );
 
-  const renderStep4 = (): JSX.Element => (
+  const renderStep4 = (): React.JSX.Element => (
     <div className="intake-step">
       <h2 className="intake-step-title">What type of project is this?</h2>
       <p className="intake-step-description">Select the option that best describes your project.</p>
@@ -351,7 +351,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     </div>
   );
 
-  const renderStep5 = (): JSX.Element => {
+  const renderStep5 = (): React.JSX.Element => {
     const getBudgetLabel = (): string => BUDGET_OPTIONS.find(o => o.value === formData.budgetRange)?.label || '';
     const getTimelineLabel = (): string => TIMELINE_OPTIONS.find(o => o.value === formData.timeline)?.label || '';
     const getProjectTypeLabel = (): string => PROJECT_TYPE_OPTIONS.find(o => o.value === formData.projectType)?.label || '';
@@ -412,7 +412,7 @@ const IntakeForm: React.FC<IntakeFormProps> = ({ onSubmit, onCancel, isLoading =
     );
   };
 
-  const renderCurrentStep = (): JSX.Element => {
+  const renderCurrentStep = (): React.JSX.Element => {
     switch (currentStep) {
       case 1: return renderStep1();
       case 2: return renderStep2();

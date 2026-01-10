@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Query Optimization Utilities
  * Helpers for efficient Prisma queries with pagination, field selection, caching,

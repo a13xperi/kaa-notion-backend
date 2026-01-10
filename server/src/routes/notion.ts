@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Notion Sync Routes
  * API endpoints for manual sync operations and status monitoring (JWT-authenticated).

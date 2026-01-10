@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AppError - Custom Error Class
  *

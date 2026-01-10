@@ -29,6 +29,12 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
   // Check if onboarding should auto-start on mount
   useEffect(() => {
     const isOnboardingCompleted = localStorage.getItem('kaa-onboarding-completed') === 'true';
+    const skipOnboarding = sessionStorage.getItem('skip_onboarding') === 'true';
+    
+    // Skip onboarding if explicitly requested or already completed
+    if (skipOnboarding || isOnboardingCompleted) {
+      return;
+    }
     
     if (!isOnboardingCompleted) {
       // Check onboarding state to see if it's already active or should start

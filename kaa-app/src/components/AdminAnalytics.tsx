@@ -94,8 +94,8 @@ const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({ onExport }) => {
         <div className="summary-card">
           <div className="card-header">
             <span className="card-icon">👥</span>
-            <span className={`card-change ${summary?.leads.change >= 0 ? 'positive' : 'negative'}`}>
-              {formatPercentage(summary?.leads.change || 0)}
+            <span className={`card-change ${(summary?.leads?.change ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(summary?.leads?.change ?? 0)}
             </span>
           </div>
           <div className="card-value">{summary?.leads.total || 0}</div>
@@ -108,8 +108,8 @@ const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({ onExport }) => {
         <div className="summary-card">
           <div className="card-header">
             <span className="card-icon">📈</span>
-            <span className={`card-change ${summary?.conversions.change >= 0 ? 'positive' : 'negative'}`}>
-              {formatPercentage(summary?.conversions.change || 0)}
+            <span className={`card-change ${(summary?.conversions?.change ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(summary?.conversions?.change ?? 0)}
             </span>
           </div>
           <div className="card-value">{summary?.conversions.rate || 0}%</div>
@@ -122,8 +122,8 @@ const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({ onExport }) => {
         <div className="summary-card">
           <div className="card-header">
             <span className="card-icon">💰</span>
-            <span className={`card-change ${summary?.revenue.change >= 0 ? 'positive' : 'negative'}`}>
-              {formatPercentage(summary?.revenue.change || 0)}
+            <span className={`card-change ${(summary?.revenue?.change ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(summary?.revenue?.change ?? 0)}
             </span>
           </div>
           <div className="card-value">{formatCurrency(summary?.revenue.total || 0)}</div>

@@ -9,6 +9,7 @@ import './Badge.css';
 type BadgeVariant = 
   | 'default'
   | 'primary'
+  | 'secondary'
   | 'success'
   | 'warning'
   | 'danger'

@@ -184,23 +184,30 @@ if (features.apiDocsEnabled) {
 }
 
 // API Routes with Rate Limiting
-app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
-const apiAuth = requireAuth(prisma);
-app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+// IMPORTANT: More specific routes (like /api/auth) must come BEFORE generic /api routes
+// to prevent middleware conflicts
+
+// Public routes (no auth required)
+app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints (register, login, refresh)
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
-app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+
+// Protected routes (require authentication)
+// NOTE: Routes are registered AFTER public routes to ensure /api/auth is accessible
+// The routers themselves handle authentication on their routes, so we don't apply auth at mount point
+app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
+app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma));
+app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma }));
+app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma }));
+
+// Milestones and deliverables routers mount at /api but only handle specific paths
+// The routers define routes like '/projects/:id/milestones' and '/milestones/:id'
+// so mounting at /api gives us /api/projects/:id/milestones and /api/milestones/:id
+// These won't conflict with /api/auth because the router only handles its defined routes
+// Each route in the router has its own requireAuth middleware, so we don't need it here
+app.use('/api', apiRateLimiter, createMilestonesRouter(prisma));
+app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma));
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());

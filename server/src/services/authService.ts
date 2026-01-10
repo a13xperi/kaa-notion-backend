@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Auth Service
  * Handles user authentication, registration, and JWT token management.

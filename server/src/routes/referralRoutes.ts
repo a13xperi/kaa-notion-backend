@@ -23,17 +23,30 @@ router.get('/code', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
-    // Get client
+    // Get client with user relation
     const client = await prisma.client.findUnique({
       where: { userId: user.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!client) {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const code = await referralService.generateReferralCode(client.id);
-    res.json({ code });
+    const referralCode = await referralService.createReferralCode({
+      ownerId: client.id,
+      ownerName: client.user?.name || 'Client',
+      ownerEmail: client.user?.email || 'client@example.com',
+    });
+    res.json({ code: referralCode.code });
   } catch (error: any) {
     console.error('Error getting referral code:', error);
     res.status(400).json({ error: error.message || 'Failed to get referral code' });

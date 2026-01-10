@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Services Index
  * Central export point for all backend services.

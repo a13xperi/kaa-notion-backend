@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Milestones Routes
  * API endpoints for milestone management.

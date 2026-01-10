@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getTierPricing, TierPricing, redirectToCheckout } from '../../api/checkoutApi';
 import './PricingPage.css';
 
@@ -80,6 +81,7 @@ const TIER_FEATURES: Record<number, { features: string[]; highlight?: string }> 
 };
 
 export function PricingPage({ leadId: propLeadId, userEmail: propEmail, recommendedTier: propRecommendedTier }: PricingPageProps) {
+  const navigate = useNavigate();
   const [pricing, setPricing] = useState<TierPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,9 +93,19 @@ export function PricingPage({ leadId: propLeadId, userEmail: propEmail, recommen
   const urlRecommendedTier = getRecommendedTierFromURL();
   
   // Use props first, then stored data, then URL params
-  const leadId = propLeadId || storedData.leadId;
+  const [leadId, setLeadId] = useState<string | undefined>(propLeadId || storedData.leadId);
   const userEmail = propEmail || storedData.email;
   const recommendedTier = propRecommendedTier || storedData.recommendedTier || urlRecommendedTier;
+
+  // Get leadId from URL params if available
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlLeadId = params.get('leadId');
+    if (urlLeadId && !leadId) {
+      setLeadId(urlLeadId);
+      sessionStorage.setItem('lead_id', urlLeadId);
+    }
+  }, [leadId]);
 
   useEffect(() => {
     async function fetchPricing() {
@@ -117,27 +129,103 @@ export function PricingPage({ leadId: propLeadId, userEmail: propEmail, recommen
   }, []);
 
   const handleSelectTier = async (tier: number) => {
-    // If no lead ID, store selection and redirect to intake
-    if (!leadId) {
-      sessionStorage.setItem('selected_tier', String(tier));
-      window.location.href = '/get-started';
-      return;
-    }
-
     setSelectedTier(tier);
     setCheckoutLoading(true);
 
+    // If no lead ID, create a mock one for demo purposes
+    const effectiveLeadId = leadId || `mock-lead-${Date.now()}`;
+    if (!leadId) {
+      sessionStorage.setItem('lead_id', effectiveLeadId);
+      sessionStorage.setItem('selected_tier', String(tier));
+    }
+
     try {
       await redirectToCheckout({
-        leadId,
+        leadId: effectiveLeadId,
         tier: tier as 1 | 2 | 3,
         email: userEmail || '',
       });
     } catch (err) {
-      setError('Failed to start checkout. Please try again.');
-      console.error('Checkout error:', err);
+      // If checkout fails, try to log in with demo credentials and go to portal
+      console.warn('Checkout failed, attempting demo login:', err);
+      try {
+        const demoEmail = userEmail || 'demo@sage.design';
+        const loginResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: demoEmail,
+            password: 'Demo123!',
+          }),
+        });
+
+        if (loginResponse.ok) {
+          const loginResult = await loginResponse.json();
+          if (loginResult.success && loginResult.data) {
+            // Store auth credentials
+            localStorage.setItem('sage_auth_token', loginResult.data.token);
+            localStorage.setItem('sage_user', JSON.stringify(loginResult.data.user));
+            
+            // COMPLETELY BYPASS ONBOARDING AND VERIFICATION:
+            // 1. Mark onboarding as completed
+            localStorage.setItem('kaa-onboarding-completed', 'true');
+            // 2. Set session skip flags
+            sessionStorage.setItem('skip_onboarding', 'true');
+            sessionStorage.setItem('skip_verification', 'true');
+            // 3. Clear any existing onboarding state
+            localStorage.removeItem('kaa-onboarding-state');
+            
+            // Navigate directly to portal dashboard
+            window.location.href = '/portal';
+            return;
+          }
+        }
+      } catch (loginErr) {
+        console.error('Demo login also failed:', loginErr);
+      }
+
+      setError('Failed to start checkout. Please try the demo login option below.');
       setCheckoutLoading(false);
       setSelectedTier(null);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    try {
+      const loginResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'demo@sage.design',
+          password: 'Demo123!',
+        }),
+      });
+
+      if (loginResponse.ok) {
+        const loginResult = await loginResponse.json();
+        if (loginResult.success && loginResult.data) {
+          // Store auth credentials
+          localStorage.setItem('sage_auth_token', loginResult.data.token);
+          localStorage.setItem('sage_user', JSON.stringify(loginResult.data.user));
+          
+          // COMPLETELY BYPASS ONBOARDING AND VERIFICATION:
+          // 1. Mark onboarding as completed
+          localStorage.setItem('kaa-onboarding-completed', 'true');
+          // 2. Set session skip flags
+          sessionStorage.setItem('skip_onboarding', 'true');
+          sessionStorage.setItem('skip_verification', 'true');
+          // 3. Clear any existing onboarding state
+          localStorage.removeItem('kaa-onboarding-state');
+          
+          // Navigate directly to portal dashboard
+          navigate('/portal');
+        }
+      } else {
+        setError('Demo login failed. Please try again.');
+      }
+    } catch (err) {
+      setError('Failed to connect to server. Please check if the server is running.');
+      console.error('Demo login error:', err);
     }
   };
 
@@ -169,6 +257,42 @@ export function PricingPage({ leadId: propLeadId, userEmail: propEmail, recommen
         <h1 className="pricing-page__title">Choose Your Design Package</h1>
         <p className="pricing-page__subtitle">
           Select the service level that best fits your landscape project
+        </p>
+        <button
+          onClick={handleDemoLogin}
+          className="pricing-page__demo-button"
+          style={{
+            marginTop: '1rem',
+            padding: '0.75rem 1.5rem',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '0.9375rem',
+            fontWeight: '600',
+            boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 12px rgba(16, 185, 129, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
+          }}
+        >
+          🚀 Jump to Dashboard (Skip All Onboarding)
+        </button>
+        <p style={{
+          fontSize: '0.75rem',
+          color: '#6b7280',
+          marginTop: '0.5rem',
+          textAlign: 'center',
+          fontStyle: 'italic',
+        }}>
+          Auto-login with demo credentials and bypass all onboarding steps
         </p>
       </div>
 

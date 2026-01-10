@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, ENDPOINTS, ApiError } from '../config/api';
+import { api, ENDPOINTS, ApiError, API_BASE_URL, buildHeaders } from '../config/api';
 import { IntakeFormData, TierRecommendation } from '../utils/tierRouter';
 
 // Query keys
@@ -29,15 +29,20 @@ export interface Lead {
   hasSurvey: boolean;
   hasDrawings: boolean;
   status: LeadStatus;
-  tier: number;
-  tierConfidence: number | null;
-  tierReason: string | null;
-  needsManualReview: boolean;
+  recommendedTier: number;
+  tierOverride: number | null;
+  tierOverrideReason: string | null; // Backend maps overrideReason to this for compatibility
+  overrideReason?: string | null; // Actual backend field name
+  routingReason?: string | null;
+  needsManualReview?: boolean; // Derived field, may not always be present
+  isConverted: boolean;
+  client: { id: string; status: string } | null;
+  projects: Array<{ id: string; name: string; status: string }>;
   createdAt: string;
   updatedAt: string;
 }
 
-export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'CONVERTED' | 'LOST';
+export type LeadStatus = 'NEW' | 'QUALIFIED' | 'NEEDS_REVIEW' | 'CONVERTED' | 'CLOSED';
 
 export interface LeadFilters {
   status?: LeadStatus;
@@ -85,6 +90,7 @@ export interface CreateLeadResponse {
 
 /**
  * Fetch leads list (admin only)
+ * Backend returns: { success: true, data: Lead[], meta: { page, limit, total, totalPages } }
  */
 export function useLeads(filters: LeadFilters = {}) {
   return useQuery({
@@ -101,8 +107,35 @@ export function useLeads(filters: LeadFilters = {}) {
       const endpoint = query 
         ? `${ENDPOINTS.LEADS.BASE}?${query}`
         : ENDPOINTS.LEADS.BASE;
-        
-      return api.get<LeadsResponse>(endpoint);
+      
+      // Backend returns { success: true, data: [...], meta: {...} }
+      // api.get extracts data.data, so we need to get the full response
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'GET',
+        headers: buildHeaders(true),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new ApiError(
+          error.error?.message || 'Failed to get leads',
+          response.status,
+          error.error?.code
+        );
+      }
+      
+      const result = await response.json();
+      
+      // Transform backend response { data: [...], meta: {...} } to { leads: [...], pagination: {...} }
+      return {
+        leads: result.data || [],
+        pagination: {
+          page: result.meta?.page || filters.page || 1,
+          limit: result.meta?.limit || filters.limit || 20,
+          total: result.meta?.total || 0,
+          totalPages: result.meta?.totalPages || Math.ceil((result.meta?.total || 0) / (result.meta?.limit || 20)),
+        },
+      };
     },
     staleTime: 30000,
   });
@@ -194,9 +227,9 @@ export function useOverrideLeadTier() {
       reason: string;
     }) => {
       return api.patch(ENDPOINTS.LEADS.BY_ID(leadId), { 
-        tier,
-        tierReason: reason,
-        needsManualReview: false,
+        tierOverride: tier,
+        overrideReason: reason,
+        // status will be automatically set to QUALIFIED by backend
       });
     },
     onSuccess: (_, variables) => {

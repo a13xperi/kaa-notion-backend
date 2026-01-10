@@ -26,6 +26,10 @@ import { PricingPage } from './components/pricing';
 import { CheckoutSuccess, CheckoutCancel } from './components/checkout';
 import { IntakeForm } from './components/intake/IntakeForm';
 
+// SAGE Pages
+import { SageLanding } from './components/sage/SageLanding';
+import { SageTiers } from './components/sage/SageTiers';
+
 // Portal Pages
 import { ProjectsPage, ProjectDetailPage } from './pages';
 import { UserProfile } from './components/profile';
@@ -94,9 +98,56 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function LoginPage() {
   const navigate = useNavigate();
   
+  const handleQuickDemo = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'demo@sage.design',
+          password: 'Demo123!',
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Store auth credentials
+          localStorage.setItem('sage_auth_token', result.data.token);
+          localStorage.setItem('sage_user', JSON.stringify(result.data.user));
+          
+          // COMPLETELY BYPASS ONBOARDING AND VERIFICATION:
+          // 1. Mark onboarding as completed
+          localStorage.setItem('kaa-onboarding-completed', 'true');
+          // 2. Set session skip flags
+          sessionStorage.setItem('skip_onboarding', 'true');
+          sessionStorage.setItem('skip_verification', 'true');
+          // 3. Clear any existing onboarding state
+          localStorage.removeItem('kaa-onboarding-state');
+          
+          // Navigate directly to portal dashboard
+          navigate('/portal');
+        }
+      } else {
+        console.error('Demo login failed');
+      }
+    } catch (err) {
+      console.error('Demo login error:', err);
+    }
+  };
+  
   return (
     <div className="auth-page">
       <div className="auth-page__container">
+        {/* Back Button */}
+        <button 
+          className="auth-page__back-button" 
+          onClick={() => navigate('/')}
+          aria-label="Go back to home page"
+        >
+          <span aria-hidden="true">←</span> Back to Home
+        </button>
+        
         <div className="auth-page__header">
           <h1>Welcome Back</h1>
           <p>Sign in to your SAGE account</p>
@@ -105,6 +156,48 @@ function LoginPage() {
           onSuccess={() => navigate('/portal')}
           onRegisterClick={() => navigate('/register')}
         />
+        
+        {/* Quick Demo Bypass Button */}
+        <div style={{
+          marginTop: '2rem',
+          paddingTop: '2rem',
+          borderTop: '1px solid #e5e7eb',
+          textAlign: 'center',
+        }}>
+          <button
+            onClick={handleQuickDemo}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.9375rem',
+              fontWeight: '600',
+              boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 12px rgba(16, 185, 129, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 6px rgba(16, 185, 129, 0.3)';
+            }}
+          >
+            🚀 Jump to Dashboard (Skip All Onboarding)
+          </button>
+          <p style={{
+            fontSize: '0.75rem',
+            color: '#6b7280',
+            marginTop: '0.5rem',
+            fontStyle: 'italic',
+          }}>
+            Auto-login with demo credentials and bypass all onboarding steps
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -119,6 +212,15 @@ function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-page__container">
+        {/* Back Button */}
+        <button 
+          className="auth-page__back-button" 
+          onClick={() => navigate('/')}
+          aria-label="Go back to home page"
+        >
+          <span aria-hidden="true">←</span> Back to Home
+        </button>
+        
         <div className="auth-page__header">
           <h1>Get Started</h1>
           <p>Create your SAGE account</p>
@@ -144,6 +246,8 @@ function IntakePage() {
     setIsSubmitting(true);
     setError(null);
     
+    let leadId: string | null = null;
+    
     try {
       // Try to create lead via API
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/leads`, {
@@ -164,22 +268,64 @@ function IntakePage() {
       
       if (response.ok) {
         const result = await response.json();
-        // Store lead ID for checkout
-        sessionStorage.setItem('lead_id', result.data?.id || result.id || '');
+        leadId = result.data?.id || result.id || null;
+        if (leadId) {
+          sessionStorage.setItem('lead_id', leadId);
+        }
       }
     } catch (err) {
-      // API might not be available - continue anyway
+      // API might not be available - create mock lead ID for demo
       console.warn('Could not save lead to API:', err);
+      leadId = `mock-lead-${Date.now()}`;
+      sessionStorage.setItem('lead_id', leadId);
     }
     
-    // Always store local data and navigate
+    // Always store local data
     sessionStorage.setItem('intake_data', JSON.stringify(data));
     sessionStorage.setItem('tier_recommendation', JSON.stringify(recommendation));
     
     setIsSubmitting(false);
     
-    // Navigate to pricing page with recommended tier highlighted
-    navigate(`/pricing?tier=${recommendation.tier}`);
+    // Try to auto-login with the email provided and go directly to portal
+    // For demo purposes, we'll skip checkout and go straight to portal
+    try {
+      const loginResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: 'Demo123!', // Default demo password
+        }),
+      });
+      
+      if (loginResponse.ok) {
+        const loginResult = await loginResponse.json();
+        if (loginResult.success && loginResult.data) {
+          // Store auth credentials
+          localStorage.setItem('sage_auth_token', loginResult.data.token);
+          localStorage.setItem('sage_user', JSON.stringify(loginResult.data.user));
+          
+          // COMPLETELY BYPASS ONBOARDING AND VERIFICATION:
+          // 1. Mark onboarding as completed
+          localStorage.setItem('kaa-onboarding-completed', 'true');
+          // 2. Set session skip flags
+          sessionStorage.setItem('skip_onboarding', 'true');
+          sessionStorage.setItem('skip_verification', 'true');
+          // 3. Clear any existing onboarding state
+          localStorage.removeItem('kaa-onboarding-state');
+          
+          // Navigate directly to portal dashboard
+          navigate('/portal');
+          return;
+        }
+      }
+    } catch (err) {
+      // Login failed, continue to pricing page
+      console.warn('Auto-login failed, redirecting to pricing:', err);
+    }
+    
+    // If auto-login fails, navigate to pricing page with recommended tier
+    navigate(`/pricing?tier=${recommendation.tier}&leadId=${leadId || ''}`);
   };
   
   return (
@@ -251,6 +397,11 @@ function App() {
               {/* Landing */}
               <Route path="/" element={<LandingPage />} />
               
+              {/* SAGE Routes */}
+              <Route path="/sage" element={<SageLanding />} />
+              <Route path="/sage/tiers" element={<SageTiers />} />
+              <Route path="/sage/get-started" element={<IntakePage />} />
+              
               {/* Pricing */}
               <Route path="/pricing" element={<PricingPage />} />
               
@@ -258,7 +409,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               
-              {/* Intake Flow */}
+              {/* Intake Flow (legacy routes) */}
               <Route path="/get-started" element={<IntakePage />} />
               <Route path="/intake" element={<IntakePage />} />
               

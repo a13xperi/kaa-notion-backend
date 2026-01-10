@@ -107,42 +107,31 @@ export const createLeadSchema = z.object({
   email: emailSchema,
   name: z.string().max(100).optional(),
   projectAddress: z.string().min(5, 'Project address is required'),
-  budgetRange: z.enum([
-    'under_10k',
-    '10k_25k',
-    '25k_50k',
-    '50k_100k',
-    'over_100k',
-  ]).optional(),
-  timeline: z.enum([
-    'immediately',
-    '1_3_months',
-    '3_6_months',
-    '6_12_months',
-    'over_1_year',
-  ]).optional(),
-  projectType: z.enum([
-    'full_landscape',
-    'front_yard',
-    'back_yard',
-    'outdoor_living',
-    'pool_area',
-    'garden',
-    'other',
-  ]).optional(),
+  budgetRange: z.string().optional(),
+  timeline: z.string().optional(),
+  projectType: z.string().optional(),
   hasSurvey: z.boolean().default(false),
   hasDrawings: z.boolean().default(false),
   budget: z.coerce.number().positive().optional(),
   timelineWeeks: z.coerce.number().positive().optional(),
+  description: z.string().max(2000).optional(),
 });
 
 export const updateLeadSchema = z.object({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
-  recommendedTier: z.number().int().min(1).max(4).optional(),
-  routingReason: z.string().max(500).optional(),
-  tierOverrideReason: z.string().max(500).optional(),
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CONVERTED', 'CLOSED']).optional(),
+  tierOverride: z.number().int().min(1).max(4).nullable().optional(),
+  overrideReason: z.string().max(500).nullable().optional(),
   name: z.string().max(100).optional(),
-});
+}).refine(
+  (data) => {
+    // If tierOverride is set, overrideReason should be provided
+    if (data.tierOverride !== undefined && data.tierOverride !== null && !data.overrideReason) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'Override reason is required when setting tier override' }
+);
 
 export const leadFiltersSchema = paginationSchema.merge(sortSchema).extend({
   status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
