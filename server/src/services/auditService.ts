@@ -29,6 +29,10 @@ export const AuditActions = {
   PASSWORD_RESET: 'PASSWORD_RESET',
   TOKEN_REFRESH: 'TOKEN_REFRESH',
 
+  // Webhooks
+  WEBHOOK_STRIPE_RECEIVED: 'WEBHOOK_STRIPE_RECEIVED',
+  WEBHOOK_NOTION_RECEIVED: 'WEBHOOK_NOTION_RECEIVED',
+
   // Lead operations
   LEAD_CREATE: 'LEAD_CREATE',
   LEAD_UPDATE: 'LEAD_UPDATE',
@@ -77,11 +81,21 @@ export const AuditActions = {
   ADMIN_USER_UPDATE: 'ADMIN_USER_UPDATE',
   ADMIN_USER_DELETE: 'ADMIN_USER_DELETE',
   ADMIN_SETTINGS_CHANGE: 'ADMIN_SETTINGS_CHANGE',
+  ADMIN_VIEW_DASHBOARD: 'ADMIN_VIEW_DASHBOARD',
+  ADMIN_VIEW_LEADS: 'ADMIN_VIEW_LEADS',
+  ADMIN_VIEW_PROJECTS: 'ADMIN_VIEW_PROJECTS',
+  ADMIN_VIEW_CLIENTS: 'ADMIN_VIEW_CLIENTS',
 
   // Sync operations
   SYNC_NOTION_START: 'SYNC_NOTION_START',
   SYNC_NOTION_COMPLETE: 'SYNC_NOTION_COMPLETE',
   SYNC_NOTION_FAIL: 'SYNC_NOTION_FAIL',
+  SYNC_HEALTH_CHECK: 'SYNC_HEALTH_CHECK',
+
+  // WebSocket operations
+  WEBSOCKET_CONNECT: 'WEBSOCKET_CONNECT',
+  WEBSOCKET_SUBSCRIBE: 'WEBSOCKET_SUBSCRIBE',
+  WEBSOCKET_UNSUBSCRIBE: 'WEBSOCKET_UNSUBSCRIBE',
 } as const;
 
 /**
@@ -129,7 +143,16 @@ export type AuditAction =
   | 'admin_view_leads'
   | 'admin_view_projects'
   | 'admin_view_clients'
-  | 'admin_export_data';
+  | 'admin_export_data'
+  // Webhook actions
+  | 'webhook_stripe_received'
+  | 'webhook_notion_received'
+  // WebSocket actions
+  | 'websocket_connected'
+  | 'websocket_subscribed'
+  | 'websocket_unsubscribed'
+  // Sync actions
+  | 'sync_health_check';
 
 /**
  * Resource types for audit logging
@@ -144,6 +167,11 @@ export const ResourceTypes = {
   PAYMENT: 'PAYMENT',
   FILE: 'FILE',
   SETTINGS: 'SETTINGS',
+  SYNC: 'SYNC',
+  NOTION_PAGE: 'NOTION_PAGE',
+  WEBHOOK: 'WEBHOOK',
+  WEBSOCKET: 'WEBSOCKET',
+  ADMIN: 'ADMIN',
 } as const;
 
 export type ResourceType =
@@ -155,7 +183,12 @@ export type ResourceType =
   | 'milestone'
   | 'deliverable'
   | 'payment'
-  | 'notion_sync';
+  | 'notion_sync'
+  | 'sync'
+  | 'notion_page'
+  | 'webhook'
+  | 'websocket'
+  | 'admin';
 
 /**
  * Audit log entry data (functional API)
@@ -278,12 +311,20 @@ export async function logAuditFromRequest(
     resourceId,
     userId: user?.userId,
     details,
-    metadata: {
-      ip: req.ip || req.socket.remoteAddress,
-      userAgent: req.get('user-agent'),
-      requestId: (req as Request & { id?: string }).id,
-    },
+    metadata: getRequestAuditMetadata(req),
   });
+}
+
+export function getRequestAuditMetadata(req: Request): AuditLogData['metadata'] {
+  const requestId =
+    (req as Request & { id?: string; correlationId?: string }).id ||
+    (req as Request & { correlationId?: string }).correlationId;
+
+  return {
+    ip: req.ip || req.socket.remoteAddress,
+    userAgent: req.get('user-agent'),
+    requestId,
+  };
 }
 
 // ============================================================================
@@ -883,6 +924,7 @@ export default {
   // Functional API
   logAudit,
   logAuditFromRequest,
+  getRequestAuditMetadata,
   logAuth,
   logLeadAction,
   logProjectAction,

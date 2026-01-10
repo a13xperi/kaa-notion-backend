@@ -341,6 +341,7 @@ export interface RefreshResult {
   token: string;
   refreshToken: string;
   expiresIn: string;
+  userId: string;
 }
 
 /**
@@ -377,6 +378,7 @@ export async function refreshAccessToken(
     token: newAccessToken,
     refreshToken: newRefreshToken,
     expiresIn: authConfig.jwtExpiresIn,
+    userId: user.id,
   };
 }
 
