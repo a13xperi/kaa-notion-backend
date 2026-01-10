@@ -711,8 +711,9 @@ All components support:
 All components have comprehensive tests. Run tests with:
 
 ```bash
-cd kaa-app
-npm test
+npm run test:frontend
 ```
+
+See [Testing Strategy](./TESTING_STRATEGY.md) for prerequisites and related test commands.
 
 Current test coverage: **451 tests passing**

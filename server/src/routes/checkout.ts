@@ -5,7 +5,6 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { z } from 'zod';
 import { 
   createCheckoutSession, 
   getTierPricing, 
@@ -14,19 +13,8 @@ import {
 } from '../utils/stripeHelpers';
 import { validationError, notFound } from '../utils/AppError';
 import { logger } from '../logger';
-
-// ============================================================================
-// SCHEMAS
-// ============================================================================
-
-const createSessionSchema = z.object({
-  leadId: z.string().min(1, 'Lead ID is required'),
-  tier: z.coerce.number().min(1).max(3, 'Tier must be between 1 and 3'),
-  email: z.string().email('Valid email is required'),
-  projectId: z.string().optional(),
-  successUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
-});
+import { createCheckoutSchema, type CreateCheckoutInput } from '../utils';
+import { validateBody } from '../middleware';
 
 // ============================================================================
 // ROUTER FACTORY
@@ -65,18 +53,11 @@ export function createCheckoutRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/create-session',
+    validateBody(createCheckoutSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // Validate input
-        const validation = createSessionSchema.safeParse(req.body);
-        if (!validation.success) {
-          throw validationError(
-            validation.error.issues.map((e: { message: string }) => e.message).join(', '),
-            { errors: validation.error.issues }
-          );
-        }
-
-        const { leadId, tier, email, projectId, successUrl, cancelUrl } = validation.data;
+        const { leadId, tier, email, projectId, successUrl, cancelUrl } =
+          req.body as CreateCheckoutInput;
 
         // Validate tier is payable (1-3, not 4)
         if (!isValidTier(tier) || tier === 4) {

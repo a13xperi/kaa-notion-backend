@@ -8,16 +8,18 @@
 
 ```bash
 # Run all tests
-npm test -- --watchAll=false
+npm test
 
-# Run passing tests only
-npm test propertyRendering  # 34/34 ✅
-npm test sortingFiltering   # 29/29 ✅
-npm test ErrorBoundary      # 14/14 ✅
+# Run passing frontend tests only
+npm run test:frontend -- propertyRendering  # 34/34 ✅
+npm run test:frontend -- sortingFiltering   # 29/29 ✅
+npm run test:frontend -- ErrorBoundary      # 14/14 ✅
 
 # Coverage report
-npm test -- --coverage --watchAll=false
+npm run test:frontend -- --coverage
 ```
+
+See [Testing Strategy](./docs/TESTING_STRATEGY.md) for prerequisites and test command mappings.
 
 ---
 

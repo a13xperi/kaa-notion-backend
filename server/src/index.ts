@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
-import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
@@ -40,6 +39,7 @@ import {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  requireAuth,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -62,11 +62,6 @@ const prisma = createPrismaClient({
   idleTimeout: parseInt(process.env.DATABASE_IDLE_TIMEOUT || '60000', 10),
   logQueries: process.env.NODE_ENV === 'development',
   slowQueryThreshold: parseInt(process.env.SLOW_QUERY_THRESHOLD || '1000', 10),
-});
-
-// Initialize Stripe client with helpers
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
 });
 
 // Initialize Stripe helpers for checkout and webhook handling
@@ -106,7 +101,7 @@ app.use(cors(corsOptions));
 // Compression for responses
 app.use(compression());
 
-// Stripe webhooks need raw body - must be before express.json()
+// Stripe webhooks need the raw body for signature verification - keep this before express.json().
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
 // JSON parsing for all other routes
@@ -186,11 +181,12 @@ if (features.apiDocsEnabled) {
 }
 
 // API Routes with Rate Limiting
-app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
+const apiAuth = requireAuth(prisma);
+app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
+app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
+app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
+app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
+app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
 app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
 app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
@@ -251,56 +247,6 @@ app.get('/file/:fileKey/nodes', async (req, res) => {
 });
 
 app.post('/webhook', handleFigmaWebhook);
-
-// Stripe Checkout endpoint
-app.post('/api/stripe/checkout', async (req, res) => {
-  try {
-    const { leadId, tier } = req.body;
-
-    // Validate required fields
-    if (!leadId || !tier) {
-      return res.status(400).json({ error: 'leadId and tier are required' });
-    }
-
-    // Get the price ID from environment variable based on tier
-    const priceIdEnvVar = `STRIPE_TIER${tier}_PRICE_ID`;
-    const priceId = process.env[priceIdEnvVar];
-
-    if (!priceId) {
-      return res.status(400).json({
-        error: `Price ID not configured for tier ${tier}. Expected env var: ${priceIdEnvVar}`
-      });
-    }
-
-    // Create Stripe Checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        leadId: String(leadId),
-        tier: String(tier),
-      },
-      success_url: process.env.STRIPE_SUCCESS_URL || `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: process.env.STRIPE_CANCEL_URL || `${req.headers.origin}/cancel`,
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    logger.error('Error creating Stripe checkout session', {
-      error: (error as Error).message,
-    });
-    res.status(500).json({
-      error: 'Failed to create checkout session',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
 
 // Health check endpoints
 app.get('/api/health', async (req, res) => {

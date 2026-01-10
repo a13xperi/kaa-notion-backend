@@ -12,8 +12,9 @@
 
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthenticatedRequest, requireAuth, requireAdmin } from './projects';
+import { AuthenticatedRequest } from './projects';
 import { logger } from '../logger';
+import { requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -209,7 +210,6 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/projects/:projectId/deliverables',
-    requireAuth,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { projectId } = req.params;
@@ -303,8 +303,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.post(
     '/projects/:projectId/deliverables',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { projectId } = req.params;
@@ -414,7 +413,6 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/deliverables/:id',
-    requireAuth,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -494,7 +492,6 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/deliverables/:id/download',
-    requireAuth,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -585,8 +582,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.delete(
     '/deliverables/:id',
-    requireAuth,
-    requireAdmin,
+    requireAdmin(),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;

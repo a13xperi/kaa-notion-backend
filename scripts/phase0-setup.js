@@ -272,19 +272,26 @@ async function runSetup() {
     printWarning('Some environment variables may be missing or invalid');
     printWarning('Please review and update .env file');
     
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
+    // Check for non-interactive mode or auto-continue flag
+    const nonInteractive = process.env.NON_INTERACTIVE === 'true' || process.argv.includes('--non-interactive') || process.argv.includes('--yes');
     
-    const answer = await new Promise((resolve) => {
-      rl.question('Continue anyway? (y/N): ', resolve);
-    });
-    rl.close();
-    
-    if (answer.toLowerCase() !== 'y') {
-      printError('Setup cancelled by user');
-      process.exit(1);
+    if (!nonInteractive) {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      
+      const answer = await new Promise((resolve) => {
+        rl.question('Continue anyway? (y/N): ', resolve);
+      });
+      rl.close();
+      
+      if (answer.toLowerCase() !== 'y') {
+        printError('Setup cancelled by user');
+        process.exit(1);
+      }
+    } else {
+      printWarning('Non-interactive mode: Continuing with missing variables...');
     }
   }
   
@@ -296,25 +303,44 @@ async function runSetup() {
   
   // Step 4: Check database connection
   printHeader('Step 4: Database Connection Check');
-  if (!(await checkDatabaseConnection())) {
-    printError('Cannot proceed without database connection');
-    printInfo('Please check DATABASE_URL in .env and ensure database is accessible');
-    process.exit(1);
-  }
+  const nonInteractive = process.env.NON_INTERACTIVE === 'true' || process.argv.includes('--non-interactive');
+  const dbConnected = await checkDatabaseConnection();
   
-  // Step 5: Check and run migrations
-  printHeader('Step 5: Database Migrations');
-  const migrationStatus = checkMigrationStatus();
-  
-  if (migrationStatus.needsMigration) {
-    if (!runMigrations(migrationStatus.needsInit)) {
-      success = false;
+  if (!dbConnected) {
+    if (nonInteractive) {
+      printWarning('Database connection failed - continuing with limited setup');
+      printWarning('Database-dependent steps will be skipped');
+      printInfo('To complete full setup, configure DATABASE_URL and re-run this script');
+    } else {
+      printError('Cannot proceed without database connection');
+      printInfo('Please check DATABASE_URL in .env and ensure database is accessible');
+      printInfo('Or run with NON_INTERACTIVE=true to skip database-dependent steps');
+      process.exit(1);
     }
   }
   
-  // Step 6: Verify indexes (optional - may fail if migrations not run)
-  printHeader('Step 6: Index Verification');
-  verifyIndexes(); // Don't fail if this fails
+  // Step 5: Check and run migrations (only if database connected)
+  if (dbConnected) {
+    printHeader('Step 5: Database Migrations');
+    const migrationStatus = checkMigrationStatus();
+    
+    if (migrationStatus.needsMigration) {
+      if (!runMigrations(migrationStatus.needsInit)) {
+        success = false;
+      }
+    }
+    
+    // Step 6: Verify indexes (optional - may fail if migrations not run)
+    printHeader('Step 6: Index Verification');
+    verifyIndexes(); // Don't fail if this fails
+  } else {
+    printHeader('Step 5: Database Migrations');
+    printWarning('Skipping migrations - database connection not available');
+    printInfo('Run this script again after configuring DATABASE_URL');
+    
+    printHeader('Step 6: Index Verification');
+    printWarning('Skipping index verification - database connection not available');
+  }
   
   // Step 7: Build server
   printHeader('Step 7: Server Build');
