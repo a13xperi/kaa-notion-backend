@@ -1,424 +1,661 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { prisma } from '../utils/prisma';
-import { verifyToken } from '../utils/auth';
-import crypto from 'crypto';
+/**
+ * Deliverables Routes
+ * API endpoints for deliverable management.
+ *
+ * Routes:
+ * - GET /api/projects/:projectId/deliverables - Get all deliverables for a project
+ * - POST /api/projects/:projectId/deliverables - Upload a new deliverable (admin only)
+ * - GET /api/deliverables/:id - Get single deliverable details
+ * - GET /api/deliverables/:id/download - Get signed download URL
+ * - DELETE /api/deliverables/:id - Delete deliverable (admin only)
+ */
 
-const router = Router();
+import { Router, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { AuthenticatedRequest } from './projects';
+import { logger } from '../logger';
+import { requireAdmin } from '../middleware';
 
-// JWT secret from environment
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-change-in-production';
-
-// Supabase storage URL (for signed URLs)
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+// ============================================================================
+// TYPES
+// ============================================================================
 
 /**
- * Middleware to verify JWT token and attach user to request
+ * Deliverable category types
  */
-async function authenticateUser(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
+export type DeliverableCategory =
+  | 'Document'
+  | 'Photo'
+  | 'Rendering'
+  | 'FloorPlan'
+  | 'Invoice'
+  | 'Contract'
+  | 'Other';
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No token provided',
-      },
-    });
-  }
-
-  const token = authHeader.substring(7);
-  const payload = verifyToken(token, JWT_SECRET);
-
-  if (!payload || typeof payload.userId !== 'string') {
-    return res.status(401).json({
-      success: false,
-      error: {
-        code: 'INVALID_TOKEN',
-        message: 'Invalid or expired token',
-      },
-    });
-  }
-
-  (req as Request & { user: { userId: string; role: string } }).user = {
-    userId: payload.userId,
-    role: (payload.role as string) || 'CLIENT',
+/**
+ * Deliverable detail response
+ */
+interface DeliverableDetail {
+  id: string;
+  projectId: string;
+  name: string;
+  category: string;
+  description: string | null;
+  fileType: string;
+  fileSize: number;
+  fileSizeFormatted: string;
+  createdAt: Date;
+  uploadedBy: {
+    id: string;
+    email: string | null;
   };
-
-  next();
 }
 
 /**
- * GET /api/projects/:projectId/deliverables
- * Get all deliverables for a project
+ * Project deliverables response with summary
  */
-router.get(
-  '/projects/:projectId/deliverables',
-  authenticateUser,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { projectId } = req.params;
-      const user = (req as Request & { user: { userId: string; role: string } }).user;
+interface ProjectDeliverablesResponse {
+  success: boolean;
+  data: {
+    projectId: string;
+    projectName: string;
+    summary: {
+      total: number;
+      byCategory: Record<string, number>;
+      totalSize: number;
+      totalSizeFormatted: string;
+    };
+    deliverables: DeliverableDetail[];
+  };
+}
 
-      // Get project to verify access
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        include: {
-          client: true,
-        },
-      });
+/**
+ * Create deliverable request body
+ */
+interface CreateDeliverableBody {
+  name: string;
+  category: DeliverableCategory;
+  description?: string;
+  filePath: string;
+  fileUrl: string;
+  fileSize: number;
+  fileType: string;
+}
 
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'PROJECT_NOT_FOUND',
-            message: 'Project not found',
+/**
+ * Signed URL response
+ */
+interface SignedUrlResponse {
+  success: boolean;
+  data: {
+    id: string;
+    name: string;
+    downloadUrl: string;
+    expiresAt: Date;
+    fileType: string;
+    fileSize: number;
+  };
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format file size to human-readable string
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Generate a signed URL for file download
+ * In production, this would use Supabase Storage signed URLs
+ * For now, returns the file URL with an expiry parameter
+ */
+function generateSignedUrl(fileUrl: string, expiresInMinutes: number = 60): { url: string; expiresAt: Date } {
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
+  
+  // In production, replace with actual Supabase Storage signed URL generation:
+  // const { data } = await supabase.storage.from('deliverables').createSignedUrl(filePath, expiresInMinutes * 60);
+  
+  // For now, append expiry as query param (placeholder implementation)
+  const url = new URL(fileUrl);
+  url.searchParams.set('expires', expiresAt.getTime().toString());
+  url.searchParams.set('token', Buffer.from(`${fileUrl}:${expiresAt.getTime()}`).toString('base64').slice(0, 32));
+  
+  return { url: url.toString(), expiresAt };
+}
+
+/**
+ * Validate file type is allowed
+ */
+function isAllowedFileType(mimeType: string): boolean {
+  const allowedTypes = [
+    // Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    // Images
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    // Design files
+    'application/postscript', // AI, EPS
+    'image/vnd.dwg', // DWG
+    'application/acad', // DWG alternate
+    // Archives
+    'application/zip',
+    'application/x-rar-compressed',
+  ];
+  
+  return allowedTypes.includes(mimeType);
+}
+
+/**
+ * Transform deliverable to detail format
+ */
+function toDeliverableDetail(deliverable: {
+  id: string;
+  projectId: string;
+  name: string;
+  category: string;
+  description: string | null;
+  fileType: string;
+  fileSize: number;
+  createdAt: Date;
+  uploadedBy: {
+    id: string;
+    email: string | null;
+  };
+}): DeliverableDetail {
+  return {
+    id: deliverable.id,
+    projectId: deliverable.projectId,
+    name: deliverable.name,
+    category: deliverable.category,
+    description: deliverable.description,
+    fileType: deliverable.fileType,
+    fileSize: deliverable.fileSize,
+    fileSizeFormatted: formatFileSize(deliverable.fileSize),
+    createdAt: deliverable.createdAt,
+    uploadedBy: {
+      id: deliverable.uploadedBy.id,
+      email: deliverable.uploadedBy.email,
+    },
+  };
+}
+
+// ============================================================================
+// ROUTE FACTORY
+// ============================================================================
+
+/**
+ * Create deliverables router with dependency injection
+ */
+export function createDeliverablesRouter(prisma: PrismaClient): Router {
+  const router = Router();
+
+  // -------------------------------------------------------------------------
+  // GET /api/projects/:projectId/deliverables - Get all deliverables for a project
+  // -------------------------------------------------------------------------
+  router.get(
+    '/projects/:projectId/deliverables',
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { projectId } = req.params;
+        const { category } = req.query;
+        const user = req.user!;
+
+        // Get project with deliverables
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          include: {
+            deliverables: {
+              where: category ? { category: category as string } : undefined,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                uploadedBy: {
+                  select: {
+                    id: true,
+                    email: true,
+                  },
+                },
+              },
+            },
           },
         });
-      }
 
-      // Check authorization
-      if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-        const client = await prisma.client.findUnique({
-          where: { userId: user.userId },
-        });
-
-        if (!client || project.clientId !== client.id) {
-          return res.status(403).json({
+        if (!project) {
+          return res.status(404).json({
             success: false,
             error: {
-              code: 'FORBIDDEN',
-              message: 'You do not have access to this project',
+              code: 'NOT_FOUND',
+              message: 'Project not found',
             },
           });
         }
-      }
 
-      // Get deliverables
-      const deliverables = await prisma.deliverable.findMany({
-        where: { projectId },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          uploadedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      // Group by category
-      const byCategory = deliverables.reduce(
-        (acc, deliverable) => {
-          const category = deliverable.category || 'Other';
-          if (!acc[category]) {
-            acc[category] = [];
+        // Authorization check - clients can only see their own projects
+        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+          if (project.clientId !== user.clientId) {
+            return res.status(403).json({
+              success: false,
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Access denied to this project',
+              },
+            });
           }
-          acc[category].push(deliverable);
-          return acc;
-        },
-        {} as Record<string, typeof deliverables>
-      );
+        }
 
-      return res.status(200).json({
-        success: true,
-        data: {
-          deliverables,
-          byCategory,
-          total: deliverables.length,
-        },
-      });
-    } catch (error) {
-      next(error);
+        // Calculate summary
+        const total = project.deliverables.length;
+        const totalSize = project.deliverables.reduce((sum, d) => sum + d.fileSize, 0);
+        
+        // Count by category
+        const byCategory: Record<string, number> = {};
+        project.deliverables.forEach((d) => {
+          byCategory[d.category] = (byCategory[d.category] || 0) + 1;
+        });
+
+        const response: ProjectDeliverablesResponse = {
+          success: true,
+          data: {
+            projectId: project.id,
+            projectName: project.name,
+            summary: {
+              total,
+              byCategory,
+              totalSize,
+              totalSizeFormatted: formatFileSize(totalSize),
+            },
+            deliverables: project.deliverables.map(toDeliverableDetail),
+          },
+        };
+
+        res.json(response);
+      } catch (error) {
+        logger.error('Error fetching project deliverables:', error);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to fetch deliverables',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
     }
-  }
-);
+  );
 
-/**
- * POST /api/projects/:projectId/deliverables
- * Upload a new deliverable (admin only)
- * Note: Actual file upload should be handled separately via Supabase Storage
- * This endpoint creates the metadata record
- */
-router.post(
-  '/projects/:projectId/deliverables',
-  authenticateUser,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { projectId } = req.params;
-      const user = (req as Request & { user: { userId: string; role: string } }).user;
+  // -------------------------------------------------------------------------
+  // POST /api/projects/:projectId/deliverables - Upload a new deliverable
+  // -------------------------------------------------------------------------
+  router.post(
+    '/projects/:projectId/deliverables',
+    requireAdmin(),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { projectId } = req.params;
+        const body = req.body as CreateDeliverableBody;
+        const user = req.user!;
 
-      // Only admins can upload deliverables
-      if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'FORBIDDEN',
-            message: 'Only admins can upload deliverables',
-          },
+        // Validate required fields
+        if (!body.name || !body.category || !body.filePath || !body.fileUrl || !body.fileSize || !body.fileType) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Missing required fields: name, category, filePath, fileUrl, fileSize, fileType',
+            },
+          });
+        }
+
+        // Validate file type
+        if (!isAllowedFileType(body.fileType)) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_FILE_TYPE',
+              message: `File type ${body.fileType} is not allowed`,
+            },
+          });
+        }
+
+        // Check project exists
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { id: true, name: true, clientId: true },
         });
-      }
 
-      // Validate request body
-      const { name, filePath, fileUrl, fileSize, fileType, category, description } = req.body;
+        if (!project) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Project not found',
+            },
+          });
+        }
 
-      if (!name || !filePath || !fileUrl || !fileSize || !fileType || !category) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Missing required fields: name, filePath, fileUrl, fileSize, fileType, category',
+        // Create deliverable
+        const deliverable = await prisma.deliverable.create({
+          data: {
+            projectId,
+            name: body.name,
+            category: body.category,
+            description: body.description || null,
+            filePath: body.filePath,
+            fileUrl: body.fileUrl,
+            fileSize: body.fileSize,
+            fileType: body.fileType,
+            uploadedById: user.id,
           },
-        });
-      }
-
-      // Check project exists
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-      });
-
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'PROJECT_NOT_FOUND',
-            message: 'Project not found',
-          },
-        });
-      }
-
-      // Create deliverable
-      const deliverable = await prisma.deliverable.create({
-        data: {
-          projectId,
-          name,
-          filePath,
-          fileUrl,
-          fileSize: parseInt(fileSize, 10),
-          fileType,
-          category,
-          description,
-          uploadedById: user.userId,
-        },
-        include: {
-          uploadedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                email: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      return res.status(201).json({
-        success: true,
-        data: deliverable,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
- * GET /api/deliverables/:id
- * Get a single deliverable by ID
- */
-router.get('/:id', authenticateUser, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const user = (req as Request & { user: { userId: string; role: string } }).user;
-
-    const deliverable = await prisma.deliverable.findUnique({
-      where: { id },
-      include: {
-        project: {
-          include: {
-            client: true,
+        // Log the upload
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'deliverable_upload',
+            resourceType: 'deliverable',
+            resourceId: deliverable.id,
+            details: {
+              projectId,
+              fileName: body.name,
+              category: body.category,
+              fileSize: body.fileSize,
+              fileType: body.fileType,
+            },
           },
-        },
-        uploadedBy: {
+        });
+
+        logger.info(`Deliverable ${deliverable.id} uploaded to project ${projectId} by user ${user.id}`);
+
+        res.status(201).json({
+          success: true,
+          data: toDeliverableDetail(deliverable),
+        });
+      } catch (error) {
+        logger.error('Error uploading deliverable:', error);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to upload deliverable',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/deliverables/:id - Get single deliverable details
+  // -------------------------------------------------------------------------
+  router.get(
+    '/deliverables/:id',
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        // Get deliverable with project info
+        const deliverable = await prisma.deliverable.findUnique({
+          where: { id },
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                clientId: true,
+                tier: true,
+              },
+            },
+            uploadedBy: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+        });
+
+        if (!deliverable) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Deliverable not found',
+            },
+          });
+        }
+
+        // Authorization check
+        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+          if (deliverable.project.clientId !== user.clientId) {
+            return res.status(403).json({
+              success: false,
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Access denied to this deliverable',
+              },
+            });
+          }
+        }
+
+        res.json({
+          success: true,
+          data: {
+            ...toDeliverableDetail(deliverable),
+            project: {
+              id: deliverable.project.id,
+              name: deliverable.project.name,
+              tier: deliverable.project.tier,
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error fetching deliverable:', error);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to fetch deliverable',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/deliverables/:id/download - Get signed download URL
+  // -------------------------------------------------------------------------
+  router.get(
+    '/deliverables/:id/download',
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        // Get deliverable with project info
+        const deliverable = await prisma.deliverable.findUnique({
+          where: { id },
+          include: {
+            project: {
+              select: {
+                id: true,
+                clientId: true,
+              },
+            },
+          },
+        });
+
+        if (!deliverable) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Deliverable not found',
+            },
+          });
+        }
+
+        // Authorization check
+        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+          if (deliverable.project.clientId !== user.clientId) {
+            return res.status(403).json({
+              success: false,
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Access denied to this deliverable',
+              },
+            });
+          }
+        }
+
+        // Generate signed URL (expires in 60 minutes)
+        const { url, expiresAt } = generateSignedUrl(deliverable.fileUrl, 60);
+
+        // Log the download request
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'deliverable_download',
+            resourceType: 'deliverable',
+            resourceId: id,
+            details: {
+              projectId: deliverable.projectId,
+              fileName: deliverable.name,
+            },
+          },
+        });
+
+        const response: SignedUrlResponse = {
+          success: true,
+          data: {
+            id: deliverable.id,
+            name: deliverable.name,
+            downloadUrl: url,
+            expiresAt,
+            fileType: deliverable.fileType,
+            fileSize: deliverable.fileSize,
+          },
+        };
+
+        res.json(response);
+      } catch (error) {
+        logger.error('Error generating download URL:', error);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to generate download URL',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // DELETE /api/deliverables/:id - Delete deliverable (admin only)
+  // -------------------------------------------------------------------------
+  router.delete(
+    '/deliverables/:id',
+    requireAdmin(),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const user = req.user!;
+
+        // Get deliverable
+        const deliverable = await prisma.deliverable.findUnique({
+          where: { id },
           select: {
             id: true,
             name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    if (!deliverable) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'DELIVERABLE_NOT_FOUND',
-          message: 'Deliverable not found',
-        },
-      });
-    }
-
-    // Check authorization
-    if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-      const client = await prisma.client.findUnique({
-        where: { userId: user.userId },
-      });
-
-      if (!client || deliverable.project.clientId !== client.id) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'FORBIDDEN',
-            message: 'You do not have access to this deliverable',
+            projectId: true,
+            filePath: true,
           },
         });
-      }
-    }
 
-    return res.status(200).json({
-      success: true,
-      data: deliverable,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/deliverables/:id/download
- * Get a signed download URL for the file
- */
-router.get(
-  '/:id/download',
-  authenticateUser,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id } = req.params;
-      const user = (req as Request & { user: { userId: string; role: string } }).user;
-
-      const deliverable = await prisma.deliverable.findUnique({
-        where: { id },
-        include: {
-          project: {
-            include: {
-              client: true,
-            },
-          },
-        },
-      });
-
-      if (!deliverable) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'DELIVERABLE_NOT_FOUND',
-            message: 'Deliverable not found',
-          },
-        });
-      }
-
-      // Check authorization
-      if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-        const client = await prisma.client.findUnique({
-          where: { userId: user.userId },
-        });
-
-        if (!client || deliverable.project.clientId !== client.id) {
-          return res.status(403).json({
+        if (!deliverable) {
+          return res.status(404).json({
             success: false,
             error: {
-              code: 'FORBIDDEN',
-              message: 'You do not have access to this deliverable',
+              code: 'NOT_FOUND',
+              message: 'Deliverable not found',
             },
           });
         }
+
+        // Delete from database
+        await prisma.deliverable.delete({
+          where: { id },
+        });
+
+        // TODO: Delete file from Supabase Storage
+        // await supabase.storage.from('deliverables').remove([deliverable.filePath]);
+
+        // Log the deletion
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'deliverable_delete',
+            resourceType: 'deliverable',
+            resourceId: id,
+            details: {
+              projectId: deliverable.projectId,
+              fileName: deliverable.name,
+            },
+          },
+        });
+
+        logger.info(`Deliverable ${id} deleted by user ${user.id}`);
+
+        res.json({
+          success: true,
+          message: 'Deliverable deleted successfully',
+        });
+      } catch (error) {
+        logger.error('Error deleting deliverable:', error);
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to delete deliverable',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
       }
-
-      // Generate signed URL
-      // In production, this would call Supabase Storage API to create a signed URL
-      // For now, we'll create a simple time-limited token
-      const expiresAt = Date.now() + 3600000; // 1 hour from now
-      const token = crypto
-        .createHmac('sha256', JWT_SECRET)
-        .update(`${deliverable.id}:${expiresAt}`)
-        .digest('hex');
-
-      // If Supabase is configured, generate actual signed URL
-      let downloadUrl = deliverable.fileUrl;
-
-      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-        // Construct Supabase signed URL
-        // Format: {SUPABASE_URL}/storage/v1/object/sign/{bucket}/{path}
-        downloadUrl = `${SUPABASE_URL}/storage/v1/object/public/${deliverable.filePath}?token=${token}&expires=${expiresAt}`;
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          downloadUrl,
-          fileName: deliverable.name,
-          fileType: deliverable.fileType,
-          fileSize: deliverable.fileSize,
-          expiresAt: new Date(expiresAt).toISOString(),
-        },
-      });
-    } catch (error) {
-      next(error);
     }
-  }
-);
+  );
 
-/**
- * DELETE /api/deliverables/:id
- * Delete a deliverable (admin only)
- */
-router.delete('/:id', authenticateUser, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const user = (req as Request & { user: { userId: string; role: string } }).user;
+  return router;
+}
 
-    // Only admins can delete deliverables
-    if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Only admins can delete deliverables',
-        },
-      });
-    }
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
 
-    const deliverable = await prisma.deliverable.findUnique({
-      where: { id },
-    });
-
-    if (!deliverable) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'DELIVERABLE_NOT_FOUND',
-          message: 'Deliverable not found',
-        },
-      });
-    }
-
-    // Delete the deliverable record
-    // Note: Actual file deletion from Supabase Storage should be handled separately
-    await prisma.deliverable.delete({
-      where: { id },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Deliverable deleted successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-export default router;
+export default createDeliverablesRouter;

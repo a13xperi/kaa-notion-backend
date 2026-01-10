@@ -1,243 +1,340 @@
-import React, { useState, useRef, useCallback } from 'react';
-import './FileUpload.css';
-
 /**
  * FileUpload Component
- *
- * Drag-drop upload with progress, file type validation, and preview.
+ * Drag-drop file upload with progress, validation, and preview.
  */
 
-// ============================================
-// TYPES & INTERFACES
-// ============================================
+import React, { JSX, useState, useCallback, useRef } from 'react';
+import './FileUpload.css';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  fileUrl: string;
+  fileSize: number;
+  fileSizeFormatted: string;
+  fileType: string;
+  category: string;
+  createdAt: string;
+}
 
 export interface FileUploadProps {
-  onUpload: (files: File[]) => Promise<UploadResult[]>;
-  accept?: string[];
-  maxFiles?: number;
-  maxSize?: number;
-  projectId?: string;
+  projectId: string;
   category?: string;
+  onUploadComplete?: (files: UploadedFile[]) => void;
+  onUploadError?: (error: string) => void;
+  maxFiles?: number;
+  maxSizeMB?: number;
+  allowedTypes?: string[];
   disabled?: boolean;
-  showPreview?: boolean;
   className?: string;
 }
 
-export interface UploadResult {
-  success: boolean;
-  file: {
-    name: string;
-    path?: string;
-    url?: string;
-    size: number;
-    type: string;
-  };
-  error?: string;
-}
-
-export interface FileWithPreview extends File {
+interface FileWithPreview extends File {
   preview?: string;
-  id: string;
-  status: 'pending' | 'uploading' | 'success' | 'error';
-  progress: number;
-  error?: string;
-  result?: UploadResult;
+  uploadProgress?: number;
+  uploadStatus?: 'pending' | 'uploading' | 'success' | 'error';
+  errorMessage?: string;
+  uploadedFile?: UploadedFile;
 }
 
-// ============================================
-// CONSTANTS
-// ============================================
+// ============================================================================
+// DEFAULT CONFIGURATION
+// ============================================================================
 
-const DEFAULT_MAX_FILES = 10;
-const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+const DEFAULT_ALLOWED_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 
 const FILE_TYPE_ICONS: Record<string, string> = {
-  'application/pdf': '📕',
+  'application/pdf': '📄',
   'image/jpeg': '🖼️',
   'image/png': '🖼️',
   'image/gif': '🖼️',
   'image/webp': '🖼️',
-  'application/zip': '📦',
-  'video/mp4': '🎬',
-  'audio/mpeg': '🎵',
   'application/msword': '📝',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
   'application/vnd.ms-excel': '📊',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊',
-  default: '📄',
+  'video/mp4': '🎬',
+  'video/quicktime': '🎬',
+  'audio/mpeg': '🎵',
+  'application/zip': '📦',
 };
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
+// ============================================================================
+// HELPERS
+// ============================================================================
 
-function formatBytes(bytes: number): string {
+function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function getFileIcon(mimeType: string): string {
-  return FILE_TYPE_ICONS[mimeType] || FILE_TYPE_ICONS.default;
+  return FILE_TYPE_ICONS[mimeType] || '📎';
 }
 
 function generateId(): string {
-  return `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-function isImageType(mimeType: string): boolean {
-  return mimeType.startsWith('image/');
-}
-
-// ============================================
+// ============================================================================
 // COMPONENT
-// ============================================
+// ============================================================================
 
-export const FileUpload: React.FC<FileUploadProps> = ({
-  onUpload,
-  accept,
-  maxFiles = DEFAULT_MAX_FILES,
-  maxSize = DEFAULT_MAX_SIZE,
+export function FileUpload({
+  projectId,
+  category = 'Document',
+  onUploadComplete,
+  onUploadError,
+  maxFiles = 10,
+  maxSizeMB = 50,
+  allowedTypes = DEFAULT_ALLOWED_TYPES,
   disabled = false,
-  showPreview = true,
   className = '',
-}) => {
+}: FileUploadProps): JSX.Element {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dragCounterRef = useRef(0);
 
-  // Validate file
+  // ============================================================================
+  // FILE VALIDATION
+  // ============================================================================
+
   const validateFile = useCallback(
-    (file: File): string | null => {
+    (file: File): { valid: boolean; error?: string } => {
       // Check file type
-      if (accept && accept.length > 0) {
-        const isAccepted = accept.some((type) => {
-          if (type.endsWith('/*')) {
-            return file.type.startsWith(type.replace('/*', ''));
-          }
-          return file.type === type || file.name.endsWith(type);
-        });
-
-        if (!isAccepted) {
-          return `File type "${file.type}" is not allowed`;
-        }
+      if (!allowedTypes.includes(file.type)) {
+        return {
+          valid: false,
+          error: `File type "${file.type}" is not allowed`,
+        };
       }
 
       // Check file size
-      if (file.size > maxSize) {
-        return `File size (${formatBytes(file.size)}) exceeds maximum (${formatBytes(maxSize)})`;
+      const maxSizeBytes = maxSizeMB * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        return {
+          valid: false,
+          error: `File size exceeds ${maxSizeMB}MB limit`,
+        };
       }
 
-      return null;
+      return { valid: true };
     },
-    [accept, maxSize]
+    [allowedTypes, maxSizeMB]
   );
 
-  // Process selected files
-  const processFiles = useCallback(
-    (selectedFiles: FileList | File[]) => {
-      const fileArray = Array.from(selectedFiles);
+  // ============================================================================
+  // FILE HANDLING
+  // ============================================================================
 
-      // Check max files limit
+  const handleFiles = useCallback(
+    (newFiles: FileList | File[]) => {
+      const fileArray = Array.from(newFiles);
+
+      // Check max files
       if (files.length + fileArray.length > maxFiles) {
-        alert(`Maximum ${maxFiles} files allowed`);
+        onUploadError?.(`Maximum ${maxFiles} files allowed`);
         return;
       }
 
-      const newFiles: FileWithPreview[] = fileArray.map((file) => {
-        const error = validateFile(file);
+      const processedFiles: FileWithPreview[] = fileArray.map((file) => {
+        const validation = validateFile(file);
         const fileWithPreview = file as FileWithPreview;
 
-        fileWithPreview.id = generateId();
-        fileWithPreview.status = error ? 'error' : 'pending';
-        fileWithPreview.progress = 0;
-        fileWithPreview.error = error || undefined;
-
-        // Generate preview for images
-        if (showPreview && isImageType(file.type) && !error) {
+        // Create preview for images
+        if (file.type.startsWith('image/')) {
           fileWithPreview.preview = URL.createObjectURL(file);
         }
+
+        fileWithPreview.uploadStatus = validation.valid ? 'pending' : 'error';
+        fileWithPreview.errorMessage = validation.error;
+        fileWithPreview.uploadProgress = 0;
 
         return fileWithPreview;
       });
 
-      setFiles((prev) => [...prev, ...newFiles]);
+      setFiles((prev) => [...prev, ...processedFiles]);
     },
-    [files.length, maxFiles, validateFile, showPreview]
+    [files.length, maxFiles, validateFile, onUploadError]
   );
 
-  // Handle file input change
-  const handleFileChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFiles = event.target.files;
-      if (selectedFiles) {
-        processFiles(selectedFiles);
+  // ============================================================================
+  // DRAG & DROP HANDLERS
+  // ============================================================================
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      if (disabled) return;
+
+      const { files: droppedFiles } = e.dataTransfer;
+      if (droppedFiles && droppedFiles.length > 0) {
+        handleFiles(droppedFiles);
+      }
+    },
+    [disabled, handleFiles]
+  );
+
+  // ============================================================================
+  // FILE INPUT HANDLER
+  // ============================================================================
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { files: selectedFiles } = e.target;
+      if (selectedFiles && selectedFiles.length > 0) {
+        handleFiles(selectedFiles);
       }
       // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     },
-    [processFiles]
+    [handleFiles]
   );
 
-  // Drag event handlers
-  const handleDragEnter = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    dragCounterRef.current += 1;
-    if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
-      setIsDragging(true);
-    }
+  const handleBrowseClick = useCallback(() => {
+    fileInputRef.current?.click();
   }, []);
 
-  const handleDragLeave = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    dragCounterRef.current -= 1;
-    if (dragCounterRef.current === 0) {
-      setIsDragging(false);
-    }
-  }, []);
+  // ============================================================================
+  // REMOVE FILE
+  // ============================================================================
 
-  const handleDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  }, []);
-
-  const handleDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setIsDragging(false);
-      dragCounterRef.current = 0;
-
-      if (disabled) return;
-
-      const droppedFiles = event.dataTransfer.files;
-      if (droppedFiles && droppedFiles.length > 0) {
-        processFiles(droppedFiles);
-      }
-    },
-    [disabled, processFiles]
-  );
-
-  // Remove file from list
-  const removeFile = useCallback((fileId: string) => {
+  const removeFile = useCallback((index: number) => {
     setFiles((prev) => {
-      const file = prev.find((f) => f.id === fileId);
-      if (file?.preview) {
-        URL.revokeObjectURL(file.preview);
+      const newFiles = [...prev];
+      const removed = newFiles.splice(index, 1)[0];
+
+      // Revoke preview URL
+      if (removed.preview) {
+        URL.revokeObjectURL(removed.preview);
       }
-      return prev.filter((f) => f.id !== fileId);
+
+      return newFiles;
     });
   }, []);
 
-  // Clear all files
+  // ============================================================================
+  // UPLOAD FILES
+  // ============================================================================
+
+  const uploadFiles = useCallback(async () => {
+    const pendingFiles = files.filter((f) => f.uploadStatus === 'pending');
+
+    if (pendingFiles.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    const uploadedFiles: UploadedFile[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.uploadStatus !== 'pending') continue;
+
+      // Update status to uploading
+      setFiles((prev) =>
+        prev.map((f, idx) =>
+          idx === i ? { ...f, uploadStatus: 'uploading' as const } : f
+        )
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('projectId', projectId);
+        formData.append('category', category);
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            // Auth headers would go here
+            'x-user-id': 'placeholder-user-id',
+            'x-user-type': 'ADMIN',
+          },
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setFiles((prev) =>
+            prev.map((f, idx) =>
+              idx === i
+                ? {
+                    ...f,
+                    uploadStatus: 'success' as const,
+                    uploadProgress: 100,
+                    uploadedFile: result.data,
+                  }
+                : f
+            )
+          );
+          uploadedFiles.push(result.data);
+        } else {
+          throw new Error(result.error?.message || 'Upload failed');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+        setFiles((prev) =>
+          prev.map((f, idx) =>
+            idx === i
+              ? { ...f, uploadStatus: 'error' as const, errorMessage }
+              : f
+          )
+        );
+        onUploadError?.(errorMessage);
+      }
+    }
+
+    setIsUploading(false);
+
+    if (uploadedFiles.length > 0) {
+      onUploadComplete?.(uploadedFiles);
+    }
+  }, [files, projectId, category, onUploadComplete, onUploadError]);
+
+  // ============================================================================
+  // CLEAR ALL FILES
+  // ============================================================================
+
   const clearFiles = useCallback(() => {
     files.forEach((file) => {
       if (file.preview) {
@@ -247,79 +344,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     setFiles([]);
   }, [files]);
 
-  // Upload files
-  const handleUpload = useCallback(async () => {
-    const pendingFiles = files.filter((f) => f.status === 'pending');
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
-    if (pendingFiles.length === 0) return;
-
-    setIsUploading(true);
-
-    // Update status to uploading
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.status === 'pending' ? { ...f, status: 'uploading' as const, progress: 0 } : f
-      )
-    );
-
-    try {
-      // Get the actual File objects
-      const filesToUpload = pendingFiles.map((f) => f as File);
-      const results = await onUpload(filesToUpload);
-
-      // Update files with results
-      setFiles((prev) =>
-        prev.map((file) => {
-          if (file.status !== 'uploading') return file;
-
-          const result = results.find((r) => r.file.name === file.name);
-
-          if (result?.success) {
-            return {
-              ...file,
-              status: 'success' as const,
-              progress: 100,
-              result,
-            };
-          } else {
-            return {
-              ...file,
-              status: 'error' as const,
-              progress: 0,
-              error: result?.error || 'Upload failed',
-            };
-          }
-        })
-      );
-    } catch (error) {
-      // Mark all uploading files as error
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.status === 'uploading'
-            ? {
-                ...f,
-                status: 'error' as const,
-                error: error instanceof Error ? error.message : 'Upload failed',
-              }
-            : f
-        )
-      );
-    } finally {
-      setIsUploading(false);
-    }
-  }, [files, onUpload]);
-
-  // Click to browse
-  const handleBrowseClick = useCallback(() => {
-    if (!disabled && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  }, [disabled]);
-
-  // Calculate stats
-  const pendingCount = files.filter((f) => f.status === 'pending').length;
-  const successCount = files.filter((f) => f.status === 'success').length;
-  const errorCount = files.filter((f) => f.status === 'error').length;
+  const pendingCount = files.filter((f) => f.uploadStatus === 'pending').length;
+  const successCount = files.filter((f) => f.uploadStatus === 'success').length;
+  const errorCount = files.filter((f) => f.uploadStatus === 'error').length;
 
   return (
     <div className={`file-upload ${className}`}>
@@ -330,33 +361,29 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        onClick={handleBrowseClick}
+        onClick={!disabled ? handleBrowseClick : undefined}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
       >
         <input
           ref={fileInputRef}
           type="file"
+          multiple
+          accept={allowedTypes.join(',')}
+          onChange={handleFileInputChange}
           className="file-upload__input"
-          onChange={handleFileChange}
-          accept={accept?.join(',')}
-          multiple={maxFiles > 1}
           disabled={disabled}
         />
 
         <div className="file-upload__dropzone-content">
-          <div className="file-upload__icon">
-            {isDragging ? '📥' : '📁'}
-          </div>
+          <span className="file-upload__icon">📁</span>
           <p className="file-upload__text">
-            {isDragging ? (
-              'Drop files here...'
-            ) : (
-              <>
-                Drag & drop files here, or <span className="file-upload__browse">browse</span>
-              </>
-            )}
+            {isDragging
+              ? 'Drop files here...'
+              : 'Drag & drop files here, or click to browse'}
           </p>
           <p className="file-upload__hint">
-            Max {maxFiles} files, up to {formatBytes(maxSize)} each
+            Max {maxFiles} files, {maxSizeMB}MB each
           </p>
         </div>
       </div>
@@ -366,10 +393,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         <div className="file-upload__list">
           <div className="file-upload__list-header">
             <span className="file-upload__list-title">
-              {files.length} file{files.length !== 1 ? 's' : ''} selected
+              Files ({files.length})
             </span>
             <button
-              type="button"
               className="file-upload__clear-btn"
               onClick={clearFiles}
               disabled={isUploading}
@@ -378,94 +404,106 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             </button>
           </div>
 
-          <ul className="file-upload__files">
-            {files.map((file) => (
-              <li key={file.id} className={`file-upload__file file-upload__file--${file.status}`}>
-                {/* Preview or Icon */}
+          <div className="file-upload__files">
+            {files.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className={`file-upload__file file-upload__file--${file.uploadStatus}`}
+              >
+                {/* Preview */}
                 <div className="file-upload__file-preview">
                   {file.preview ? (
-                    <img src={file.preview} alt={file.name} className="file-upload__thumbnail" />
+                    <img src={file.preview} alt={file.name} />
                   ) : (
-                    <span className="file-upload__file-icon">{getFileIcon(file.type)}</span>
+                    <span className="file-upload__file-icon">
+                      {getFileIcon(file.type)}
+                    </span>
                   )}
                 </div>
 
-                {/* File Info */}
+                {/* Info */}
                 <div className="file-upload__file-info">
-                  <span className="file-upload__file-name" title={file.name}>
-                    {file.name}
+                  <span className="file-upload__file-name">{file.name}</span>
+                  <span className="file-upload__file-size">
+                    {formatFileSize(file.size)}
                   </span>
-                  <span className="file-upload__file-size">{formatBytes(file.size)}</span>
-
-                  {/* Progress Bar */}
-                  {file.status === 'uploading' && (
-                    <div className="file-upload__progress">
-                      <div
-                        className="file-upload__progress-bar"
-                        style={{ width: `${file.progress}%` }}
-                      />
-                    </div>
+                  {file.errorMessage && (
+                    <span className="file-upload__file-error">
+                      {file.errorMessage}
+                    </span>
                   )}
-
-                  {/* Error Message */}
-                  {file.error && <span className="file-upload__file-error">{file.error}</span>}
                 </div>
 
-                {/* Status Icon */}
+                {/* Status */}
                 <div className="file-upload__file-status">
-                  {file.status === 'pending' && <span className="status-pending">⏳</span>}
-                  {file.status === 'uploading' && <span className="status-uploading">⏳</span>}
-                  {file.status === 'success' && <span className="status-success">✅</span>}
-                  {file.status === 'error' && <span className="status-error">❌</span>}
+                  {file.uploadStatus === 'pending' && (
+                    <span className="file-upload__status-badge file-upload__status-badge--pending">
+                      Pending
+                    </span>
+                  )}
+                  {file.uploadStatus === 'uploading' && (
+                    <span className="file-upload__status-badge file-upload__status-badge--uploading">
+                      Uploading...
+                    </span>
+                  )}
+                  {file.uploadStatus === 'success' && (
+                    <span className="file-upload__status-badge file-upload__status-badge--success">
+                      ✓ Uploaded
+                    </span>
+                  )}
+                  {file.uploadStatus === 'error' && (
+                    <span className="file-upload__status-badge file-upload__status-badge--error">
+                      ✗ Failed
+                    </span>
+                  )}
                 </div>
 
                 {/* Remove Button */}
-                <button
-                  type="button"
-                  className="file-upload__remove-btn"
-                  onClick={() => removeFile(file.id)}
-                  disabled={file.status === 'uploading'}
-                  title="Remove file"
-                >
-                  ×
-                </button>
-              </li>
+                {!isUploading && file.uploadStatus !== 'uploading' && (
+                  <button
+                    className="file-upload__remove-btn"
+                    onClick={() => removeFile(index)}
+                    title="Remove file"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
 
-          {/* Upload Button */}
-          {pendingCount > 0 && (
-            <div className="file-upload__actions">
-              <button
-                type="button"
-                className="file-upload__upload-btn"
-                onClick={handleUpload}
-                disabled={isUploading || pendingCount === 0}
-              >
-                {isUploading ? 'Uploading...' : `Upload ${pendingCount} file${pendingCount !== 1 ? 's' : ''}`}
-              </button>
-            </div>
-          )}
-
-          {/* Summary */}
-          {(successCount > 0 || errorCount > 0) && (
+          {/* Summary & Upload Button */}
+          <div className="file-upload__actions">
             <div className="file-upload__summary">
+              {pendingCount > 0 && (
+                <span className="file-upload__summary-item">
+                  {pendingCount} pending
+                </span>
+              )}
               {successCount > 0 && (
-                <span className="file-upload__summary-success">
-                  ✅ {successCount} uploaded
+                <span className="file-upload__summary-item file-upload__summary-item--success">
+                  {successCount} uploaded
                 </span>
               )}
               {errorCount > 0 && (
-                <span className="file-upload__summary-error">
-                  ❌ {errorCount} failed
+                <span className="file-upload__summary-item file-upload__summary-item--error">
+                  {errorCount} failed
                 </span>
               )}
             </div>
-          )}
+
+            <button
+              className="file-upload__upload-btn"
+              onClick={uploadFiles}
+              disabled={isUploading || pendingCount === 0}
+            >
+              {isUploading ? 'Uploading...' : `Upload ${pendingCount} file${pendingCount !== 1 ? 's' : ''}`}
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default FileUpload;

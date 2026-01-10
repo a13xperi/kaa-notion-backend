@@ -7,15 +7,103 @@ const { Client } = require('@notionhq/client');
 const { OpenAI } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const { PrismaClient } = require('@prisma/client');
+const Stripe = require('stripe');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
+
+// Initialize Stripe client
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// ============================================
+// STRIPE WEBHOOK (must be before express.json())
+// Stripe requires raw body for signature verification
+// ============================================
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) {
+    console.error('❌ Stripe not configured');
+    return res.status(500).json({ error: 'Stripe not configured' });
+  }
+
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
+  let event;
+
+  try {
+    // Verify webhook signature
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error(`❌ Webhook signature verification failed: ${err.message}`);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  console.log(`📩 Received Stripe event: ${event.type} (${event.id})`);
+
+  try {
+    // Idempotency check - skip if already processed
+    const existingEvent = await prisma.processedStripeEvent.findUnique({
+      where: { id: event.id }
+    });
+
+    if (existingEvent) {
+      console.log(`⏭️  Event ${event.id} already processed, skipping`);
+      return res.json({ received: true, skipped: true });
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object, event.id);
+        break;
+
+      case 'payment_intent.succeeded':
+        console.log(`💰 Payment intent succeeded: ${event.data.object.id}`);
+        break;
+
+      case 'payment_intent.payment_failed':
+        console.log(`❌ Payment failed: ${event.data.object.id}`);
+        break;
+
+      default:
+        console.log(`ℹ️  Unhandled event type: ${event.type}`);
+    }
+
+    // Mark event as processed (idempotency)
+    await prisma.processedStripeEvent.create({
+      data: {
+        id: event.id,
+        eventType: event.type,
+        payload: event.data.object
+      }
+    });
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error(`❌ Error processing webhook: ${err.message}`);
+    // Return 500 so Stripe will retry
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// JSON body parser for all other routes
 app.use(express.json());
 
 // File upload configuration - use memory storage for Vercel
@@ -149,6 +237,354 @@ async function sendEmail(to, subject, html) {
   } catch (error) {
     console.error('Error sending email:', error.message);
   }
+}
+
+// ============================================
+// STRIPE CHECKOUT SESSION HANDLER
+// ============================================
+
+async function handleCheckoutSessionCompleted(session, eventId) {
+  console.log(`🛒 Processing checkout session: ${session.id}`);
+
+  // Extract customer info from the session
+  const customerEmail = session.customer_email || session.customer_details?.email;
+  const customerName = session.customer_details?.name || '';
+  const stripeCustomerId = session.customer || '';
+  const paymentIntentId = session.payment_intent || session.id;
+  const amountTotal = session.amount_total || 0;
+  const currency = session.currency || 'usd';
+
+  if (!customerEmail) {
+    console.error('❌ No customer email found in checkout session');
+    throw new Error('Customer email is required');
+  }
+
+  console.log(`👤 Customer: ${customerEmail} (${customerName})`);
+
+  // Determine tier from metadata or line items
+  let tier = 1; // Default tier
+  let projectAddress = '';
+
+  // Check session metadata first
+  if (session.metadata?.tier) {
+    tier = parseInt(session.metadata.tier, 10);
+  }
+  if (session.metadata?.project_address) {
+    projectAddress = session.metadata.project_address;
+  }
+
+  // If no tier in metadata, try to determine from line items
+  if (!session.metadata?.tier && session.line_items) {
+    // Fetch line items if available
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+      for (const item of lineItems.data) {
+        const priceId = item.price?.id;
+        if (priceId) {
+          // Look up tier by Stripe price ID
+          const tierRecord = await prisma.tier.findFirst({
+            where: { stripePriceId: priceId }
+          });
+          if (tierRecord) {
+            tier = tierRecord.id;
+            console.log(`📦 Matched tier ${tier} from price ${priceId}`);
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.log(`⚠️  Could not fetch line items: ${err.message}`);
+    }
+  }
+
+  console.log(`📊 Tier: ${tier}, Amount: ${amountTotal / 100} ${currency.toUpperCase()}`);
+
+  // Use a transaction to ensure atomic operations
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Find or create User by email
+    let user = await tx.user.findUnique({
+      where: { email: customerEmail }
+    });
+
+    // Generate a random password and access code for new users
+    const accessCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const tempPassword = Math.random().toString(36).substring(2, 14);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    if (!user) {
+      console.log(`📝 Creating new user for ${customerEmail}`);
+      user = await tx.user.create({
+        data: {
+          email: customerEmail,
+          address: projectAddress || null,
+          passwordHash: passwordHash,
+          userType: 'SAGE_CLIENT',
+          tier: tier
+        }
+      });
+    } else {
+      console.log(`👤 Found existing user: ${user.id}`);
+      // Update tier if higher
+      if (tier > (user.tier || 0)) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { tier: tier }
+        });
+      }
+    }
+
+    // 2. Find or create Client
+    let client = await tx.client.findUnique({
+      where: { userId: user.id }
+    });
+
+    if (!client) {
+      console.log(`📝 Creating new client for user ${user.id}`);
+      client = await tx.client.create({
+        data: {
+          userId: user.id,
+          tier: tier,
+          status: 'ONBOARDING',
+          projectAddress: projectAddress || `Project-${Date.now()}`
+        }
+      });
+    } else {
+      console.log(`🏢 Found existing client: ${client.id}`);
+      // Update tier if higher
+      if (tier > client.tier) {
+        await tx.client.update({
+          where: { id: client.id },
+          data: { tier: tier }
+        });
+      }
+    }
+
+    // 3. Create Project
+    const projectName = session.metadata?.project_name ||
+                       customerName ? `${customerName}'s Project` :
+                       `Project ${new Date().toLocaleDateString()}`;
+
+    console.log(`📁 Creating project: ${projectName}`);
+    const project = await tx.project.create({
+      data: {
+        clientId: client.id,
+        tier: tier,
+        status: 'ONBOARDING',
+        name: projectName,
+        paymentStatus: 'paid'
+      }
+    });
+
+    // 4. Create Payment record
+    console.log(`💳 Recording payment: ${paymentIntentId}`);
+    const payment = await tx.payment.create({
+      data: {
+        projectId: project.id,
+        stripePaymentIntentId: paymentIntentId,
+        stripeCustomerId: stripeCustomerId || `cus_${session.id}`,
+        amount: amountTotal,
+        currency: currency,
+        status: 'SUCCEEDED',
+        tier: tier
+      }
+    });
+
+    // 5. Create default milestones based on tier
+    const milestones = getMilestonesForTier(tier);
+    for (let i = 0; i < milestones.length; i++) {
+      await tx.milestone.create({
+        data: {
+          projectId: project.id,
+          tier: tier,
+          name: milestones[i],
+          order: i + 1,
+          status: i === 0 ? 'IN_PROGRESS' : 'PENDING'
+        }
+      });
+    }
+
+    // 6. Create audit log entry
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'checkout_completed',
+        resourceType: 'project',
+        resourceId: project.id,
+        details: {
+          stripeEventId: eventId,
+          sessionId: session.id,
+          tier: tier,
+          amount: amountTotal,
+          currency: currency
+        }
+      }
+    });
+
+    return { user, client, project, payment, accessCode, tempPassword };
+  });
+
+  console.log(`✅ Checkout processing complete for ${customerEmail}`);
+  console.log(`   User: ${result.user.id}`);
+  console.log(`   Client: ${result.client.id}`);
+  console.log(`   Project: ${result.project.id}`);
+  console.log(`   Payment: ${result.payment.id}`);
+
+  // 7. Send portal access email
+  await sendPortalAccessEmail({
+    email: customerEmail,
+    name: customerName,
+    projectAddress: result.client.projectAddress,
+    accessCode: result.accessCode,
+    tier: tier,
+    projectName: result.project.name
+  });
+
+  return result;
+}
+
+// Helper function to get milestones based on tier
+function getMilestonesForTier(tier) {
+  const baseMilestones = ['Intake', 'Concept Development'];
+
+  switch (tier) {
+    case 1: // The Concept
+      return [...baseMilestones, 'Design Delivery'];
+    case 2: // The Builder
+      return [...baseMilestones, 'Draft Review', 'Revisions', 'Final Design'];
+    case 3: // The Concierge
+      return [...baseMilestones, 'Site Visit', 'Draft Review', 'Revisions', 'Final Design', 'Installation Support'];
+    case 4: // KAA White Glove
+      return [...baseMilestones, 'Site Assessment', 'Design Development', 'Client Review', 'Revisions', 'Final Design', 'Installation Oversight', 'Project Completion'];
+    default:
+      return baseMilestones;
+  }
+}
+
+// Send portal access email to new client
+async function sendPortalAccessEmail({ email, name, projectAddress, accessCode, tier, projectName }) {
+  const tierNames = {
+    1: 'The Concept',
+    2: 'The Builder',
+    3: 'The Concierge',
+    4: 'KAA White Glove'
+  };
+
+  const tierName = tierNames[tier] || `Tier ${tier}`;
+  const portalUrl = process.env.FRONTEND_URL || 'https://kaa-app.vercel.app';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2d5a27 0%, #4a7c45 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .header h1 { color: white; margin: 0; font-size: 28px; }
+        .header p { color: rgba(255,255,255,0.9); margin: 10px 0 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; }
+        .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #ddd; }
+        .credentials h3 { margin-top: 0; color: #2d5a27; }
+        .credential-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .credential-item:last-child { border-bottom: none; }
+        .credential-label { font-weight: 600; color: #666; }
+        .credential-value { font-family: monospace; font-size: 16px; color: #2d5a27; background: #f0f7ef; padding: 4px 8px; border-radius: 4px; }
+        .cta-button { display: inline-block; background: #2d5a27; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .cta-button:hover { background: #3d7a37; }
+        .tier-badge { display: inline-block; background: #2d5a27; color: white; padding: 6px 16px; border-radius: 20px; font-size: 14px; margin: 10px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+        .steps { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .steps ol { margin: 0; padding-left: 20px; }
+        .steps li { margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🌿 Welcome to SAGE</h1>
+          <p>Your landscape design journey begins now</p>
+        </div>
+
+        <div class="content">
+          <p>Hi ${name || 'there'},</p>
+
+          <p>Thank you for choosing SAGE! Your payment has been processed and your client portal is ready.</p>
+
+          <div style="text-align: center;">
+            <span class="tier-badge">${tierName}</span>
+          </div>
+
+          <div class="credentials">
+            <h3>🔐 Your Portal Access</h3>
+            <div class="credential-item">
+              <span class="credential-label">Project Address:</span>
+              <span class="credential-value">${projectAddress}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Access Code:</span>
+              <span class="credential-value">${accessCode}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Project:</span>
+              <span class="credential-value">${projectName}</span>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${portalUrl}" class="cta-button">Access Your Portal</a>
+          </div>
+
+          <div class="steps">
+            <h3>🚀 Getting Started</h3>
+            <ol>
+              <li>Click the button above or visit <strong>${portalUrl}</strong></li>
+              <li>Enter your project address and access code</li>
+              <li>Complete your project intake form</li>
+              <li>Upload any inspiration photos or site documents</li>
+            </ol>
+          </div>
+
+          <p>Your project manager will be in touch shortly to guide you through the next steps. In the meantime, feel free to explore your portal and start gathering your design ideas!</p>
+
+          <p>Questions? Simply reply to this email or use the messaging feature in your portal.</p>
+
+          <p>Welcome aboard! 🌱</p>
+          <p><em>The SAGE Team</em></p>
+        </div>
+
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} SAGE Garden Wizard. All rights reserved.</p>
+          <p>This email was sent to ${email}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail(
+    email,
+    `🌿 Welcome to SAGE - Your ${tierName} Portal is Ready!`,
+    html
+  );
+
+  // Also notify team
+  if (process.env.TEAM_EMAIL) {
+    await sendEmail(
+      process.env.TEAM_EMAIL,
+      `New Client: ${name || email} - ${tierName}`,
+      `
+        <h2>New Client Registration</h2>
+        <p><strong>Name:</strong> ${name || 'Not provided'}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Tier:</strong> ${tierName}</p>
+        <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Project Address:</strong> ${projectAddress}</p>
+        <p><a href="${portalUrl}">View in Admin Portal</a></p>
+      `
+    );
+  }
+
+  console.log(`📧 Portal access email sent to ${email}`);
 }
 
 // ============================================
@@ -955,9 +1391,9 @@ Guidelines:
 
 ${isAskingAboutSupport ? `
 IMPORTANT: The user is asking about support agents or pricing. Include detailed information about:
-- Tier 1 (The Concept): Fully automated, no-touch, fixed pricing
-- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing
-- Tier 3 (The Concierge): Includes site visits, hybrid approach, fixed + site visit fee
+- Tier 1 (The Concept): Fully automated, no-touch service with fixed pricing - no site visit required
+- Tier 2 (The Builder): Low-touch with designer checkpoints, fixed pricing - no site visit required
+- Tier 3 (The Concierge): Includes site visits + 3D scan, hybrid approach with boots on the ground, fixed + site visit fee
 - Tier 4 (KAA White Glove): Premium service, we choose clients, percentage of install pricing
 ` : ''}`;
 
@@ -971,15 +1407,17 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
       { role: 'user', content: message }
     ];
 
-    // Call OpenAI API
+    // Call OpenAI API with timeout
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency, can upgrade to gpt-4o if needed
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini', // Configurable model via env
       messages: messages,
       temperature: 0.7,
       max_tokens: 500,
       top_p: 1,
       frequency_penalty: 0.3,
       presence_penalty: 0.3
+    }, {
+      timeout: 30000 // 30 second timeout
     });
 
     const response = completion.choices[0]?.message?.content || 'I apologize, but I encountered an error. Please try again.';
@@ -991,18 +1429,26 @@ IMPORTANT: The user is asking about support agents or pricing. Include detailed 
 
   } catch (error) {
     console.error('Error calling OpenAI API:', error);
-    
-    // Handle specific OpenAI errors
+
+    // Handle OpenAI SDK v4 errors (APIError)
+    if (error.status) {
+      return res.status(error.status).json({
+        error: error.error?.message || error.message || 'OpenAI API error',
+        details: error.error || error.message
+      });
+    }
+
+    // Handle legacy OpenAI SDK v3 errors
     if (error.response) {
-      return res.status(error.response.status || 500).json({ 
+      return res.status(error.response.status || 500).json({
         error: error.response.data?.error?.message || 'OpenAI API error',
         details: error.response.data
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to get response from Sage',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -1016,6 +1462,8 @@ app.get('/api/health', (req, res) => {
     openai_configured: !!process.env.OPENAI_API_KEY,
     supabase_configured: !!supabase,
     database_configured: !!prisma,
+    stripe_configured: !!stripe,
+    stripe_webhook_configured: !!process.env.STRIPE_WEBHOOK_SECRET,
     databases_configured: !!(CLIENT_CREDENTIALS_DB && ACTIVITY_LOG_DB),
     timestamp: new Date().toISOString()
   });
@@ -1303,6 +1751,316 @@ app.delete('/api/client/design-ideas/:id', async (req, res) => {
 });
 
 // ============================================
+// DELIVERABLES API ROUTES
+// ============================================
+
+// In-memory storage for deliverables (in production, use Prisma with Supabase)
+const deliverablesStore = new Map();
+
+// Get all deliverables for a project
+app.get('/api/projects/:projectId/deliverables', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { address } = req.query;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    // Get deliverables for this project (filtered by address if provided)
+    const projectDeliverables = Array.from(deliverablesStore.values())
+      .filter(d => {
+        if (d.projectId !== projectId) return false;
+        // If address is provided, filter by client address
+        if (address && d.clientAddress !== address) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Log activity
+    if (address) {
+      await logActivity(address, 'Viewed Deliverables', { projectId });
+    }
+
+    res.json({
+      deliverables: projectDeliverables,
+      count: projectDeliverables.length
+    });
+  } catch (error) {
+    console.error('Error fetching deliverables:', error);
+    res.status(500).json({ error: 'Failed to fetch deliverables' });
+  }
+});
+
+// Get all deliverables for a client (by address)
+app.get('/api/client/:address/deliverables', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const decodedAddress = decodeURIComponent(address);
+
+    if (!decodedAddress) {
+      return res.status(400).json({ error: 'Client address is required' });
+    }
+
+    // Get all deliverables for this client
+    const clientDeliverables = Array.from(deliverablesStore.values())
+      .filter(d => d.clientAddress === decodedAddress)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    await logActivity(decodedAddress, 'Viewed All Deliverables', { count: clientDeliverables.length });
+
+    res.json({
+      deliverables: clientDeliverables,
+      count: clientDeliverables.length
+    });
+  } catch (error) {
+    console.error('Error fetching client deliverables:', error);
+    res.status(500).json({ error: 'Failed to fetch deliverables' });
+  }
+});
+
+// Create a new deliverable (Team/Admin only)
+// Supports Option A (file upload to Supabase Storage) and Option B (external link)
+app.post('/api/projects/:projectId/deliverables', upload.single('file'), async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const {
+      name,
+      description,
+      category,
+      fileUrl,        // Option B: External link
+      clientAddress,
+      clientEmail,
+      uploadedBy,
+      userType        // 'team' or 'admin' required
+    } = req.body;
+    const file = req.file;  // Option A: File upload
+
+    // Authorization check - only team/admin can create deliverables
+    if (!userType || !['team', 'admin', 'TEAM', 'ADMIN'].includes(userType)) {
+      return res.status(403).json({
+        error: 'Unauthorized. Only team members and admins can upload deliverables.'
+      });
+    }
+
+    if (!projectId || !name) {
+      return res.status(400).json({ error: 'Project ID and name are required' });
+    }
+
+    // Must have either file or external URL
+    if (!file && !fileUrl) {
+      return res.status(400).json({
+        error: 'Either a file upload or external URL is required'
+      });
+    }
+
+    let deliverableUrl = '';
+    let fileSize = 0;
+    let fileType = '';
+    let filePath = '';
+    let deliveryMethod = '';
+
+    if (file) {
+      // Option A: File upload (to Supabase Storage in production)
+      // For MVP, we'll store file metadata and use a placeholder URL
+      // In production, upload to Supabase Storage bucket
+
+      fileSize = file.size;
+      fileType = file.mimetype;
+      filePath = `deliverables/${projectId}/${Date.now()}-${file.originalname}`;
+
+      // TODO: In production, upload to Supabase Storage:
+      // const { data, error } = await supabase.storage
+      //   .from('deliverables')
+      //   .upload(filePath, file.buffer, { contentType: file.mimetype });
+      // deliverableUrl = supabase.storage.from('deliverables').getPublicUrl(filePath).data.publicUrl;
+
+      // For MVP, use a data URL for small files or placeholder for large files
+      if (file.size < 1024 * 1024) { // Less than 1MB
+        const base64 = file.buffer.toString('base64');
+        deliverableUrl = `data:${file.mimetype};base64,${base64}`;
+      } else {
+        // For larger files, we'd need Supabase Storage
+        // For now, indicate file is stored server-side
+        deliverableUrl = `#file-stored:${filePath}`;
+      }
+
+      deliveryMethod = 'upload';
+      console.log(`📦 Deliverable file received: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB)`);
+    } else {
+      // Option B: External URL
+      deliverableUrl = fileUrl.trim();
+      fileType = 'external-link';
+      fileSize = 0;
+      filePath = deliverableUrl;
+      deliveryMethod = 'link';
+      console.log(`🔗 Deliverable link added: ${deliverableUrl}`);
+    }
+
+    // Create deliverable record
+    const deliverable = {
+      id: `del-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      projectId,
+      name: name.trim(),
+      description: description?.trim() || '',
+      category: category || 'Document',
+      fileUrl: deliverableUrl,
+      filePath,
+      fileSize,
+      fileType,
+      deliveryMethod,
+      clientAddress: clientAddress || '',
+      uploadedBy: uploadedBy || 'Team',
+      userType: userType.toUpperCase(),
+      createdAt: new Date().toISOString(),
+      downloadCount: 0
+    };
+
+    deliverablesStore.set(deliverable.id, deliverable);
+
+    // Log activity
+    await logActivity(clientAddress || 'System', 'Deliverable Created', {
+      deliverableId: deliverable.id,
+      name: deliverable.name,
+      category: deliverable.category,
+      deliveryMethod,
+      uploadedBy
+    });
+
+    // Send "Deliverable Ready" notification email to client
+    if (clientEmail) {
+      await sendEmail(
+        clientEmail,
+        `New Deliverable Ready: ${name}`,
+        `
+          <h2>Your Deliverable is Ready!</h2>
+          <p>Great news! A new deliverable has been uploaded for your project.</p>
+          <hr>
+          <p><strong>Deliverable:</strong> ${name}</p>
+          ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}
+          <p><strong>Category:</strong> ${category || 'Document'}</p>
+          <p><strong>Uploaded by:</strong> ${uploadedBy || 'KAA Team'}</p>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <hr>
+          <p>
+            <a href="${process.env.FRONTEND_URL || 'https://kaa-app.vercel.app'}"
+               style="display: inline-block; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              View in Portal
+            </a>
+          </p>
+          <p>Log in to your client portal to download your deliverable.</p>
+          <p style="color: #666; font-size: 0.9em;">If you have any questions, please contact your project manager.</p>
+        `
+      );
+      console.log(`📧 Deliverable notification sent to ${clientEmail}`);
+    }
+
+    // Also notify team email
+    if (process.env.TEAM_EMAIL) {
+      await sendEmail(
+        process.env.TEAM_EMAIL,
+        `Deliverable Uploaded: ${name}`,
+        `
+          <p>A new deliverable has been uploaded:</p>
+          <ul>
+            <li><strong>Project:</strong> ${projectId}</li>
+            <li><strong>Name:</strong> ${name}</li>
+            <li><strong>Category:</strong> ${category || 'Document'}</li>
+            <li><strong>Client:</strong> ${clientAddress || 'N/A'}</li>
+            <li><strong>Uploaded by:</strong> ${uploadedBy || 'Team'}</li>
+            <li><strong>Method:</strong> ${deliveryMethod}</li>
+          </ul>
+        `
+      );
+    }
+
+    res.json({
+      success: true,
+      deliverable: {
+        id: deliverable.id,
+        name: deliverable.name,
+        category: deliverable.category,
+        fileUrl: deliverable.fileUrl,
+        createdAt: deliverable.createdAt
+      },
+      message: clientEmail ? 'Deliverable created and client notified' : 'Deliverable created'
+    });
+  } catch (error) {
+    console.error('Error creating deliverable:', error);
+    res.status(500).json({ error: 'Failed to create deliverable' });
+  }
+});
+
+// Track deliverable download
+app.post('/api/deliverables/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { address } = req.body;
+
+    const deliverable = deliverablesStore.get(id);
+
+    if (!deliverable) {
+      return res.status(404).json({ error: 'Deliverable not found' });
+    }
+
+    // Increment download count
+    deliverable.downloadCount = (deliverable.downloadCount || 0) + 1;
+    deliverable.lastDownloadedAt = new Date().toISOString();
+    deliverablesStore.set(id, deliverable);
+
+    // Log activity
+    await logActivity(address || 'Anonymous', 'Downloaded Deliverable', {
+      deliverableId: id,
+      name: deliverable.name,
+      downloadCount: deliverable.downloadCount
+    });
+
+    res.json({
+      success: true,
+      fileUrl: deliverable.fileUrl,
+      downloadCount: deliverable.downloadCount
+    });
+  } catch (error) {
+    console.error('Error tracking download:', error);
+    res.status(500).json({ error: 'Failed to track download' });
+  }
+});
+
+// Delete deliverable (Team/Admin only)
+app.delete('/api/deliverables/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userType } = req.body;
+
+    // Authorization check
+    if (!userType || !['team', 'admin', 'TEAM', 'ADMIN'].includes(userType)) {
+      return res.status(403).json({
+        error: 'Unauthorized. Only team members and admins can delete deliverables.'
+      });
+    }
+
+    const deliverable = deliverablesStore.get(id);
+
+    if (!deliverable) {
+      return res.status(404).json({ error: 'Deliverable not found' });
+    }
+
+    deliverablesStore.delete(id);
+
+    // Log activity
+    await logActivity('System', 'Deliverable Deleted', {
+      deliverableId: id,
+      name: deliverable.name
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting deliverable:', error);
+    res.status(500).json({ error: 'Failed to delete deliverable' });
+  }
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
@@ -1337,6 +2095,20 @@ app.listen(PORT, async () => {
   }
 
   console.log('✅ Prisma client initialized - Postgres database ready');
+
+  if (!stripe) {
+    console.log('⚠️  WARNING: Stripe not configured (STRIPE_SECRET_KEY)');
+    console.log('   Set STRIPE_SECRET_KEY in your .env file to enable payments');
+  } else {
+    console.log('✅ Stripe API configured');
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.log('⚠️  WARNING: Stripe webhook secret not set (STRIPE_WEBHOOK_SECRET)');
+    console.log('   Set STRIPE_WEBHOOK_SECRET to enable webhook signature verification');
+  } else {
+    console.log('✅ Stripe webhook configured');
+  }
 
   // Initialize databases
   await initializeDatabases();

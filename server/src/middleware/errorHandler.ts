@@ -1,3 +1,8 @@
+/**
+ * Error Handler Middleware
+ * Global error handling with proper response formatting, logging, and Sentry integration.
+ */
+
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
@@ -13,10 +18,12 @@ import {
   badRequest,
   FieldError,
 } from '../utils/AppError';
+import { logger } from '../logger';
+import { captureException, setUser, setContext } from '../config/sentry';
 
-// ============================================
+// ============================================================================
 // TYPES
-// ============================================
+// ============================================================================
 
 interface ErrorLogEntry {
   timestamp: string;
@@ -33,15 +40,26 @@ interface ErrorLogEntry {
   userAgent?: string;
 }
 
+interface ErrorLogContext {
+  method: string;
+  url: string;
+  userId?: string;
+  ip?: string;
+  userAgent?: string;
+  errorCode: string;
+  statusCode: number;
+  stack?: string;
+}
+
 interface ErrorHandlerOptions {
   includeStack?: boolean;
   logErrors?: boolean;
-  logger?: (entry: ErrorLogEntry) => void;
+  customLogger?: (entry: ErrorLogEntry) => void;
 }
 
-// ============================================
+// ============================================================================
 // ERROR NORMALIZATION
-// ============================================
+// ============================================================================
 
 /**
  * Convert Zod validation error to AppError
@@ -54,6 +72,25 @@ function normalizeZodError(error: ZodError): AppError {
   }));
 
   return validationError(fieldErrors, 'Validation failed');
+}
+
+/**
+ * Format Zod errors into a structured object
+ */
+function formatZodErrors(error: ZodError): Record<string, string[]> {
+  const formatted: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const path = issue.path.join('.') || '_root';
+
+    if (!formatted[path]) {
+      formatted[path] = [];
+    }
+
+    formatted[path].push(issue.message);
+  }
+
+  return formatted;
 }
 
 /**
@@ -101,6 +138,104 @@ function normalizePrismaError(error: Prisma.PrismaClientKnownRequestError): AppE
           details: { code: error.code },
           isOperational: false,
         }
+      );
+  }
+}
+
+/**
+ * Check if error is a Prisma error
+ */
+function isPrismaError(err: Error): boolean {
+  return (
+    err.name === 'PrismaClientKnownRequestError' ||
+    err.name === 'PrismaClientUnknownRequestError' ||
+    err.name === 'PrismaClientRustPanicError' ||
+    err.name === 'PrismaClientInitializationError' ||
+    err.name === 'PrismaClientValidationError'
+  );
+}
+
+/**
+ * Handle Prisma errors (alternative approach)
+ */
+function handlePrismaError(err: Error & { code?: string }): AppError {
+  switch (err.code) {
+    case 'P2002':
+      // Unique constraint violation
+      return new AppError(
+        ErrorCodes.ALREADY_EXISTS,
+        'A record with this value already exists',
+        409
+      );
+
+    case 'P2003':
+      // Foreign key constraint violation
+      return new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        'Invalid reference to related record',
+        400
+      );
+
+    case 'P2025':
+      // Record not found
+      return new AppError(
+        ErrorCodes.NOT_FOUND,
+        'Record not found',
+        404
+      );
+
+    default:
+      return new AppError(
+        ErrorCodes.DATABASE_ERROR,
+        'Database operation failed',
+        500,
+        { cause: err }
+      );
+  }
+}
+
+/**
+ * Check if error is a Stripe error
+ */
+function isStripeError(err: Error): boolean {
+  return err.name === 'StripeError' || ('type' in err && typeof (err as any).type === 'string' && (err as any).type.startsWith('Stripe'));
+}
+
+/**
+ * Handle Stripe errors
+ */
+function handleStripeError(err: Error & { type?: string; code?: string }): AppError {
+  switch (err.type) {
+    case 'StripeCardError':
+      return new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        err.message || 'Card error',
+        400
+      );
+
+    case 'StripeRateLimitError':
+      return new AppError(
+        ErrorCodes.RATE_LIMITED,
+        'Too many requests to payment service',
+        429
+      );
+
+    case 'StripeInvalidRequestError':
+      return new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        'Invalid payment request',
+        400
+      );
+
+    case 'StripeAuthenticationError':
+    case 'StripeAPIError':
+    case 'StripeConnectionError':
+    default:
+      return new AppError(
+        ErrorCodes.STRIPE_UNAVAILABLE,
+        'Payment service error',
+        503,
+        { cause: err }
       );
   }
 }
@@ -170,6 +305,16 @@ function normalizeError(error: unknown): AppError {
     });
   }
 
+  // Check for Prisma errors by name
+  if (error instanceof Error && isPrismaError(error)) {
+    return handlePrismaError(error as Error & { code?: string });
+  }
+
+  // Check for Stripe errors
+  if (error instanceof Error && isStripeError(error)) {
+    return handleStripeError(error as Error & { type?: string; code?: string });
+  }
+
   // Multer errors
   if (error instanceof Error && 'code' in error && typeof error.code === 'string') {
     if (error.code.startsWith('LIMIT_')) {
@@ -206,9 +351,9 @@ function normalizeError(error: unknown): AppError {
   return internalError('An unexpected error occurred');
 }
 
-// ============================================
+// ============================================================================
 // LOGGING
-// ============================================
+// ============================================================================
 
 /**
  * Default console logger
@@ -233,7 +378,7 @@ function createLogEntry(
 ): ErrorLogEntry {
   const entry: ErrorLogEntry = {
     timestamp: new Date().toISOString(),
-    requestId: (req as Request & { id?: string }).id,
+    requestId: (req as Request & { id?: string; correlationId?: string }).id || (req as any).correlationId,
     method: req.method,
     path: req.path,
     statusCode: appError.statusCode,
@@ -244,14 +389,14 @@ function createLogEntry(
   };
 
   // Add user ID if authenticated
-  const user = (req as Request & { user?: { userId: string } }).user;
-  if (user?.userId) {
-    entry.userId = user.userId;
+  const user = (req as Request & { user?: { userId?: string; id?: string } }).user;
+  if (user?.userId || user?.id) {
+    entry.userId = user.userId || user.id;
   }
 
   // Add details if present
   if (appError.details) {
-    entry.details = appError.details;
+    entry.details = appError.details as Record<string, unknown>;
   }
 
   // Add stack for non-operational (unexpected) errors
@@ -262,9 +407,41 @@ function createLogEntry(
   return entry;
 }
 
-// ============================================
+/**
+ * Log error with context (structured logging version)
+ */
+function logError(error: AppError, req: Request): void {
+  const context: ErrorLogContext = {
+    method: req.method,
+    url: req.originalUrl,
+    userId: (req as any).user?.id,
+    ip: req.ip || req.socket.remoteAddress,
+    userAgent: req.headers['user-agent'],
+    errorCode: error.code,
+    statusCode: error.statusCode,
+  };
+
+  // Include stack trace for server errors
+  if (error.statusCode >= 500) {
+    context.stack = error.stack;
+
+    logger.error('Server error:', {
+      ...context,
+      message: error.message,
+      details: error.details,
+    });
+  } else if (error.statusCode >= 400) {
+    // Log client errors at warn level
+    logger.warn('Client error:', {
+      ...context,
+      message: error.message,
+    });
+  }
+}
+
+// ============================================================================
 // ERROR HANDLER MIDDLEWARE
-// ============================================
+// ============================================================================
 
 /**
  * Create error handler middleware with options
@@ -273,17 +450,51 @@ export function createErrorHandler(options: ErrorHandlerOptions = {}): ErrorRequ
   const {
     includeStack = process.env.NODE_ENV !== 'production',
     logErrors = true,
-    logger = defaultLogger,
+    customLogger = defaultLogger,
   } = options;
 
   return (err: unknown, req: Request, res: Response, _next: NextFunction): void => {
+    // Already sent response
+    if (res.headersSent) {
+      return;
+    }
+
     // Normalize error to AppError
     const appError = normalizeError(err);
 
-    // Log error
+    // Set user context for Sentry
+    if ((req as any).user) {
+      setUser({
+        id: (req as any).user.id,
+        email: (req as any).user.email,
+        userType: (req as any).user.userType,
+      });
+    }
+
+    // Set additional context for Sentry
+    setContext('request', {
+      method: req.method,
+      url: req.originalUrl,
+      correlationId: (req as any).correlationId,
+    });
+
+    // Capture exception in Sentry (only for server errors)
+    if (appError.statusCode >= 500) {
+      captureException(appError as Error, {
+        userId: (req as any).user?.id,
+        correlationId: (req as any).correlationId,
+        errorCode: appError.code,
+        details: appError.details as Record<string, unknown>,
+      });
+    }
+
+    // Log error using structured logging
+    logError(appError, req);
+
+    // Also log using custom logger if provided
     if (logErrors) {
       const logEntry = createLogEntry(req, appError, true);
-      logger(logEntry);
+      customLogger(logEntry);
     }
 
     // Send response
@@ -293,24 +504,92 @@ export function createErrorHandler(options: ErrorHandlerOptions = {}): ErrorRequ
 }
 
 /**
- * Default error handler (uses default options)
+ * Global error handler middleware
  */
-export const errorHandler: ErrorRequestHandler = createErrorHandler();
+export function errorHandler(
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  // Already sent response
+  if (res.headersSent) {
+    return;
+  }
 
-// ============================================
+  let appError: AppError;
+
+  // Convert known error types to AppError
+  if (err instanceof AppError) {
+    appError = err;
+  } else if (err instanceof ZodError) {
+    // Zod validation error
+    const formattedErrors = formatZodErrors(err);
+    appError = validationError('Validation failed', formattedErrors);
+  } else if (isPrismaError(err)) {
+    // Prisma database error
+    appError = handlePrismaError(err as Error & { code?: string });
+  } else if (isStripeError(err)) {
+    // Stripe error
+    appError = handleStripeError(err as Error & { type?: string; code?: string });
+  } else {
+    // Unknown error
+    appError = internalError(
+      process.env.NODE_ENV === 'production'
+        ? 'An unexpected error occurred'
+        : err.message,
+      err
+    );
+  }
+
+  // Set user context for Sentry
+  if ((req as any).user) {
+    setUser({
+      id: (req as any).user.id,
+      email: (req as any).user.email,
+      userType: (req as any).user.userType,
+    });
+  }
+
+  // Set additional context
+  setContext('request', {
+    method: req.method,
+    url: req.originalUrl,
+    correlationId: (req as any).correlationId,
+  });
+
+  // Capture exception in Sentry (only for server errors)
+  if (appError.statusCode >= 500) {
+    captureException(appError as Error, {
+      userId: (req as any).user?.id,
+      correlationId: (req as any).correlationId,
+      errorCode: appError.code,
+      details: appError.details as Record<string, unknown>,
+    });
+  }
+
+  // Log the error
+  logError(appError, req);
+
+  // Send response
+  res.status(appError.statusCode).json(appError.toJSON());
+}
+
+// ============================================================================
 // 404 HANDLER
-// ============================================
+// ============================================================================
 
 /**
  * Handle 404 Not Found for unmatched routes
  */
-export function notFoundHandler(req: Request, _res: Response, next: NextFunction): void {
-  next(notFound(`Route ${req.method} ${req.path}`));
+export function notFoundHandler(req: Request, res: Response, next: NextFunction): void {
+  const error = notFound(`Route ${req.method} ${req.path}`);
+  res.status(404).json(error.toJSON());
 }
 
-// ============================================
+// ============================================================================
 // ASYNC ERROR WRAPPER
-// ============================================
+// ============================================================================
 
 /**
  * Wrap async route handlers to catch errors
@@ -323,9 +602,9 @@ export function asyncHandler<T>(
   };
 }
 
-// ============================================
+// ============================================================================
 // UTILITIES
-// ============================================
+// ============================================================================
 
 /**
  * Check if response has already been sent
@@ -350,16 +629,19 @@ export function safeErrorResponse(
   res.status(error.statusCode).json(error.toJSON(includeStack));
 }
 
-// ============================================
+// ============================================================================
 // EXPORTS
-// ============================================
+// ============================================================================
 
 export {
   normalizeError,
   normalizeZodError,
   normalizePrismaError,
+  formatZodErrors,
   createLogEntry,
   defaultLogger,
+  isPrismaError,
+  isStripeError,
 };
 
 export default errorHandler;

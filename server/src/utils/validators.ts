@@ -1,19 +1,61 @@
-import { z } from 'zod';
-
 /**
- * Zod Validation Schemas
- *
- * Request body schemas for all API endpoints.
- * Used with validate middleware for type-safe request handling.
+ * Validators
+ * Zod schemas for API request validation.
  */
 
-// ============================================
+import { z, ZodError } from 'zod';
+
+// ============================================================================
+// ZOD ERROR FORMATTING
+// ============================================================================
+
+/**
+ * Format Zod errors into a structured object
+ */
+export function formatZodErrors(error: ZodError): Record<string, string[]> {
+  const formatted: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const path = issue.path.join('.') || '_root';
+
+    if (!formatted[path]) {
+      formatted[path] = [];
+    }
+
+    formatted[path].push(issue.message);
+  }
+
+  return formatted;
+}
+
+/**
+ * Get the first error message from a ZodError
+ */
+export function getFirstError(error: ZodError): string {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return 'Validation failed';
+
+  const path = firstIssue.path.join('.');
+  return path ? `${path}: ${firstIssue.message}` : firstIssue.message;
+}
+
+/**
+ * Get all error messages as a flat array
+ */
+export function getAllErrors(error: ZodError): string[] {
+  return error.issues.map((issue) => {
+    const path = issue.path.join('.');
+    return path ? `${path}: ${issue.message}` : issue.message;
+  });
+}
+
+// ============================================================================
 // COMMON SCHEMAS
-// ============================================
+// ============================================================================
 
 export const uuidSchema = z.string().uuid('Invalid UUID format');
 
-export const emailSchema = z.string().email('Invalid email address').max(255);
+export const emailSchema = z.string().email('Invalid email format').toLowerCase().trim();
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -22,406 +64,243 @@ export const paginationSchema = z.object({
 
 export const sortSchema = z.object({
   sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-// ============================================
-// LEAD SCHEMAS
-// ============================================
-
-export const budgetRangeSchema = z.enum([
-  'under_5k',
-  '5k_15k',
-  '15k_50k',
-  '50k_plus',
-  'not_sure',
-]);
-
-export const timelineSchema = z.enum([
-  'asap',
-  '1_3_months',
-  '3_6_months',
-  '6_12_months',
-  'planning',
-]);
-
-export const projectTypeSchema = z.enum([
-  'new_landscape',
-  'renovation',
-  'maintenance_plan',
-  'hardscape',
-  'planting',
-  'irrigation',
-  'lighting',
-  'other',
-]);
-
-export const leadStatusSchema = z.enum([
-  'NEW',
-  'QUALIFIED',
-  'NEEDS_REVIEW',
-  'CONVERTED',
-  'CLOSED',
-]);
-
-export const createLeadSchema = z.object({
-  email: emailSchema,
-  name: z.string().min(1, 'Name is required').max(255).optional(),
-  projectAddress: z.string().min(5, 'Address is required').max(500),
-  budgetRange: budgetRangeSchema.optional(),
-  timeline: timelineSchema.optional(),
-  projectType: projectTypeSchema.optional(),
-  hasSurvey: z.boolean().default(false),
-  hasDrawings: z.boolean().default(false),
-  notes: z.string().max(2000).optional(),
-  propertySize: z.string().max(100).optional(),
-  phone: z.string().max(20).optional(),
-});
-
-export const updateLeadSchema = z.object({
-  status: leadStatusSchema.optional(),
-  recommendedTier: z.number().int().min(1).max(4).optional(),
-  tierOverrideReason: z.string().min(10).max(500).optional(),
-  notes: z.string().max(2000).optional(),
-});
-
-export const leadQuerySchema = paginationSchema.extend({
-  status: leadStatusSchema.optional(),
-  tier: z.coerce.number().int().min(1).max(4).optional(),
-  email: z.string().optional(),
-  search: z.string().optional(),
-});
-
-// ============================================
+// ============================================================================
 // AUTH SCHEMAS
-// ============================================
+// ============================================================================
 
 export const registerSchema = z.object({
   email: emailSchema,
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .max(100)
+    .max(100, 'Password too long')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain uppercase, lowercase, and number'
     ),
-  name: z.string().min(1).max(255).optional(),
-  address: z.string().max(500).optional(),
+  tier: z.number().int().min(1).max(4).optional(),
 });
 
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const addressLoginSchema = z.object({
-  address: z.string().min(5, 'Address is required').max(500),
+  address: z.string().min(5, 'Address is required'),
+  accessCode: z.string().min(4, 'Access code is required'),
 });
 
-export const resetPasswordSchema = z.object({
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+
+// ============================================================================
+// LEAD SCHEMAS
+// ============================================================================
+
+export const createLeadSchema = z.object({
   email: emailSchema,
+  name: z.string().max(100).optional(),
+  projectAddress: z.string().min(5, 'Project address is required'),
+  budgetRange: z.enum([
+    'under_10k',
+    '10k_25k',
+    '25k_50k',
+    '50k_100k',
+    'over_100k',
+  ]).optional(),
+  timeline: z.enum([
+    'immediately',
+    '1_3_months',
+    '3_6_months',
+    '6_12_months',
+    'over_1_year',
+  ]).optional(),
+  projectType: z.enum([
+    'full_landscape',
+    'front_yard',
+    'back_yard',
+    'outdoor_living',
+    'pool_area',
+    'garden',
+    'other',
+  ]).optional(),
+  hasSurvey: z.boolean().default(false),
+  hasDrawings: z.boolean().default(false),
+  budget: z.coerce.number().positive().optional(),
+  timelineWeeks: z.coerce.number().positive().optional(),
 });
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(100)
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain uppercase, lowercase, and number'
-    ),
+export const updateLeadSchema = z.object({
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  recommendedTier: z.number().int().min(1).max(4).optional(),
+  routingReason: z.string().max(500).optional(),
+  tierOverrideReason: z.string().max(500).optional(),
+  name: z.string().max(100).optional(),
 });
 
-// ============================================
+export const leadFiltersSchema = paginationSchema.merge(sortSchema).extend({
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  tier: z.coerce.number().int().min(1).max(4).optional(),
+  search: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+// ============================================================================
 // PROJECT SCHEMAS
-// ============================================
-
-export const projectStatusSchema = z.enum([
-  'INTAKE',
-  'ONBOARDING',
-  'IN_PROGRESS',
-  'AWAITING_FEEDBACK',
-  'REVISIONS',
-  'DELIVERED',
-  'CLOSED',
-]);
+// ============================================================================
 
 export const createProjectSchema = z.object({
   clientId: uuidSchema,
   leadId: uuidSchema.optional(),
+  name: z.string().min(1).max(200),
   tier: z.number().int().min(1).max(4),
-  name: z.string().min(1).max(255),
-  projectAddress: z.string().max(500).optional(),
 });
 
 export const updateProjectSchema = z.object({
-  status: projectStatusSchema.optional(),
-  name: z.string().min(1).max(255).optional(),
-  projectAddress: z.string().max(500).optional(),
+  status: z.enum([
+    'ONBOARDING',
+    'IN_PROGRESS',
+    'AWAITING_FEEDBACK',
+    'REVISIONS',
+    'DELIVERED',
+    'CLOSED',
+  ]).optional(),
+  name: z.string().min(1).max(200).optional(),
+  paymentStatus: z.enum(['pending', 'paid', 'refunded']).optional(),
 });
 
-export const projectQuerySchema = paginationSchema.extend({
-  status: projectStatusSchema.optional(),
+export const projectFiltersSchema = paginationSchema.merge(sortSchema).extend({
+  status: z.enum([
+    'ONBOARDING',
+    'IN_PROGRESS',
+    'AWAITING_FEEDBACK',
+    'REVISIONS',
+    'DELIVERED',
+    'CLOSED',
+  ]).optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
-  clientId: uuidSchema.optional(),
+  paymentStatus: z.string().optional(),
   search: z.string().optional(),
 });
 
-// ============================================
+// ============================================================================
 // MILESTONE SCHEMAS
-// ============================================
-
-export const milestoneStatusSchema = z.enum([
-  'PENDING',
-  'IN_PROGRESS',
-  'COMPLETED',
-]);
-
-export const createMilestoneSchema = z.object({
-  projectId: uuidSchema,
-  name: z.string().min(1).max(255),
-  order: z.number().int().min(0),
-  dueDate: z.coerce.date().optional(),
-});
+// ============================================================================
 
 export const updateMilestoneSchema = z.object({
-  status: milestoneStatusSchema.optional(),
-  name: z.string().min(1).max(255).optional(),
-  dueDate: z.coerce.date().optional().nullable(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).optional(),
+  dueDate: z.string().datetime().optional().nullable(),
+  completedAt: z.string().datetime().optional().nullable(),
 });
 
-// ============================================
+// ============================================================================
 // DELIVERABLE SCHEMAS
-// ============================================
-
-export const deliverableCategorySchema = z.enum([
-  'Document',
-  'Photo',
-  'Drawing',
-  'Plan',
-  'Invoice',
-  'Contract',
-  'Report',
-  'Presentation',
-  'Video',
-  'Audio',
-  'Archive',
-  'Other',
-]);
+// ============================================================================
 
 export const createDeliverableSchema = z.object({
   projectId: uuidSchema,
-  name: z.string().min(1).max(255),
-  filePath: z.string().min(1).max(1000),
-  fileUrl: z.string().url().max(2000),
-  fileSize: z.number().int().min(0),
-  fileType: z.string().min(1).max(100),
-  category: deliverableCategorySchema,
+  name: z.string().min(1).max(200),
+  category: z.enum([
+    'Document',
+    'Photo',
+    'Rendering',
+    'FloorPlan',
+    'Invoice',
+    'Contract',
+    'Other',
+  ]),
   description: z.string().max(1000).optional(),
+  filePath: z.string(),
+  fileUrl: z.string().url(),
+  fileSize: z.number().int().positive(),
+  fileType: z.string(),
 });
 
-export const updateDeliverableSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  category: deliverableCategorySchema.optional(),
-  description: z.string().max(1000).optional().nullable(),
+export const deliverableFiltersSchema = paginationSchema.extend({
+  category: z.string().optional(),
 });
 
-// ============================================
-// PAYMENT SCHEMAS
-// ============================================
-
-export const paymentStatusSchema = z.enum([
-  'PENDING',
-  'SUCCEEDED',
-  'FAILED',
-  'REFUNDED',
-]);
-
-export const createCheckoutSessionSchema = z.object({
-  leadId: uuidSchema,
-  tier: z.number().int().min(1).max(3), // Only tiers 1-3 have checkout
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
-});
-
-// ============================================
+// ============================================================================
 // CLIENT SCHEMAS
-// ============================================
-
-export const clientStatusSchema = z.enum([
-  'ONBOARDING',
-  'ACTIVE',
-  'COMPLETED',
-  'CLOSED',
-]);
+// ============================================================================
 
 export const updateClientSchema = z.object({
-  status: clientStatusSchema.optional(),
+  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED']).optional(),
   tier: z.number().int().min(1).max(4).optional(),
-  projectAddress: z.string().max(500).optional(),
 });
 
-export const clientQuerySchema = paginationSchema.extend({
-  status: clientStatusSchema.optional(),
+export const clientFiltersSchema = paginationSchema.merge(sortSchema).extend({
+  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED']).optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
   search: z.string().optional(),
 });
 
-// ============================================
-// ADMIN SCHEMAS
-// ============================================
+// ============================================================================
+// PAYMENT SCHEMAS
+// ============================================================================
 
-export const tierOverrideSchema = z.object({
+export const createCheckoutSchema = z.object({
   leadId: uuidSchema,
-  newTier: z.number().int().min(1).max(4),
-  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
-});
-
-export const convertLeadSchema = z.object({
-  leadId: uuidSchema,
-  tier: z.number().int().min(1).max(4),
-  stripePaymentIntentId: z.string().optional(),
-  amount: z.number().int().min(0).optional(),
-});
-
-export const adminDashboardQuerySchema = z.object({
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
-});
-
-// ============================================
-// UPLOAD SCHEMAS
-// ============================================
-
-export const uploadQuerySchema = z.object({
+  tier: z.number().int().min(1).max(3), // Tier 4 is by invitation only
+  email: emailSchema,
   projectId: uuidSchema.optional(),
-  category: deliverableCategorySchema.optional(),
-  folder: z.string().max(500).optional(),
+  successUrl: z.string().url().optional(),
+  cancelUrl: z.string().url().optional(),
+});
+
+// ============================================================================
+// UPLOAD SCHEMAS
+// ============================================================================
+
+export const uploadSchema = z.object({
+  projectId: uuidSchema,
+  category: z.enum([
+    'Document',
+    'Photo',
+    'Rendering',
+    'FloorPlan',
+    'Invoice',
+    'Contract',
+    'Other',
+  ]).optional().default('Document'),
   description: z.string().max(1000).optional(),
 });
 
-// ============================================
-// WEBHOOK SCHEMAS
-// ============================================
+// ============================================================================
+// TIER OVERRIDE SCHEMA
+// ============================================================================
 
-export const stripeWebhookSchema = z.object({
-  id: z.string(),
-  type: z.string(),
-  data: z.object({
-    object: z.record(z.unknown()),
-  }),
+export const tierOverrideSchema = z.object({
+  tier: z.number().int().min(1).max(4),
+  reason: z.string().min(10, 'Please provide a reason for the tier override').max(500),
 });
 
-// ============================================
+// ============================================================================
 // TYPE EXPORTS
-// ============================================
-
-export type CreateLeadInput = z.infer<typeof createLeadSchema>;
-export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
-export type LeadQueryInput = z.infer<typeof leadQuerySchema>;
+// ============================================================================
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
-
+export type AddressLoginInput = z.infer<typeof addressLoginSchema>;
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type CreateLeadInput = z.infer<typeof createLeadSchema>;
+export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
+export type LeadFiltersInput = z.infer<typeof leadFiltersSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
-export type ProjectQueryInput = z.infer<typeof projectQuerySchema>;
-
-export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
+export type ProjectFiltersInput = z.infer<typeof projectFiltersSchema>;
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>;
-
 export type CreateDeliverableInput = z.infer<typeof createDeliverableSchema>;
-export type UpdateDeliverableInput = z.infer<typeof updateDeliverableSchema>;
-
-export type CreateCheckoutSessionInput = z.infer<typeof createCheckoutSessionSchema>;
-
+export type DeliverableFiltersInput = z.infer<typeof deliverableFiltersSchema>;
 export type UpdateClientInput = z.infer<typeof updateClientSchema>;
-export type ClientQueryInput = z.infer<typeof clientQuerySchema>;
-
+export type ClientFiltersInput = z.infer<typeof clientFiltersSchema>;
+export type CreateCheckoutInput = z.infer<typeof createCheckoutSchema>;
+export type UploadInput = z.infer<typeof uploadSchema>;
 export type TierOverrideInput = z.infer<typeof tierOverrideSchema>;
-export type ConvertLeadInput = z.infer<typeof convertLeadSchema>;
-
-// ============================================
-// VALIDATION HELPERS
-// ============================================
-
-/**
- * Safely parse data with a schema, returning result object
- */
-export function safeParse<T extends z.ZodSchema>(
-  schema: T,
-  data: unknown
-): { success: true; data: z.infer<T> } | { success: false; errors: z.ZodError } {
-  const result = schema.safeParse(data);
-
-  if (result.success) {
-    return { success: true, data: result.data };
-  }
-
-  return { success: false, errors: result.error };
-}
-
-/**
- * Format Zod errors into a readable object
- */
-export function formatZodErrors(error: z.ZodError): Record<string, string[]> {
-  const formatted: Record<string, string[]> = {};
-
-  for (const issue of error.issues) {
-    const path = issue.path.join('.') || '_root';
-    if (!formatted[path]) {
-      formatted[path] = [];
-    }
-    formatted[path].push(issue.message);
-  }
-
-  return formatted;
-}
-
-/**
- * Get first error message from Zod error
- */
-export function getFirstError(error: z.ZodError): string {
-  return error.issues[0]?.message || 'Validation failed';
-}
-
-export default {
-  // Lead
-  createLeadSchema,
-  updateLeadSchema,
-  leadQuerySchema,
-  // Auth
-  registerSchema,
-  loginSchema,
-  addressLoginSchema,
-  resetPasswordSchema,
-  changePasswordSchema,
-  // Project
-  createProjectSchema,
-  updateProjectSchema,
-  projectQuerySchema,
-  // Milestone
-  createMilestoneSchema,
-  updateMilestoneSchema,
-  // Deliverable
-  createDeliverableSchema,
-  updateDeliverableSchema,
-  // Payment
-  createCheckoutSessionSchema,
-  // Client
-  updateClientSchema,
-  clientQuerySchema,
-  // Admin
-  tierOverrideSchema,
-  convertLeadSchema,
-  adminDashboardQuerySchema,
-  // Upload
-  uploadQuerySchema,
-  // Helpers
-  safeParse,
-  formatZodErrors,
-  getFirstError,
-};

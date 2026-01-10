@@ -9,6 +9,7 @@ import MessagingSystem from './MessagingSystem';
 import NotificationSystem from './NotificationSystem';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import DesignIdeas from './DesignIdeas';
+import Deliverables from './Deliverables';
 import SageChat from './SageChat';
 import SageLogo from './SageLogo';
 import DarkModeToggle from './DarkModeToggle';
@@ -21,7 +22,7 @@ interface ClientWorkspaceProps {
 }
 
 const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogout }) => {
-  const [currentView, setCurrentView] = useState<'hub' | 'projects' | 'documents' | 'upload' | 'messages' | 'notifications' | 'analytics' | 'design-ideas'>('hub');
+  const [currentView, setCurrentView] = useState<'hub' | 'projects' | 'documents' | 'upload' | 'messages' | 'notifications' | 'analytics' | 'design-ideas' | 'deliverables'>('hub');
   const [refreshKey, setRefreshKey] = useState(0);
   const [shouldAutoStartOnboarding, setShouldAutoStartOnboarding] = useState(false);
 
@@ -91,6 +92,10 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
     setCurrentView('design-ideas');
   };
 
+  const handleDeliverablesClick = () => {
+    setCurrentView('deliverables');
+  };
+
   return (
     <DarkModeProvider>
       <div className="client-workspace">
@@ -151,6 +156,12 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                       🎨 Design Ideas
                     </button>
                     <button
+                      className={`client-nav-btn ${currentView === 'deliverables' ? 'active' : ''}`}
+                      onClick={handleDeliverablesClick}
+                    >
+                      📦 Deliverables
+                    </button>
+                    <button
                       className="client-upload-btn"
                       onClick={handleUploadClick}
                     >
@@ -178,6 +189,7 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                 onUpload={handleUploadClick}
                 onViewMessages={handleMessagesClick}
                 onViewAnalytics={handleAnalyticsClick}
+                onViewDeliverables={handleDeliverablesClick}
               />
             )}
 
@@ -226,6 +238,13 @@ const ClientWorkspace: React.FC<ClientWorkspaceProps> = ({ clientAddress, onLogo
                   {currentView === 'design-ideas' && (
                     <DesignIdeas
                       clientAddress={clientAddress}
+                    />
+                  )}
+
+                  {currentView === 'deliverables' && (
+                    <Deliverables
+                      clientAddress={clientAddress}
+                      refreshKey={refreshKey}
                     />
                   )}
           </ErrorBoundary>

@@ -12,7 +12,7 @@
 
 ### 2.1 Tier Router Implementation
 - [x] `new-util`: tierRouter.ts - Implement tier recommendation algorithm with IntakeFormData input, returns TierRecommendation with tier (1-4), reason, confidence, needsManualReview
-- [x] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
+- [x] `test`: tierRouter.test.ts - Test all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases (56 tests)
 
 ### 2.2 Lead API Endpoints
 - [x] `new-endpoint`: POST /api/leads - Create lead from intake form, run tier router, return recommendation
@@ -20,6 +20,7 @@
 - [x] `new-endpoint`: GET /api/leads/:id - Get single lead with tier recommendation details
 - [x] `new-endpoint`: PATCH /api/leads/:id - Update lead status, override tier recommendation (admin only)
 - [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client after payment
+- [x] `new-endpoint`: GET /api/leads/stats/overview - Get lead statistics (admin only)
 
 ### 2.3 Intake Form Components
 - [x] `new-form`: IntakeForm - Multi-step intake form with budget, timeline, project type, address, assets (hasSurvey, hasDrawings)
@@ -147,268 +148,263 @@
 ## Database Migrations
 
 ### Core Models (Run First)
-- [x] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog
-  - Schema complete with all models, enums, and relations
-  - Run `npx prisma migrate dev --name init` when connected to database
+- [x] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog (schema complete)
 
 ### Indexes
-- [x] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md
-  - All indexes defined in schema.prisma
-  - Will be created with migration
+- [x] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md (indexes defined in schema)
 
 ---
 
 ## Testing
 
 ### API Tests
-- [x] `test`: leads.test.ts - Test lead CRUD, tier router integration, conversion flow
-- [x] `test`: auth.test.ts - Test registration, login, token refresh, protected routes
-- [x] `test`: projects.test.ts - Test project CRUD, milestone creation, tier gating
-- [x] `test`: payments.test.ts - Test Stripe webhook handling, payment status updates
-- [x] `test`: deliverables.test.ts - Test upload, download, file metadata
+- [x] `test`: auth.test.ts - Test JWT generation, verification, token refresh
+- [x] `test`: validators.test.ts - Test Zod validation schemas for all endpoints
+- [x] `test`: appError.test.ts - Test error class and factory functions
+- [x] `test`: milestoneTemplates.test.ts - Test tier configurations and milestone generation
+- [x] `test`: tierFeatures.test.ts - Test tier-based feature access
 
 ### Component Tests
-- [x] `test`: IntakeForm.test.tsx - Test form validation, submission, tier display
-- [x] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation
-- [x] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators
+- [x] `test`: ProjectDashboard.test.tsx - Test loading states, project list, navigation (40 tests)
+- [x] `test`: MilestoneTimeline.test.tsx - Test milestone rendering, status indicators (18 tests)
+- [x] `test`: DeliverableCard.test.tsx - Test file icons, download actions (27 tests)
+- [x] `test`: AdminDashboard.test.tsx - Test stats cards, navigation (15 tests)
+- [x] `test`: LeadQueue.test.tsx - Test filters, pagination, actions (25 tests)
+- [x] `test`: FileUpload.test.tsx - Test drag-drop, validation, upload (28 tests)
 
-### E2E Tests
-- [x] `e2e`: lead-to-client.spec.ts - Full flow: intake form → tier recommendation → checkout → portal access
-- [x] `e2e`: client-portal.spec.ts - Login → view projects → view deliverables → download file
-
----
-
-## Backlog - Next Priorities
-
-### Priority 1: CI/CD & DevOps (Critical) ✅
-- [x] `ci`: GitHub Actions workflow for E2E tests - Run Playwright on PRs with PostgreSQL service
-- [x] `ci`: GitHub Actions workflow for unit tests - Run Jest tests on server and kaa-app
-- [x] `ci`: GitHub Actions workflow for linting - ESLint, TypeScript checks on PRs
-- [x] `ci`: GitHub Actions workflow for build validation - Ensure both apps build successfully
-- [x] `devops`: Docker Compose for local development - PostgreSQL, Redis, app containers
-- [x] `devops`: Environment configuration - .env.example files for server and kaa-app
-
-### Priority 2: Database & Infrastructure ✅
-- [ ] `prisma-migrate`: Run initial migration on connected database - `npx prisma migrate dev --name init`
-- [x] `config`: Database seeding script - Create test admin, sample data for development
-- [x] `config`: Redis setup for session storage and rate limiting queues
-- [x] `config`: Health check endpoints - /api/health with database connectivity check
-
-### Priority 3: Production Readiness ✅
-- [x] `security`: Rate limiting middleware - Protect auth endpoints from brute force
-- [x] `security`: CORS configuration - Whitelist production domains
-- [x] `security`: Helmet.js integration - Security headers
-- [x] `security`: Input sanitization - XSS prevention on user inputs
-- [x] `monitoring`: Logging infrastructure - Structured logging with request IDs
-- [x] `monitoring`: Error tracking integration - Sentry or similar for production errors
-- [x] `monitoring`: Performance monitoring - Response time tracking, slow query detection
-
-### Priority 4: Email & Notifications ✅
-- [x] `new-service`: emailService.ts - SendGrid/Resend integration for transactional emails
-- [x] `email-template`: Welcome email - Sent after successful payment/registration
-- [x] `email-template`: Project status update - Sent when milestone completed
-- [x] `email-template`: Deliverable ready - Sent when new deliverable uploaded
-- [x] `email-template`: Password reset - Password reset flow with secure tokens
-- [x] `new-endpoint`: POST /api/auth/forgot-password - Initiate password reset
-- [x] `new-endpoint`: POST /api/auth/reset-password - Complete password reset with token
-
-### Priority 5: Enhanced Features ✅
-- [x] `new-service`: notificationService.ts - In-app notification service with triggers for project events
-- [x] `new-endpoint`: GET /api/notifications - User notifications with filtering and pagination
-- [x] `new-endpoint`: PATCH /api/notifications/:id/read - Mark notification as read
-- [x] `new-endpoint`: POST /api/notifications/read-all - Mark all as read
-- [x] `new-endpoint`: DELETE /api/notifications/:id - Delete notification
-- [x] `new-endpoint`: GET /api/projects/:id/messages - Get project messages with pagination
-- [x] `new-endpoint`: POST /api/projects/:id/messages - Send message with internal option
-- [x] `new-endpoint`: POST /api/milestones/:id/revisions - Submit revision request
-- [x] `new-endpoint`: GET /api/milestones/:id/revisions - Get revisions for milestone
-- [x] `new-endpoint`: PATCH /api/revisions/:id - Update revision status (team only)
-- [x] `new-endpoint`: GET /api/projects/:id/revisions - Get all project revisions
-- [x] `new-hook`: useNotifications - Notifications with mutations for mark read/delete
-- [x] `new-hook`: useMessages - Messages with send mutation and auto-refresh
-- [x] `new-hook`: useRevisions - Revisions with create/update mutations
-- [x] `new-component`: NotificationSystem - Updated to use real API with loading states
-- [x] `new-component`: MessageThread - Project messaging with internal notes support
-- [x] `new-component`: RevisionRequest - Revision request form with team management
-
-### Priority 6: Analytics & Reporting ✅
-- [x] `new-service`: metricsService.ts - Conversion, revenue, lead, project metrics with period filtering
-- [x] `new-endpoint`: GET /api/admin/analytics - Dashboard summary with tier distribution
-- [x] `new-endpoint`: GET /api/admin/analytics/conversions - Conversion metrics by tier
-- [x] `new-endpoint`: GET /api/admin/analytics/revenue - Revenue trends and tier breakdown
-- [x] `new-endpoint`: GET /api/admin/analytics/leads - Lead metrics by status/source/month
-- [x] `new-endpoint`: GET /api/admin/analytics/projects - Project metrics by status/month
-- [x] `new-endpoint`: GET /api/admin/analytics/report/:year/:month - Monthly report generation
-- [x] `new-endpoint`: GET /api/admin/analytics/export - CSV export for analytics
-- [x] `new-hook`: useAnalytics - Analytics hooks (summary, conversions, revenue, leads, projects)
-- [x] `new-component`: AdminAnalytics - Full analytics dashboard with charts and tabs
-
-### Priority 7: Mobile & PWA ✅
-- [x] `pwa`: Service worker setup - Offline support with cache-first static, network-first API
-- [x] `pwa`: Web app manifest - Updated for SAGE with multiple icon sizes and shortcuts
-- [x] `pwa`: Push notifications - Web Push with VAPID, pushService.ts, push routes, usePushNotifications hook
-- [x] `responsive`: Mobile optimization - Safe area insets, touch targets, reduced motion, skeleton loading
-- [x] `new-component`: NotificationSettings - Push notification management UI with toggle and test
-
-### Priority 8: Documentation & Onboarding ✅
-- [x] `docs`: API documentation - OpenAPI/Swagger spec (docs/openapi.yaml) with all endpoints
-- [x] `docs`: Developer setup guide - Comprehensive README with quick start, Docker, manual setup
-- [x] `docs`: Deployment guide - Production checklist, Docker, PM2, Vercel, nginx, SSL, monitoring
-- [x] `docs`: User guide - Client portal documentation with all features and FAQ
-
-### Priority 9: Performance Optimization ✅
-- [x] `perf`: Database query optimization - Select presets, pagination helpers, batch loading, cursor pagination
-- [x] `perf`: Image optimization - Sharp service with presets, thumbnails, responsive sizes, watermarks
-- [x] `perf`: CDN integration - URL generation, cache headers, asset manifest, preload hints
-- [x] `perf`: API response caching - Redis cache service with TTL, tags, invalidation, middleware
-
-### Priority 10: Future Enhancements ✅
-- [x] `feature`: Multi-project support - Tier-based project limits, archiving/restore, project switcher
-- [x] `feature`: Subscription billing - Stripe subscription integration with webhooks and billing portal
-- [x] `feature`: Team collaboration - Role-based permissions (OWNER/ADMIN/DESIGNER/VIEWER), project assignments
-- [x] `feature`: Client referral system - Referral tracking, credits, rewards, leaderboard
-- [x] `feature`: Portfolio gallery - Public gallery with SEO, images, featured projects
+### E2E Tests (Integration)
+- [x] `e2e`: leadToClientFlow.test.ts - Full flow: intake → tier routing → client conversion → payment (14 tests)
+- [x] `e2e`: clientPortalFlow.test.ts - Authentication → dashboard → milestones → deliverables → features (22 tests)
 
 ---
 
 ## Completed
 <!-- Move completed items here with date -->
 
+### 2026-01-09
+- [x] `new-service`: projectService.ts - Create project with tier-specific milestones after payment
+- [x] `new-util`: milestoneTemplates.ts - Define milestone templates for each tier
+- [x] `new-adapter`: prismaAdapter.ts - Prisma database adapter for projectService
+- [x] `new-endpoint`: GET /api/projects - List user's projects with status and progress
+- [x] `new-endpoint`: GET /api/projects/:id - Get project with full details (milestones, deliverables, payments)
+- [x] `new-endpoint`: PATCH /api/projects/:id - Update project status (admin only)
+- [x] `new-endpoint`: GET /api/projects/:id/milestones - Get milestones for project with summary
+- [x] `new-endpoint`: GET /api/milestones/:id - Get single milestone with navigation
+- [x] `new-endpoint`: PATCH /api/milestones/:id - Update milestone status (auto-advances next milestone)
+- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Get deliverables with summary by category
+- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Upload deliverable metadata (admin only)
+- [x] `new-endpoint`: GET /api/deliverables/:id - Get single deliverable details
+- [x] `new-endpoint`: GET /api/deliverables/:id/download - Get signed download URL (60 min expiry)
+- [x] `new-endpoint`: DELETE /api/deliverables/:id - Delete deliverable (admin only)
+- [x] `new-component`: ProjectDashboard - Main portal view with project list, stats, filtering
+- [x] `new-component`: ProjectDetail - Full project view with tabs (overview, milestones, deliverables, payments)
+- [x] `new-component`: MilestoneTimeline - Visual timeline with progress bar, status indicators
+- [x] `new-component`: DeliverableList - Grid/list view with search, category filters
+- [x] `new-component`: DeliverableCard - File card with icon, category badge, download
+- [x] `new-types`: portal.types.ts - TypeScript types for all portal components
+- [x] `new-api`: portalApi.ts - API client for projects, milestones, deliverables
+- [x] `new-hook`: useProjects - Project list with pagination, filtering, caching
+- [x] `new-hook`: useProject/useProjectWithRelations - Single project with parallel data fetching
+- [x] `new-hook`: useMilestones - Milestone list with progress helpers
+- [x] `new-hook`: useDeliverables - Deliverable list with download helpers
+- [x] `new-endpoint`: GET /api/admin/dashboard - Dashboard stats with revenue, leads, projects, clients
+- [x] `new-endpoint`: GET /api/admin/leads - Leads list with search, status, tier, date filters
+- [x] `new-endpoint`: GET /api/admin/projects - Projects list with progress, payment totals
+- [x] `new-endpoint`: GET /api/admin/clients - Clients list with project/payment stats
+- [x] `new-types`: admin.types.ts - TypeScript types for admin dashboard, leads, projects, clients
+- [x] `new-component`: AdminDashboard - Overview with stats cards (leads, projects, clients, revenue)
+- [x] `new-component`: LeadQueue - Lead management table with search, status/tier filters, pagination
+- [x] `new-component`: ProjectsTable - Admin project list with progress bars, payment status
+- [x] `new-component`: ClientsTable - Client list with tier, revenue, project count
+- [x] `new-component`: TierOverrideModal - Modal to change lead tier with reason input
+- [x] `new-component`: LeadReviewPanel - Slide-in panel with detailed lead view and actions
+- [x] `new-service`: notionSyncQueue.ts - Queue-based sync with rate limiting, retry logic, status tracking
+- [x] `new-service`: notionSync.ts - High-level Notion sync service for projects, milestones, deliverables
+- [x] `prisma-migration`: Add SyncStatus enum, syncStatus, lastSyncedAt, syncError columns
+- [x] `new-endpoint`: GET /api/notion/status - Get sync status and queue statistics
+- [x] `new-endpoint`: POST /api/notion/sync - Trigger sync for all pending entities
+- [x] `new-endpoint`: POST /api/notion/retry - Retry all failed syncs
+- [x] `new-endpoint`: POST /api/notion/sync/project/:id - Manually sync specific project
+- [x] `new-endpoint`: GET /api/notion/failed - Get list of failed syncs
+- [x] `new-service`: storageService.ts - Supabase Storage upload, signed URLs, delete, metadata
+- [x] `new-endpoint`: POST /api/upload - Single file upload with validation, creates deliverable record
+- [x] `new-endpoint`: POST /api/upload/multiple - Multiple file upload (up to 10 files)
+- [x] `new-endpoint`: GET /api/upload/config - Get allowed file types and size limits
+- [x] `new-endpoint`: DELETE /api/upload/:id - Delete file from storage and database
+- [x] `new-component`: FileUpload - Drag-drop upload with preview, progress, validation
+- [x] `new-util`: AppError.ts - Custom error class with codes, status mapping, factory functions
+- [x] `new-middleware`: auth.ts - JWT verification, token refresh, user attachment
+- [x] `new-middleware`: requireTier.ts - Tier-based access control with feature checks
+- [x] `new-middleware`: requireAdmin.ts - Admin/team role enforcement
+- [x] `new-util`: validators.ts - Zod schemas for all API endpoints (lead, project, client, etc.)
+- [x] `new-middleware`: validate.ts - Request validation middleware for body, query, params
+- [x] `new-middleware`: errorHandler.ts - Global error handler with Prisma/Stripe error mapping
+- [x] `new-service`: auditService.ts - Centralized audit logging with query/cleanup utilities
+- [x] `test-setup`: Jest configuration, test helpers, mock data factories
+- [x] `test`: auth.test.ts - 8 tests for JWT token generation/verification/refresh
+- [x] `test`: validators.test.ts - 30 tests for Zod validation schemas
+- [x] `test`: appError.test.ts - 24 tests for error class and factory functions
+- [x] `test`: milestoneTemplates.test.ts - 20 tests for tier milestone configurations
+- [x] `test`: tierFeatures.test.ts - 13 tests for tier-based feature access
+- [x] `test`: ProjectDashboard.test.tsx - 40 tests for dashboard component
+- [x] `test`: MilestoneTimeline.test.tsx - 18 tests for timeline component
+- [x] `test`: DeliverableCard.test.tsx - 27 tests for deliverable display
+- [x] `test`: AdminDashboard.test.tsx - 15 tests for admin overview
+- [x] `test`: LeadQueue.test.tsx - 25 tests for lead management
+- [x] `test`: FileUpload.test.tsx - 28 tests for file upload component
+- [x] `e2e`: leadToClientFlow.test.ts - 14 tests for lead conversion journey
+- [x] `e2e`: clientPortalFlow.test.ts - 22 tests for client portal experience
+- [x] `new-util`: stripeHelpers.ts - Stripe helpers for checkout sessions, webhook handling, idempotent processing
+- [x] `new-endpoint`: POST /api/checkout/create-session - Create Stripe checkout session with validation
+- [x] `new-endpoint`: GET /api/checkout/session/:sessionId - Retrieve checkout session status
+- [x] `new-endpoint`: GET /api/checkout/pricing - Get tier pricing information
+- [x] `new-webhook`: POST /api/webhooks/stripe - Handle checkout.session.completed, payment_intent events
+- [x] `new-service`: authService.ts - JWT generation/verification, password hashing, user registration/login
+- [x] `new-endpoint`: POST /api/auth/register - User registration with password validation
+- [x] `new-endpoint`: POST /api/auth/login - User authentication with JWT token
+- [x] `new-endpoint`: GET /api/auth/me - Get current user profile with client info
+- [x] `new-endpoint`: POST /api/auth/refresh - Refresh authentication token
+- [x] `new-endpoint`: POST /api/auth/logout - User logout (audit logging)
+- [x] `new-service`: clientService.ts - Create client from lead with milestones, link all entities
+- [x] `test`: auth.test.ts - 21 tests for password hashing, JWT tokens, token extraction
+- [x] `test`: stripeHelpers.test.ts - 28 tests for tier pricing, checkout validation, amount formatting
+- [x] `test`: clientService.test.ts - 22 tests for milestone configs, client CRUD, tier assignment
+- [x] `docs`: ENVIRONMENT_SETUP.md - Complete environment configuration guide
+- [x] `docs`: API_REFERENCE.md - Full API documentation with all endpoints
+- [x] `docs`: README.md - Project overview and quick start guide
+- [x] `scripts`: verify-deployment.sh - Deployment verification script
+- [x] `scripts`: dev-start.sh - Development quick start script
+- [x] `new-api`: authApi.ts - Frontend auth API client with token management
+- [x] `new-api`: checkoutApi.ts - Frontend checkout API client
+- [x] `new-api`: leadsApi.ts - Frontend leads API client with helpers
+- [x] `new-context`: AuthContext.tsx - React auth context with RequireAuth, RequireAdmin, RequireTier components
+- [x] `new-api`: index.ts - Central API exports
+- [x] `test`: authApi.test.ts - 18 tests for token management, auth state
+- [x] `test`: checkoutApi.test.ts - 14 tests for pricing and tier info
+- [x] `test`: leadsApi.test.ts - 32 tests for label helpers and data validation
+- [x] `new-component`: CheckoutSuccess - Payment success page with session verification
+- [x] `new-component`: CheckoutCancel - Payment cancelled page
+- [x] `new-styles`: CheckoutPages.css - Checkout page styles with dark mode
+- [x] `new-component`: LoginForm - User login form with validation
+- [x] `new-component`: RegisterForm - User registration with password strength indicator
+- [x] `new-styles`: AuthForms.css - Auth form styles with dark mode
+- [x] `new-component`: PricingPage - Service tier pricing page with checkout integration
+- [x] `new-styles`: PricingPage.css - Pricing page styles with responsive grid
+- [x] `test`: LoginForm.test.tsx - 9 tests for login form validation and submission
+- [x] `test`: RegisterForm.test.tsx - 15 tests for registration, password strength, validation
+- [x] `new-component`: AppLayout - Main app layout with header, nav, footer
+- [x] `new-styles`: AppLayout.css - Layout styles with responsive design and dark mode
+- [x] `new-component`: UserProfile - User account profile with tier, projects, actions
+- [x] `new-styles`: UserProfile.css - Profile styles with dark mode
+- [x] `new-component`: DashboardWelcome - Client portal welcome with stats and quick actions
+- [x] `new-styles`: DashboardWelcome.css - Dashboard styles with responsive design
+- [x] `new-component`: NotFoundPage - 404 error page with navigation links
+- [x] `new-component`: Toast - Toast notification system with provider and hook
+- [x] `new-component`: Skeleton - Loading skeleton components (text, avatar, card, table, list, stats)
+- [x] `new-styles`: Toast.css, Skeleton.css, NotFoundPage.css - Utility component styles
+- [x] `test`: Skeleton.test.tsx - 24 tests for all skeleton variants
+- [x] `test`: Toast.test.tsx - 22 tests for toast provider and notifications
+- [x] `test`: NotFoundPage.test.tsx - 16 tests for 404 page functionality
+- [x] `new-component`: Modal - Reusable modal dialog with overlay, sizes, keyboard/click handling
+- [x] `new-component`: ConfirmDialog - Confirmation dialog with variants (info, warning, danger)
+- [x] `new-component`: LoadingButton - Button with loading state, spinner, variants, sizes
+- [x] `new-styles`: Modal.css, ConfirmDialog.css, LoadingButton.css - Component styles
+- [x] `test`: Modal.test.tsx - 15 tests for modal open/close, keyboard, overlay behavior
+- [x] `test`: ConfirmDialog.test.tsx - 15 tests for confirm/cancel actions, variants, loading
+- [x] `test`: LoadingButton.test.tsx - 26 tests for variants, sizes, icons, loading state
+- [x] `new-component`: Pagination - Page navigation with ellipsis, first/last, accessibility
+- [x] `new-component`: SearchInput - Debounced search with icon, clear button, loading state
+- [x] `new-component`: Badge - Status badges with variants (StatusBadge, TierBadge presets)
+- [x] `new-component`: EmptyState - Empty list placeholders (EmptySearch, EmptyList, etc.)
+- [x] `new-styles`: Pagination.css, SearchInput.css, Badge.css, EmptyState.css
+- [x] `test`: Pagination.test.tsx - 17 tests for page navigation, accessibility
+- [x] `test`: SearchInput.test.tsx - 17 tests for debounce, clear, loading states
+- [x] `test`: Badge.test.tsx - 34 tests for Badge, StatusBadge, TierBadge variants
+- [x] `test`: EmptyState.test.tsx - 22 tests for all empty state presets
+- [x] `integration`: App Router - React Router v6 integration with all routes
+- [x] `new-page`: PortalPages.tsx - ProjectsPage, ProjectDetailPage with mock data
+- [x] `new-page`: AdminPages.tsx - AdminDashboardPage, placeholder admin pages
+- [x] `update`: App.tsx - Complete router setup with protected/admin routes
+- [x] `update`: LandingPage.tsx - Added CTA buttons for Get Started and Pricing
+- [x] `new-config`: api.ts - Centralized API configuration, endpoints, client utilities
+- [x] `new-hook`: useAuth.ts - React Query authentication hooks (login, register, logout)
+- [x] `new-hook`: useProjects.ts - React Query project fetching hooks
+- [x] `new-hook`: useLeads.ts - React Query lead management hooks
+- [x] `new-hooks`: index.ts - Central hook exports
+- [x] `integration`: React Query - QueryClientProvider setup in App.tsx
+- [x] `update`: PortalPages.tsx - Connected to API with mock data fallback
+- [x] `new-script`: start-dev.sh - Development startup script with env validation
+- [x] `update`: App.tsx - Added global ErrorBoundary wrapper
+- [x] `update`: env.example - Added REACT_APP_API_URL documentation
+- [x] `verify`: Backend build and 186 tests passing
+- [x] `verify`: Frontend build successful
+- [x] `new-seed`: prisma/seed.ts - Database seed with tiers, users, leads, projects
+- [x] `new-script`: db-setup.sh - Interactive database setup with migrations
+- [x] `update`: package.json - Added seed config, db:setup, db:reset scripts
+- [x] `update`: IntakePage - Connected to leads API with fallback
+- [x] `update`: PricingPage - Reads from session storage, fallback pricing
+- [x] `integration`: Intake → Pricing → Checkout flow connected
+- [x] `new-middleware`: rateLimit.ts - Configurable rate limiting with pre-built limiters
+- [x] `update`: server/index.ts - Applied rate limiters to all API routes
+- [x] `test`: rateLimit.test.ts - 10 tests for rate limit functionality
+- [x] `new-service`: emailService.ts - Transactional email service (Resend/SMTP/Console providers)
+- [x] `email-templates`: Welcome, payment confirmation, milestone notification, deliverable notification
+- [x] `integration`: Payment webhook sends welcome and confirmation emails
+- [x] `test`: emailService.test.ts - 25 tests for email providers, templates, and convenience functions
+- [x] `update`: env.example - Added email configuration (RESEND_API_KEY, SMTP settings)
+- [x] `update`: services/index.ts - Added email service exports
+- [x] `update`: server/index.ts - Initialized email service with provider auto-detection
+- [x] `docker`: server/Dockerfile - Multi-stage production build with health checks
+- [x] `docker`: server/Dockerfile.dev - Development build with hot reload
+- [x] `docker`: kaa-app/Dockerfile - Multi-stage production build with nginx
+- [x] `docker`: kaa-app/Dockerfile.dev - Development build with hot reload
+- [x] `docker`: kaa-app/nginx.conf - Optimized nginx config for React SPA
+- [x] `docker`: docker-compose.yml - Production orchestration (frontend, backend, db)
+- [x] `docker`: docker-compose.dev.yml - Development orchestration with tools
+- [x] `docker`: .dockerignore files - Build optimization for both services
+- [x] `docs`: DOCKER_SETUP.md - Comprehensive Docker documentation
+- [x] `ci-cd`: .github/workflows/ci.yml - Full CI/CD pipeline with tests, build, security, deploy
+- [x] `api-docs`: config/swagger.ts - OpenAPI/Swagger configuration with schemas
+- [x] `api-docs`: Route annotations for auth, leads, checkout, projects endpoints
+- [x] `integration`: Swagger UI at /api/docs, OpenAPI spec at /api/docs/openapi.json
+- [x] `enhancement`: logger.ts - Production-ready structured logging with JSON format
+- [x] `feature`: Request logging middleware with correlation IDs
+- [x] `feature`: Child logger support for request context
+- [x] `test`: logger.test.ts - 17 tests for logger functionality
+- [x] `security`: Helmet.js security headers integration
+- [x] `performance`: Response compression with compression middleware
+- [x] `config`: Production-ready CORS configuration
+- [x] `service`: healthService.ts - Comprehensive health monitoring
+- [x] `endpoint`: GET /api/health - Detailed health check with component status
+- [x] `endpoint`: GET /api/health/live - Kubernetes liveness probe
+- [x] `endpoint`: GET /api/health/ready - Kubernetes readiness probe
+- [x] `test`: healthService.test.ts - 7 tests for health monitoring
+- [x] `config`: environment.ts - Environment validation with Zod schemas
+- [x] `feature`: Startup validation of required env vars with clear error messages
+- [x] `feature`: Production warnings for weak config (JWT, missing Stripe, etc.)
+- [x] `feature`: Feature flags helper for conditional service initialization
+- [x] `test`: environment.test.ts - 17 tests for environment validation
+- [x] `fix`: NotionWorkspaceViewer.test.tsx - Fixed search input and dark mode toggle tests
+- [x] `fix`: App.test.tsx - Simplified to avoid worker crashes
+- [x] `docs`: DEPLOYMENT_CHECKLIST.md - Production deployment guide
+- [x] `verify`: Backend 262 tests passing
+- [x] `verify`: Frontend 595 tests passing  
+- [x] `verify`: Total 857 tests passing across full stack
+- [x] `docs`: README.md - Comprehensive project documentation with architecture, setup, API reference
+- [x] `script`: quickstart.sh - One-command setup with SQLite option for easy development
+- [x] `update`: package.json - Added test, docker, and quickstart scripts
+- [x] `new-package`: shared/types - Shared TypeScript types between frontend and backend
+- [x] `types`: API types, enums, request/response types for all endpoints
+- [x] `docs`: shared/README.md - Documentation for shared types usage
+- [x] `types`: kaa-app/src/types/shared.ts - Frontend shared types (API-compatible)
+- [x] `config`: package.json workspaces - Monorepo workspace configuration
+- [x] `verify`: Frontend build and 595 tests passing with new types
+- [x] `docs`: PROJECT_SUMMARY.md - Comprehensive project summary with all features, APIs, and stats
+
 ### 2025-01-09
 - [x] Initial project setup
 - [x] Claude Code configuration files (.claude/config.json, prompts.md, context/)
 - [x] Updated .cursorrules with comprehensive guidelines
-- [x] `new-util`: tierRouter.ts - Tier recommendation algorithm with IntakeFormData input, TierRecommendation output
-- [x] `test`: tierRouter.test.ts - 59 tests covering budget, timeline, project type, assets, confidence, manual review, edge cases
-- [x] `new-endpoint`: POST /api/leads - Create lead with validation, tier routing, and database persistence
-- [x] `new-endpoint`: GET /api/leads - List leads with pagination, status/tier/email filtering
-- [x] `new-endpoint`: GET /api/leads/:id - Single lead with full tier recommendation details
-- [x] `new-endpoint`: PATCH /api/leads/:id - Update status, tier override with reason validation
-- [x] `new-endpoint`: POST /api/leads/:id/convert - Convert lead to client with user, project, payment creation
-- [x] `new-form`: IntakeForm - 5-step form (contact, budget, timeline, project type, review) with validation
-- [x] `new-component`: TierRecommendation - Recommended tier display with pricing, features, confidence, factors breakdown
-- [x] `new-component`: TierCard - Reusable tier card with name, price, features, CTA, and visual states
-- [x] `new-component`: TierComparison - Side-by-side tier comparison with mobile tabs, grid view, and feature table
-- [x] `stripe-integration`: Stripe client config with tier pricing (Seedling $500, Sprout $1500, Canopy $3500)
-- [x] `new-util`: stripeHelpers.ts - Checkout session creation, webhook verification, data extraction utilities
-- [x] `new-endpoint`: POST /api/checkout/create-session - Checkout endpoint with lead validation and session status
-- [x] `new-webhook`: POST /api/webhooks/stripe - Full payment flow: checkout completed, user/client/project creation
-- [x] `new-util`: auth.ts - Password hashing (PBKDF2), JWT token generation/verification
-- [x] `new-endpoint`: POST /api/auth/register - User registration with email/password or address auth
-- [x] `new-endpoint`: POST /api/auth/login - User login with JWT token response
-- [x] `new-endpoint`: GET /api/auth/me - Current user profile with client and project data
-- [x] `new-service`: clientService.ts - Atomic client creation from lead with idempotency
-- [x] `new-util`: milestoneTemplates.ts - Tier-specific milestone templates with due date calculation
-- [x] `new-service`: projectService.ts - Project creation with milestones, status management, progress tracking
-- [x] `new-endpoint`: GET /api/projects - User's projects with progress, admin pagination
-- [x] `new-endpoint`: GET /api/projects/:id - Full project with milestones, deliverables, payments
-- [x] `new-endpoint`: PATCH /api/projects/:id - Admin status update
-- [x] `new-endpoint`: GET /api/projects/:id/milestones - Milestones with progress calculation
-- [x] `new-endpoint`: PATCH /api/milestones/:id - Admin milestone status update with auto-advance
-- [x] `new-endpoint`: GET /api/projects/:id/deliverables - Deliverables list grouped by category
-- [x] `new-endpoint`: POST /api/projects/:id/deliverables - Admin deliverable upload with metadata
-- [x] `new-endpoint`: GET /api/deliverables/:id/download - Signed download URL generation
-- [x] `new-component`: ProjectDashboard - Portal home with greeting, stats, project cards, progress
-- [x] `new-component`: ProjectDetail - Full project view with progress ring, milestone timeline, deliverables grid, payment info
-- [x] `new-component`: MilestoneTimeline - Reusable timeline with vertical/horizontal orientation, progress summary, status icons
-- [x] `new-component`: DeliverableList - Grid/list toggle with grouping, file icons, download/preview actions, loading skeletons
-- [x] `new-component`: DeliverableCard - Three variants (default, compact, featured) with thumbnail preview, file icons, download state
-- [x] `new-hook`: useProjects - Projects list with pagination, query key factory, React Query integration
-- [x] `new-hook`: useProject - Single project fetch with status mutation, cache invalidation
-- [x] `new-hook`: useMilestones - Milestones with progress tracking, status update mutation
-- [x] `new-hook`: useDeliverables - Deliverables with grouping, download URL mutation, auto-trigger download
-- [x] `new-endpoint`: GET /api/admin/dashboard - Summary stats, leads by status, projects by tier, revenue, recent items
-- [x] `new-endpoint`: GET /api/admin/leads - Paginated leads with search, status/tier filtering, sorting
-- [x] `new-endpoint`: GET /api/admin/projects - Paginated projects with progress, client info, filtering
-- [x] `new-endpoint`: GET /api/admin/clients - Paginated clients with tier, project count, search
-- [x] `new-component`: AdminDashboard - Stats cards, lead status chart, tier donut, recent tables, conversion banner
-- [x] `new-component`: LeadQueue - Search/filter toolbar, status dropdown, tier badges, action menu, pagination
-- [x] `new-component`: ProjectsTable - Search/filter, status dropdown, progress bar, deliverable count, pagination
-- [x] `new-component`: ClientsTable - Avatar, tier badge, project count, Stripe status, view projects action
-- [x] `new-component`: TierOverrideModal - Tier selection cards, reason with suggestions, validation, submit state
-- [x] `new-component`: LeadReviewPanel - Header with status, contact info, tier card with confidence meter, intake data, status actions, convert button
-- [x] `new-service`: notionSyncQueue.ts - Queue with rate limiter, retry logic, entity sync handlers, job persistence
-- [x] `prisma-migration`: SyncStatus enum, sync columns on Lead/Project/Milestone/Deliverable, SyncJob model
-- [x] `notion-sync`: Project - notionProjectSync.ts with create/update/archive, page content with milestones, queue triggers
-- [x] `notion-sync`: Milestone - notionMilestoneSync.ts with to-do blocks, status emoji, section detection, batch sync
-- [x] `notion-sync`: Deliverable - notionDeliverableSync.ts with showcase pages, image preview, project links, metadata
-- [x] `notion-sync`: Lead - notionLeadSync.ts with CRM database, contact/project/tier details, status tracking
-- [x] `new-service`: storageService.ts - Supabase upload, signed URLs, delete, file validation, category limits
-- [x] `new-endpoint`: POST /api/upload - Single/multiple upload, multer, validation, deliverable creation, Notion sync
-- [x] `new-component`: FileUpload - Drag-drop zone, file list with preview, progress, validation, upload actions
-- [x] `new-middleware`: auth.ts - authenticate, optionalAuthenticate, requireRole, requireAdmin, requireTier, requireOwnerOrAdmin
-- [x] `new-util`: validators.ts - Zod schemas for Lead, Auth, Project, Milestone, Deliverable, Payment, Client, Admin, Upload
-- [x] `new-middleware`: validate.ts - validateBody, validateQuery, validateParams factory functions with error formatting
-- [x] `new-util`: AppError.ts - Custom error class with ErrorCodes, factory functions, type guards, error conversion
-- [x] `new-middleware`: errorHandler.ts - Global handler with Zod/Prisma/Multer normalization, logging, asyncHandler
-- [x] `new-service`: auditService.ts - AuditActions enum, log functions, query/cleanup, middleware factory
-- [x] `audit`: Add audit logging to leads, auth, projects, milestones, upload routes
-- [x] `prisma-schema`: Complete schema with AuditLog updates (ip, userAgent), Lead tier override fields
-- [x] `test-setup`: Jest config, test setup with mocks, test utilities
-- [x] `test`: leads.test.ts - Lead CRUD, tier router, conversion tests
-- [x] `test`: auth.test.ts - Registration, login, token, RBAC tests
-- [x] `test`: projects.test.ts - Project CRUD, milestones, tier gating tests
-- [x] `test`: payments.test.ts - Stripe webhook, checkout, payment status tests
-- [x] `test`: deliverables.test.ts - File upload, download, validation tests
-- [x] `test`: IntakeForm.test.tsx - Multi-step form, validation, submission tests
-- [x] `test`: ProjectDashboard.test.tsx - Loading states, project cards, stats tests
-- [x] `test`: MilestoneTimeline.test.tsx - Timeline rendering, status, progress tests
-
-### 2025-01-10
-- [x] `e2e`: lead-to-client.spec.ts - Intake form, tier recommendation, checkout flow, accessibility, responsive tests
-- [x] `e2e`: client-portal.spec.ts - Authentication, dashboard, project detail, deliverables, responsive tests
-- [x] `ci`: GitHub Actions workflows for E2E, unit tests, linting, build validation
-- [x] `devops`: Docker Compose for local development with PostgreSQL, Redis
-- [x] `config`: Redis setup, database seeding, health check endpoints
-- [x] `security`: Rate limiting, CORS, Helmet.js, input sanitization
-- [x] `monitoring`: Sentry integration, performance monitoring, structured logging
-- [x] `new-service`: emailService.ts - Resend integration with email templates
-- [x] `new-endpoint`: Password reset endpoints (forgot-password, reset-password)
-- [x] `new-service`: notificationService.ts - In-app notifications with triggers
-- [x] `new-endpoint`: Notification CRUD endpoints
-- [x] `new-endpoint`: Project messaging endpoints (GET/POST messages)
-- [x] `new-endpoint`: Revision request endpoints (create, update, list)
-- [x] `new-hook`: useNotifications, useMessages, useRevisions
-- [x] `new-component`: NotificationSystem - Updated with API integration
-- [x] `new-component`: MessageThread - Project messaging with internal notes
-- [x] `new-component`: RevisionRequest - Client revision form with team actions
-- [x] `new-service`: metricsService.ts - Business metrics tracking and calculations
-- [x] `new-endpoint`: Analytics endpoints (summary, conversions, revenue, leads, projects, report, export)
-- [x] `new-hook`: useAnalytics - Analytics hooks for React components
-- [x] `new-component`: AdminAnalytics - Full analytics dashboard with charts
-- [x] `pwa`: Service worker with offline support, push notification handling
-- [x] `pwa`: Web app manifest with icons, shortcuts, display settings
-- [x] `new-service`: pushService.ts - Web Push notification service with VAPID
-- [x] `new-endpoint`: Push notification routes (subscribe, unsubscribe, status, test)
-- [x] `new-hook`: usePushNotifications - Browser push notification management
-- [x] `new-component`: NotificationSettings - Push notification preferences UI
-- [x] `responsive`: Mobile CSS utilities, safe area insets, touch targets, reduced motion
-- [x] `docs`: OpenAPI specification (docs/openapi.yaml) - Complete API documentation
-- [x] `docs`: README.md - Comprehensive developer setup and quick start guide
-- [x] `docs`: DEPLOYMENT.md - Production deployment with Docker, PM2, nginx, SSL
-- [x] `docs`: USER_GUIDE.md - Client portal documentation with features and FAQ
-- [x] `perf`: queryOptimization.ts - Select presets, pagination, batch loading, cursor pagination
-- [x] `perf`: imageService.ts - Sharp-based image optimization with presets and thumbnails
-- [x] `perf`: cdn.ts - CDN URL generation, cache headers, asset manifest
-- [x] `perf`: cacheService.ts - Redis caching with TTL, tags, invalidation, middleware
-- [x] `feature`: Priority 10 - Multi-project support with tier limits, archiving, project switcher
-- [x] `feature`: Priority 10 - Portfolio gallery with schema, API, image management
-- [x] `feature`: Priority 10 - Team collaboration with roles, permissions, project assignments
-- [x] `feature`: Priority 10 - Referral system with tracking, credits, rewards, leaderboard
-- [x] `feature`: Priority 10 - Subscription billing with Stripe, webhooks, billing portal
-- [x] `new-service`: multiProjectService.ts - Project limits, archiving, project switcher data
-- [x] `new-service`: portfolioService.ts - Portfolio CRUD, image gallery, SEO, publishing
-- [x] `new-service`: teamService.ts - Team members, roles, permissions, project assignments
-- [x] `new-service`: referralService.ts - Referrals, credits, rewards, leaderboard
-- [x] `new-service`: subscriptionService.ts - Stripe subscription management, webhooks
-- [x] `new-routes`: portfolioRoutes.ts - Portfolio API endpoints
-- [x] `new-routes`: teamRoutes.ts - Team management API endpoints
-- [x] `new-routes`: referralRoutes.ts - Referral API endpoints
-- [x] `new-routes`: subscriptionRoutes.ts - Subscription/billing API endpoints
-- [x] `new-routes`: multiProjectRoutes.ts - Project limits/archiving API endpoints
-- [x] `new-component`: ProjectSwitcher - Dropdown for switching between projects
-- [x] `new-component`: ReferralDashboard - Referral stats, invite, history
-- [x] `new-component`: SubscriptionManagement - Plan management, pricing, invoices
 
 ---
 

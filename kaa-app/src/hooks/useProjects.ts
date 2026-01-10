@@ -1,126 +1,154 @@
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+/**
+ * useProjects Hook
+ * Data fetching hook for projects using React Query.
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, ENDPOINTS, ApiError } from '../config/api';
+import { ProjectSummary, ProjectDetail } from '../types/portal.types';
+
+// Query keys
+export const projectKeys = {
+  all: ['projects'] as const,
+  lists: () => [...projectKeys.all, 'list'] as const,
+  list: (filters: ProjectFilters) => [...projectKeys.lists(), filters] as const,
+  details: () => [...projectKeys.all, 'detail'] as const,
+  detail: (id: string) => [...projectKeys.details(), id] as const,
+};
 
 // Types
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  tier: number;
-  tierName: string;
-  status: string;
-  progress: number;
-  currentMilestone?: string | null;
-  completedMilestones: number;
-  totalMilestones: number;
-  createdAt: string;
-  updatedAt: string;
+export interface ProjectFilters {
+  status?: string;
+  tier?: number;
+  page?: number;
+  limit?: number;
 }
 
 export interface ProjectsResponse {
-  success: boolean;
-  data: {
-    projects: ProjectSummary[];
-    pagination?: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  };
-  error?: {
-    code: string;
-    message: string;
+  projects: ProjectSummary[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
   };
 }
-
-export interface UseProjectsOptions {
-  page?: number;
-  limit?: number;
-  status?: string;
-  enabled?: boolean;
-}
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
-// Fetch function
-async function fetchProjects(options: UseProjectsOptions = {}): Promise<ProjectsResponse> {
-  const { page = 1, limit = 10, status } = options;
-
-  const params = new URLSearchParams();
-  params.set('page', String(page));
-  params.set('limit', String(limit));
-  if (status) {
-    params.set('status', status);
-  }
-
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/projects?${params.toString()}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to fetch projects: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Query key factory
-export const projectsKeys = {
-  all: ['projects'] as const,
-  lists: () => [...projectsKeys.all, 'list'] as const,
-  list: (options: UseProjectsOptions) => [...projectsKeys.lists(), options] as const,
-};
 
 /**
- * Hook to fetch user's projects with pagination and filtering
- *
- * @example
- * ```tsx
- * const { projects, isLoading, error, refetch } = useProjects({ page: 1, limit: 10 });
- *
- * if (isLoading) return <Skeleton />;
- * if (error) return <Error message={error.message} />;
- *
- * return <ProjectList projects={projects} />;
- * ```
+ * Fetch user's projects list
  */
-export function useProjects(options: UseProjectsOptions = {}) {
-  const { page = 1, limit = 10, status, enabled = true } = options;
-
-  const query = useQuery<ProjectsResponse, Error>({
-    queryKey: projectsKeys.list({ page, limit, status }),
-    queryFn: () => fetchProjects({ page, limit, status }),
-    enabled,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes (formerly cacheTime)
+export function useProjects(filters: ProjectFilters = {}) {
+  return useQuery({
+    queryKey: projectKeys.list(filters),
+    queryFn: async (): Promise<ProjectsResponse> => {
+      const params = new URLSearchParams();
+      if (filters.status) params.append('status', filters.status);
+      if (filters.tier) params.append('tier', String(filters.tier));
+      if (filters.page) params.append('page', String(filters.page));
+      if (filters.limit) params.append('limit', String(filters.limit));
+      
+      const query = params.toString();
+      const endpoint = query 
+        ? `${ENDPOINTS.PROJECTS.BASE}?${query}`
+        : ENDPOINTS.PROJECTS.BASE;
+        
+      return api.get<ProjectsResponse>(endpoint);
+    },
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
+}
 
+/**
+ * Fetch single project with full details
+ */
+export function useProject(projectId: string | undefined) {
+  return useQuery({
+    queryKey: projectKeys.detail(projectId || ''),
+    queryFn: async (): Promise<ProjectDetail> => {
+      if (!projectId) throw new Error('Project ID is required');
+      return api.get<ProjectDetail>(ENDPOINTS.PROJECTS.BY_ID(projectId));
+    },
+    enabled: !!projectId,
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Fetch project milestones
+ */
+export function useProjectMilestones(projectId: string | undefined) {
+  return useQuery({
+    queryKey: [...projectKeys.detail(projectId || ''), 'milestones'],
+    queryFn: async () => {
+      if (!projectId) throw new Error('Project ID is required');
+      return api.get(ENDPOINTS.PROJECTS.MILESTONES(projectId));
+    },
+    enabled: !!projectId,
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Fetch project deliverables
+ */
+export function useProjectDeliverables(projectId: string | undefined) {
+  return useQuery({
+    queryKey: [...projectKeys.detail(projectId || ''), 'deliverables'],
+    queryFn: async () => {
+      if (!projectId) throw new Error('Project ID is required');
+      return api.get(ENDPOINTS.PROJECTS.DELIVERABLES(projectId));
+    },
+    enabled: !!projectId,
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Update project status (admin only)
+ */
+export function useUpdateProjectStatus() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ 
+      projectId, 
+      status 
+    }: { 
+      projectId: string; 
+      status: string;
+    }) => {
+      return api.patch(ENDPOINTS.PROJECTS.BY_ID(projectId), { status });
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate project queries
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(variables.projectId) });
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook for getting project progress helpers
+ */
+export function useProjectProgress(project: ProjectSummary | ProjectDetail | null) {
+  if (!project) {
+    return {
+      percentage: 0,
+      completed: 0,
+      total: 0,
+      isComplete: false,
+      currentMilestone: null,
+    };
+  }
+  
+  const progress = 'progress' in project ? project.progress : null;
+  
   return {
-    // Data
-    projects: query.data?.data.projects ?? [],
-    pagination: query.data?.data.pagination,
-
-    // Status
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    isSuccess: query.isSuccess,
-
-    // Error
-    error: query.error,
-
-    // Actions
-    refetch: query.refetch,
-
-    // Raw query for advanced usage
-    query,
+    percentage: progress?.percentage || 0,
+    completed: progress?.completed || 0,
+    total: progress?.total || 0,
+    isComplete: progress?.percentage === 100,
+    currentMilestone: progress?.currentMilestone || null,
   };
 }
 

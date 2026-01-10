@@ -1,51 +1,52 @@
-// Portal hooks for client data fetching
+/**
+ * Hooks Index
+ * Central export for all custom hooks.
+ */
 
-export { useProjects, projectsKeys } from './useProjects';
-export type { ProjectSummary, ProjectsResponse, UseProjectsOptions } from './useProjects';
-
-export { useProject, projectKeys } from './useProject';
-export type {
-  ProjectDetail,
-  ProjectResponse,
-  UseProjectOptions,
-  Milestone,
-  Deliverable,
-  Payment,
-} from './useProject';
-
-export { useMilestones, milestonesKeys } from './useMilestones';
-export type { MilestonesResponse, UseMilestonesOptions } from './useMilestones';
-
-export { useDeliverables, deliverablesKeys } from './useDeliverables';
-export type { DeliverablesResponse, DownloadUrlResponse, UseDeliverablesOptions } from './useDeliverables';
-
-export { useNotifications, useUnreadCount, useNotificationMutations, notificationKeys } from './useNotifications';
-export type { Notification, NotificationsResponse, UseNotificationsOptions } from './useNotifications';
-
-export { useMessages, useSendMessage, messageKeys } from './useMessages';
-export type { Message, MessageSender, MessagesResponse, SendMessageData, UseMessagesOptions } from './useMessages';
-
-export { useMilestoneRevisions, useProjectRevisions, useRevisionMutations, revisionKeys } from './useRevisions';
-export type { RevisionRequest, CreateRevisionData, UpdateRevisionData, RevisionsResponse } from './useRevisions';
-
+// Auth
 export {
-  useAnalyticsSummary,
-  useConversionMetrics,
-  useRevenueMetrics,
-  useLeadMetrics,
-  useProjectMetrics,
-  useMonthlyReport,
-  analyticsKeys,
-} from './useAnalytics';
-export type {
-  DashboardSummary,
-  TierDistribution,
-  ConversionMetrics,
-  RevenueMetrics,
-  LeadMetrics,
-  ProjectMetrics,
-  MonthlyReport,
-  Period,
-} from './useAnalytics';
+  useCurrentUser,
+  useLogin,
+  useRegister,
+  useLogout,
+  useRefreshToken,
+  useIsAuthenticated,
+  useIsAdmin,
+  useUserTier,
+  useAuthState,
+  authKeys,
+} from './useAuth';
+export type { User, LoginCredentials, RegisterData, AuthResponse } from './useAuth';
 
-export { usePushNotifications } from './usePushNotifications';
+// Projects
+export {
+  useProjects,
+  useProject,
+  useProjectMilestones,
+  useProjectDeliverables,
+  useUpdateProjectStatus,
+  useProjectProgress,
+  projectKeys,
+} from './useProjects';
+export type { ProjectFilters, ProjectsResponse } from './useProjects';
+
+// Leads
+export {
+  useLeads,
+  useLead,
+  useLeadStats,
+  useCreateLead,
+  useUpdateLeadStatus,
+  useOverrideLeadTier,
+  useConvertLead,
+  leadKeys,
+} from './useLeads';
+export type { 
+  Lead, 
+  LeadStatus, 
+  LeadFilters, 
+  LeadsResponse, 
+  LeadStats,
+  CreateLeadData,
+  CreateLeadResponse,
+} from './useLeads';

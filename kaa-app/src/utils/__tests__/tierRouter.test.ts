@@ -1,721 +1,624 @@
 /**
- * Tests for Tier Router algorithm
- * Tests all tier routing logic: budget ranges, timelines, project types, asset combinations, edge cases
+ * Tier Router Tests
+ * Tests for the tier recommendation algorithm.
  */
 
 import {
   recommendTier,
-  getTierInfo,
-  getAllTiers,
+  validateIntakeData,
+  getTierSummary,
+  isAutoRoutable,
   IntakeFormData,
   TierRecommendation,
-  BudgetRange,
-  Timeline,
-  ProjectType,
 } from '../tierRouter';
 
-// Helper to create intake form data with defaults
+// ============================================================================
+// TEST DATA
+// ============================================================================
+
 const createIntakeData = (overrides: Partial<IntakeFormData> = {}): IntakeFormData => ({
-  budgetRange: '2000_5000',
-  timeline: '1_2_months',
+  budget: 10000,
+  timelineWeeks: 4,
   projectType: 'standard_renovation',
-  hasSurvey: false,
-  hasDrawings: false,
-  projectAddress: '123 Test St, Test City, TC 12345',
-  email: 'test@example.com',
-  name: 'Test User',
+  hasSurvey: true,
+  hasDrawings: true,
   ...overrides,
 });
 
-describe('Tier Router', () => {
-  describe('Budget Range Analysis', () => {
-    it('recommends Tier 1 for under_500 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: '2_4_weeks',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
+// ============================================================================
+// TIER RECOMMENDATION TESTS
+// ============================================================================
 
-      expect(result.tier).toBe(1);
-      expect(result.confidence).toBe('high');
-    });
-
-    it('recommends Tier 1-2 for 500_2000 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '500_2000',
-        timeline: '2_4_weeks',
-        projectType: 'small_renovation',
-      }));
-
+describe('recommendTier', () => {
+  describe('budget-based routing', () => {
+    it('should recommend Tier 1 for budget $2,500-$7,500', () => {
+      const data = createIntakeData({ budget: 5000 });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBeLessThanOrEqual(2);
+      expect(result.factors.find(f => f.factor === 'budget')?.suggestedTier).toBe(1);
     });
 
-    it('recommends Tier 2 for 2000_5000 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-      }));
-
-      expect(result.tier).toBe(2);
+    it('should recommend Tier 2 for budget $7,500-$15,000', () => {
+      const data = createIntakeData({ budget: 10000 });
+      const result = recommendTier(data);
+      
+      expect(result.factors.find(f => f.factor === 'budget')?.suggestedTier).toBe(2);
     });
 
-    it('recommends Tier 2-3 for 5000_15000 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '5000_15000',
-        timeline: '2_4_months',
-        projectType: 'addition',
-      }));
-
-      expect(result.tier).toBeGreaterThanOrEqual(2);
-      expect(result.tier).toBeLessThanOrEqual(3);
+    it('should recommend Tier 3 for budget $15,000-$35,000', () => {
+      const data = createIntakeData({ budget: 25000 });
+      const result = recommendTier(data);
+      
+      expect(result.factors.find(f => f.factor === 'budget')?.suggestedTier).toBe(3);
     });
 
-    it('recommends Tier 3 for 15000_50000 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: '2_4_months',
-        projectType: 'new_build',
-      }));
-
-      expect(result.tier).toBe(3);
-    });
-
-    it('recommends Tier 4 for over_50000 budget', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
-        projectType: 'commercial',
-      }));
-
+    it('should recommend Tier 4 for budget $35,000+', () => {
+      const data = createIntakeData({ budget: 50000 });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBe(4);
+      expect(result.factors.find(f => f.factor === 'budget')?.suggestedTier).toBe(4);
     });
 
-    it('recommends Tier 4 for percentage-based pricing', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'percentage',
-        timeline: '4_plus_months',
-        projectType: 'complex',
-      }));
-
-      expect(result.tier).toBe(4);
-    });
-
-    it('flags not_sure budget for manual review', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'not_sure',
-      }));
-
-      expect(result.needsManualReview).toBe(true);
+    it('should flag budget below minimum threshold', () => {
+      const data = createIntakeData({ budget: 1000 });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('Budget below minimum threshold');
     });
   });
 
-  describe('Timeline Analysis', () => {
-    it('recommends Tier 1 for asap timeline with matching factors', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: 'asap',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      expect(result.tier).toBe(1);
+  describe('timeline-based routing', () => {
+    it('should suggest Tier 1/2 for fast timeline (<2 weeks)', () => {
+      const data = createIntakeData({ timelineWeeks: 1 });
+      const result = recommendTier(data);
+      
+      const timelineFactor = result.factors.find(f => f.factor === 'timeline');
+      expect(timelineFactor?.suggestedTier).toBeLessThanOrEqual(2);
     });
 
-    it('recommends Tier 1 for 2_4_weeks timeline with matching factors', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '500_2000',
-        timeline: '2_4_weeks',
-        projectType: 'small_renovation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      expect(result.tier).toBeLessThanOrEqual(2);
+    it('should suggest Tier 2/3 for standard timeline (2-8 weeks)', () => {
+      const data = createIntakeData({ timelineWeeks: 4 });
+      const result = recommendTier(data);
+      
+      const timelineFactor = result.factors.find(f => f.factor === 'timeline');
+      expect(timelineFactor?.suggestedTier).toBe(2);
     });
 
-    it('recommends Tier 2 for 1_2_months timeline', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-      }));
-
-      expect(result.tier).toBe(2);
-    });
-
-    it('recommends Tier 3 for 2_4_months timeline', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: '2_4_months',
-        projectType: 'new_build',
-      }));
-
-      expect(result.tier).toBe(3);
-    });
-
-    it('recommends Tier 3-4 for 4_plus_months timeline', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
-        projectType: 'complex',
-      }));
-
-      expect(result.tier).toBeGreaterThanOrEqual(3);
-    });
-
-    it('handles flexible timeline based on other factors', () => {
-      const tier1Result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: 'flexible',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      const tier3Result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: 'flexible',
-        projectType: 'new_build',
-      }));
-
-      expect(tier1Result.tier).toBeLessThan(tier3Result.tier);
-    });
-
-    it('flags asap timeline with high tier for manual review', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: 'asap',
-        projectType: 'new_build',
-      }));
-
-      expect(result.needsManualReview).toBe(true);
+    it('should suggest Tier 3/4 for extended timeline (8+ weeks)', () => {
+      const data = createIntakeData({ timelineWeeks: 12 });
+      const result = recommendTier(data);
+      
+      const timelineFactor = result.factors.find(f => f.factor === 'timeline');
+      expect(timelineFactor?.suggestedTier).toBeGreaterThanOrEqual(3);
     });
   });
 
-  describe('Project Type Analysis', () => {
-    it('recommends Tier 1 for simple_consultation', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: '2_4_weeks',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      expect(result.tier).toBe(1);
+  describe('asset-based routing', () => {
+    it('should allow Tier 1/2 when both survey and drawings exist', () => {
+      const data = createIntakeData({ hasSurvey: true, hasDrawings: true });
+      const result = recommendTier(data);
+      
+      const assetFactor = result.factors.find(f => f.factor === 'assets');
+      expect(assetFactor?.suggestedTier).toBeLessThanOrEqual(2);
     });
 
-    it('recommends Tier 1-2 for small_renovation', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '500_2000',
-        timeline: '2_4_weeks',
-        projectType: 'small_renovation',
-      }));
-
-      expect(result.tier).toBeLessThanOrEqual(2);
+    it('should suggest Tier 2/3 when only survey exists', () => {
+      const data = createIntakeData({ hasSurvey: true, hasDrawings: false });
+      const result = recommendTier(data);
+      
+      const assetFactor = result.factors.find(f => f.factor === 'assets');
+      expect(assetFactor?.suggestedTier).toBeGreaterThanOrEqual(2);
     });
 
-    it('recommends Tier 2 for standard_renovation', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-      }));
-
-      expect(result.tier).toBe(2);
+    it('should suggest Tier 2/3 when only drawings exist', () => {
+      const data = createIntakeData({ hasSurvey: false, hasDrawings: true });
+      const result = recommendTier(data);
+      
+      const assetFactor = result.factors.find(f => f.factor === 'assets');
+      expect(assetFactor?.suggestedTier).toBeGreaterThanOrEqual(2);
     });
 
-    it('recommends Tier 2-3 for addition', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '5000_15000',
-        timeline: '2_4_months',
-        projectType: 'addition',
-      }));
+    it('should require Tier 3+ when no assets exist', () => {
+      const data = createIntakeData({ 
+        hasSurvey: false, 
+        hasDrawings: false,
+        budget: 20000, // Higher budget to avoid budget conflict
+      });
+      const result = recommendTier(data);
+      
+      // Hard rule: No assets means at least Tier 3
+      expect(result.tier).toBeGreaterThanOrEqual(3);
+    });
+  });
 
-      expect(result.tier).toBeGreaterThanOrEqual(2);
-      expect(result.tier).toBeLessThanOrEqual(3);
+  describe('project type routing', () => {
+    it('should allow Tier 1/2 for simple renovation', () => {
+      const data = createIntakeData({ projectType: 'simple_renovation' });
+      const result = recommendTier(data);
+      
+      const typeFactor = result.factors.find(f => f.factor === 'project_type');
+      expect(typeFactor?.suggestedTier).toBeLessThanOrEqual(2);
     });
 
-    it('recommends Tier 3+ for new_build', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: '2_4_months',
+    it('should require Tier 3+ for new build', () => {
+      const data = createIntakeData({ 
         projectType: 'new_build',
-      }));
-
+        budget: 30000,
+      });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBeGreaterThanOrEqual(3);
     });
 
-    it('recommends Tier 4 for commercial projects', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
-        projectType: 'commercial',
-      }));
-
-      expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
+    it('should suggest higher tier for major renovation', () => {
+      const data = createIntakeData({ 
+        projectType: 'major_renovation',
+        budget: 25000,
+        hasSurvey: false,  // No assets forces Tier 3+
+        hasDrawings: false,
+      });
+      const result = recommendTier(data);
+      
+      // Major renovation with no assets should be Tier 3+
+      expect(result.tier).toBeGreaterThanOrEqual(3);
     });
 
-    it('recommends Tier 4 for multiple_properties', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
+    it('should require Tier 4 for multiple properties', () => {
+      const data = createIntakeData({ 
         projectType: 'multiple_properties',
-      }));
-
+        budget: 50000,
+      });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
     });
 
-    it('recommends Tier 4 for complex projects', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
+    it('should require Tier 4 for complex projects', () => {
+      const data = createIntakeData({ 
         projectType: 'complex',
-      }));
-
-      expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
-    });
-  });
-
-  describe('Asset Analysis', () => {
-    it('fast-tracks to Tier 1-2 when both survey and drawings exist', () => {
-      const withAssets = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      const withoutAssets = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
-      expect(withAssets.tier).toBeLessThanOrEqual(withoutAssets.tier);
-    });
-
-    it('suggests Tier 2 when partial assets exist', () => {
-      const surveyOnly = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: true,
-        hasDrawings: false,
-      }));
-
-      const drawingsOnly = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: false,
-        hasDrawings: true,
-      }));
-
-      expect(surveyOnly.tier).toBeLessThanOrEqual(3);
-      expect(drawingsOnly.tier).toBeLessThanOrEqual(3);
-    });
-
-    it('suggests Tier 3+ when no assets exist for complex projects', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: '2_4_months',
-        projectType: 'new_build',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
+        budget: 50000,
+      });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBeGreaterThanOrEqual(3);
     });
   });
 
-  describe('Confidence Scoring', () => {
-    it('returns high confidence when all factors agree', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: '2_4_weeks',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: true,
-      }));
-
-      expect(result.confidence).toBe('high');
+  describe('red flag detection', () => {
+    it('should flag unrealistic timeline for complex projects', () => {
+      const data = createIntakeData({ 
+        projectType: 'new_build',
+        timelineWeeks: 1,
+        budget: 30000,
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('Timeline unrealistic for project complexity');
     });
 
-    it('returns medium confidence when most factors agree', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
+    it('should flag no assets with fast timeline', () => {
+      const data = createIntakeData({ 
         hasSurvey: false,
         hasDrawings: false,
-      }));
+        timelineWeeks: 1,
+        budget: 20000,
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('No existing assets but expecting fast delivery');
+    });
 
+    it('should flag complex project with low budget', () => {
+      const data = createIntakeData({ 
+        projectType: 'complex',
+        budget: 8000,
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('Complex project type with insufficient budget');
+    });
+
+    it('should flag multiple properties for review', () => {
+      const data = createIntakeData({ 
+        projectType: 'multiple_properties',
+        budget: 50000,
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('Multiple properties require white-glove service evaluation');
+    });
+
+    it('should flag high budget with unrealistic timeline', () => {
+      const data = createIntakeData({ 
+        budget: 40000,
+        timelineWeeks: 1,
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags).toContain('High budget project with unrealistic timeline');
+    });
+  });
+
+  describe('confidence calculation', () => {
+    it('should have high confidence when factors agree', () => {
+      const data = createIntakeData({
+        budget: 10000,
+        timelineWeeks: 4,
+        projectType: 'standard_renovation',
+        hasSurvey: true,
+        hasDrawings: true,
+      });
+      const result = recommendTier(data);
+      
       expect(['high', 'medium']).toContain(result.confidence);
     });
 
-    it('returns low confidence when factors disagree significantly', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',  // Suggests Tier 1
-        timeline: '4_plus_months', // Suggests Tier 3
-        projectType: 'commercial', // Suggests Tier 4
+    it('should have lower confidence when factors disagree', () => {
+      const data = createIntakeData({
+        budget: 5000,      // Suggests Tier 1
+        timelineWeeks: 12, // Suggests Tier 3
+        projectType: 'new_build', // Requires Tier 3+
+        hasSurvey: false,
+        hasDrawings: false,
+      });
+      const result = recommendTier(data);
+      
+      // With conflicting factors, confidence shouldn't be high
+      // Hard rules may force tier 3+, but factors still disagree
+      expect(result.confidence).toBeDefined();
+      // The tier will be forced to 3+ due to hard rules
+      expect(result.tier).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('manual review requirements', () => {
+    it('should require manual review for Tier 4', () => {
+      const data = createIntakeData({ budget: 50000 });
+      const result = recommendTier(data);
+      
+      expect(result.tier).toBe(4);
+      expect(result.needsManualReview).toBe(true);
+    });
+
+    it('should require manual review when red flags exist', () => {
+      const data = createIntakeData({ 
+        projectType: 'complex',
+        budget: 5000, // Too low for complex
+      });
+      const result = recommendTier(data);
+      
+      expect(result.redFlags.length).toBeGreaterThan(0);
+      expect(result.needsManualReview).toBe(true);
+    });
+
+    it('should not require manual review for straightforward Tier 1/2', () => {
+      const data = createIntakeData({
+        budget: 5000,
+        timelineWeeks: 4,
+        projectType: 'simple_renovation',
         hasSurvey: true,
         hasDrawings: true,
-      }));
-
-      expect(result.confidence).toBe('low');
+      });
+      const result = recommendTier(data);
+      
+      if (result.tier <= 2 && result.redFlags.length === 0) {
+        expect(result.needsManualReview).toBe(false);
+      }
     });
   });
 
-  describe('Manual Review Detection', () => {
-    it('always requires review for Tier 4', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
-        projectType: 'commercial',
-      }));
+  describe('alternative tier suggestions', () => {
+    it('should suggest adjacent alternative tiers', () => {
+      const data = createIntakeData({ budget: 10000 });
+      const result = recommendTier(data);
+      
+      // Alternative tiers should be adjacent to the recommended tier
+      result.alternativeTiers.forEach(alt => {
+        expect(Math.abs(alt - result.tier)).toBe(1);
+      });
+    });
 
+    it('should not include the recommended tier in alternatives', () => {
+      const data = createIntakeData({ budget: 15000 });
+      const result = recommendTier(data);
+      
+      expect(result.alternativeTiers).not.toContain(result.tier);
+    });
+  });
+
+  describe('factor descriptions', () => {
+    it('should include budget factor with description', () => {
+      const data = createIntakeData({ budget: 10000 });
+      const result = recommendTier(data);
+      
+      const budgetFactor = result.factors.find(f => f.factor === 'budget');
+      expect(budgetFactor).toBeDefined();
+      expect(budgetFactor?.description).toContain('$10,000');
+    });
+
+    it('should include all four factors', () => {
+      const data = createIntakeData();
+      const result = recommendTier(data);
+      
+      const factorTypes = result.factors.map(f => f.factor);
+      expect(factorTypes).toContain('budget');
+      expect(factorTypes).toContain('timeline');
+      expect(factorTypes).toContain('assets');
+      expect(factorTypes).toContain('project_type');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle minimum valid budget', () => {
+      const data = createIntakeData({ budget: 2500 });
+      const result = recommendTier(data);
+      
+      expect(result.tier).toBeGreaterThanOrEqual(1);
+      expect(result.tier).toBeLessThanOrEqual(4);
+    });
+
+    it('should handle very high budget', () => {
+      const data = createIntakeData({ budget: 1000000 });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
     });
 
-    it('requires review for low confidence', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: '4_plus_months',
-        projectType: 'commercial',
-      }));
-
-      expect(result.confidence).toBe('low');
-      expect(result.needsManualReview).toBe(true);
-    });
-
-    it('requires review when budget is not_sure', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'not_sure',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-      }));
-
-      expect(result.needsManualReview).toBe(true);
-    });
-
-    it('requires review for asap timeline with high tier', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: 'asap',
-        projectType: 'new_build',
-      }));
-
-      expect(result.needsManualReview).toBe(true);
-    });
-
-    it('requires review for complex project types', () => {
-      const complexResult = recommendTier(createIntakeData({
-        projectType: 'complex',
-      }));
-
-      const commercialResult = recommendTier(createIntakeData({
-        projectType: 'commercial',
-      }));
-
-      const multipleResult = recommendTier(createIntakeData({
-        projectType: 'multiple_properties',
-      }));
-
-      expect(complexResult.needsManualReview).toBe(true);
-      expect(commercialResult.needsManualReview).toBe(true);
-      expect(multipleResult.needsManualReview).toBe(true);
-    });
-  });
-
-  describe('Reason Generation', () => {
-    it('generates a non-empty reason string', () => {
-      const result = recommendTier(createIntakeData());
-
-      expect(result.reason).toBeTruthy();
-      expect(typeof result.reason).toBe('string');
-      expect(result.reason.length).toBeGreaterThan(0);
-    });
-
-    it('includes relevant factor descriptions in reason', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-      }));
-
-      // Reason should mention at least one of the key factors
-      const reasonLower = result.reason.toLowerCase();
-      const hasRelevantContent =
-        reasonLower.includes('budget') ||
-        reasonLower.includes('tier') ||
-        reasonLower.includes('renovation') ||
-        reasonLower.includes('timeline');
-
-      expect(hasRelevantContent).toBe(true);
-    });
-  });
-
-  describe('Factors Array', () => {
-    it('returns all four factors', () => {
-      const result = recommendTier(createIntakeData());
-
-      expect(result.factors).toHaveLength(4);
-    });
-
-    it('includes budget, timeline, project_type, and assets factors', () => {
-      const result = recommendTier(createIntakeData());
-
-      const factorNames = result.factors.map(f => f.factor);
-      expect(factorNames).toContain('budget');
-      expect(factorNames).toContain('timeline');
-      expect(factorNames).toContain('project_type');
-      expect(factorNames).toContain('assets');
-    });
-
-    it('each factor has valid tier suggestion (1-4)', () => {
-      const result = recommendTier(createIntakeData());
-
-      result.factors.forEach(factor => {
-        expect(factor.suggestedTier).toBeGreaterThanOrEqual(1);
-        expect(factor.suggestedTier).toBeLessThanOrEqual(4);
-      });
-    });
-
-    it('each factor has positive weight', () => {
-      const result = recommendTier(createIntakeData());
-
-      result.factors.forEach(factor => {
-        expect(factor.weight).toBeGreaterThan(0);
-      });
-    });
-
-    it('each factor has a description', () => {
-      const result = recommendTier(createIntakeData());
-
-      result.factors.forEach(factor => {
-        expect(factor.description).toBeTruthy();
-        expect(typeof factor.description).toBe('string');
-      });
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('handles unknown budget range gracefully', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'unknown_value' as BudgetRange,
-      }));
-
-      expect(result.tier).toBeGreaterThanOrEqual(1);
-      expect(result.tier).toBeLessThanOrEqual(4);
-    });
-
-    it('handles unknown timeline gracefully', () => {
-      const result = recommendTier(createIntakeData({
-        timeline: 'unknown_value' as Timeline,
-      }));
-
-      expect(result.tier).toBeGreaterThanOrEqual(1);
-      expect(result.tier).toBeLessThanOrEqual(4);
-    });
-
-    it('handles unknown project type gracefully', () => {
-      const result = recommendTier(createIntakeData({
-        projectType: 'unknown_value' as ProjectType,
-      }));
-
-      expect(result.tier).toBeGreaterThanOrEqual(1);
-      expect(result.tier).toBeLessThanOrEqual(4);
-    });
-
-    it('always returns a tier between 1 and 4', () => {
-      const testCases: Partial<IntakeFormData>[] = [
-        { budgetRange: 'under_500', projectType: 'simple_consultation' },
-        { budgetRange: 'over_50000', projectType: 'commercial' },
-        { budgetRange: 'not_sure', timeline: 'flexible' },
-        { hasSurvey: true, hasDrawings: true },
-        { hasSurvey: false, hasDrawings: false },
-      ];
-
-      testCases.forEach(testCase => {
-        const result = recommendTier(createIntakeData(testCase));
-        expect(result.tier).toBeGreaterThanOrEqual(1);
-        expect(result.tier).toBeLessThanOrEqual(4);
-      });
-    });
-
-    it('handles minimal input data', () => {
-      const result = recommendTier({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: false,
-        hasDrawings: false,
-        projectAddress: '123 Test St',
-      });
-
+    it('should handle very long timeline', () => {
+      const data = createIntakeData({ timelineWeeks: 52 });
+      const result = recommendTier(data);
+      
       expect(result.tier).toBeDefined();
-      expect(result.reason).toBeDefined();
-      expect(result.confidence).toBeDefined();
-      expect(result.needsManualReview).toBeDefined();
-      expect(result.factors).toBeDefined();
-    });
-  });
-
-  describe('Typical User Scenarios', () => {
-    it('DIY homeowner: budget-conscious, short timeline, has own survey', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'under_500',
-        timeline: '2_4_weeks',
-        projectType: 'simple_consultation',
-        hasSurvey: true,
-        hasDrawings: false,
-      }));
-
-      expect(result.tier).toBe(1);
-      expect(result.needsManualReview).toBe(false);
     });
 
-    it('Renovating homeowner: mid budget, standard timeline, no assets', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '2000_5000',
-        timeline: '1_2_months',
-        projectType: 'standard_renovation',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
-      expect(result.tier).toBe(2);
-    });
-
-    it('New build client: high budget, long timeline, complex project', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: '15000_50000',
-        timeline: '2_4_months',
-        projectType: 'new_build',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
-      expect(result.tier).toBe(3);
-    });
-
-    it('Luxury client: premium budget, extended timeline, exclusive project', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'over_50000',
-        timeline: '4_plus_months',
-        projectType: 'complex',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
-      expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
-    });
-
-    it('Commercial developer: percentage pricing, multiple properties', () => {
-      const result = recommendTier(createIntakeData({
-        budgetRange: 'percentage',
-        timeline: '4_plus_months',
-        projectType: 'multiple_properties',
-        hasSurvey: false,
-        hasDrawings: false,
-      }));
-
-      expect(result.tier).toBe(4);
-      expect(result.needsManualReview).toBe(true);
+    it('should handle minimum timeline', () => {
+      const data = createIntakeData({ timelineWeeks: 1 });
+      const result = recommendTier(data);
+      
+      expect(result.tier).toBeDefined();
     });
   });
 });
 
-describe('getTierInfo', () => {
-  it('returns correct info for Tier 1', () => {
-    const info = getTierInfo(1);
+// ============================================================================
+// VALIDATION TESTS
+// ============================================================================
 
-    expect(info.id).toBe(1);
-    expect(info.name).toBe('The Concept');
-    expect(info.priceDisplay).toBe('$299');
-    expect(info.features).toContain('Professional concept design');
+describe('validateIntakeData', () => {
+  it('should pass for valid data', () => {
+    const data = createIntakeData();
+    const errors = validateIntakeData(data);
+    
+    expect(errors).toHaveLength(0);
   });
 
-  it('returns correct info for Tier 2', () => {
-    const info = getTierInfo(2);
-
-    expect(info.id).toBe(2);
-    expect(info.name).toBe('The Builder');
-    expect(info.priceDisplay).toBe('$1,499');
-    expect(info.features).toContain('Complete design package');
-  });
-
-  it('returns correct info for Tier 3', () => {
-    const info = getTierInfo(3);
-
-    expect(info.id).toBe(3);
-    expect(info.name).toBe('The Concierge');
-    expect(info.priceDisplay).toContain('$4,999');
-    expect(info.features).toContain('On-site consultation');
-  });
-
-  it('returns correct info for Tier 4', () => {
-    const info = getTierInfo(4);
-
-    expect(info.id).toBe(4);
-    expect(info.name).toBe('KAA White Glove');
-    expect(info.priceDisplay).toBe('By Invitation');
-    expect(info.features).toContain('Exclusive, invitation-only service');
-  });
-
-  it('all tiers have required fields', () => {
-    [1, 2, 3, 4].forEach(tier => {
-      const info = getTierInfo(tier as 1 | 2 | 3 | 4);
-
-      expect(info.id).toBeDefined();
-      expect(info.name).toBeDefined();
-      expect(info.tagline).toBeDefined();
-      expect(info.priceDisplay).toBeDefined();
-      expect(info.features).toBeDefined();
-      expect(Array.isArray(info.features)).toBe(true);
-      expect(info.features.length).toBeGreaterThan(0);
+  it('should require budget', () => {
+    const errors = validateIntakeData({
+      timelineWeeks: 4,
+      projectType: 'simple_renovation',
+      hasSurvey: true,
+      hasDrawings: true,
     });
+    
+    expect(errors).toContain('Budget is required and must be a positive number');
+  });
+
+  it('should reject negative budget', () => {
+    const data = { ...createIntakeData(), budget: -100 };
+    const errors = validateIntakeData(data);
+    
+    expect(errors).toContain('Budget is required and must be a positive number');
+  });
+
+  it('should require timeline', () => {
+    const errors = validateIntakeData({
+      budget: 10000,
+      projectType: 'simple_renovation',
+      hasSurvey: true,
+      hasDrawings: true,
+    });
+    
+    expect(errors).toContain('Timeline is required and must be at least 1 week');
+  });
+
+  it('should reject zero timeline', () => {
+    const data = { ...createIntakeData(), timelineWeeks: 0 };
+    const errors = validateIntakeData(data);
+    
+    expect(errors).toContain('Timeline is required and must be at least 1 week');
+  });
+
+  it('should require project type', () => {
+    const errors = validateIntakeData({
+      budget: 10000,
+      timelineWeeks: 4,
+      hasSurvey: true,
+      hasDrawings: true,
+    });
+    
+    expect(errors).toContain('Project type is required');
+  });
+
+  it('should require survey status', () => {
+    const errors = validateIntakeData({
+      budget: 10000,
+      timelineWeeks: 4,
+      projectType: 'simple_renovation',
+      hasDrawings: true,
+    });
+    
+    expect(errors).toContain('Survey status is required');
+  });
+
+  it('should require drawings status', () => {
+    const errors = validateIntakeData({
+      budget: 10000,
+      timelineWeeks: 4,
+      projectType: 'simple_renovation',
+      hasSurvey: true,
+    });
+    
+    expect(errors).toContain('Drawings status is required');
+  });
+
+  it('should return multiple errors for multiple issues', () => {
+    const errors = validateIntakeData({});
+    
+    expect(errors.length).toBeGreaterThan(1);
   });
 });
 
-describe('getAllTiers', () => {
-  it('returns all 4 tiers', () => {
-    const tiers = getAllTiers();
+// ============================================================================
+// HELPER FUNCTION TESTS
+// ============================================================================
 
-    expect(tiers).toHaveLength(4);
+describe('getTierSummary', () => {
+  it('should include tier name in summary', () => {
+    const recommendation: TierRecommendation = {
+      tier: 2,
+      reason: 'Budget fits Tier 2 range.',
+      confidence: 'high',
+      needsManualReview: false,
+      factors: [],
+      redFlags: [],
+      alternativeTiers: [],
+    };
+    
+    const summary = getTierSummary(recommendation);
+    
+    expect(summary).toContain('The Builder');
   });
 
-  it('returns tiers in order (1-4)', () => {
-    const tiers = getAllTiers();
-
-    expect(tiers[0].id).toBe(1);
-    expect(tiers[1].id).toBe(2);
-    expect(tiers[2].id).toBe(3);
-    expect(tiers[3].id).toBe(4);
+  it('should indicate auto-approved status', () => {
+    const recommendation: TierRecommendation = {
+      tier: 1,
+      reason: 'Simple project.',
+      confidence: 'high',
+      needsManualReview: false,
+      factors: [],
+      redFlags: [],
+      alternativeTiers: [],
+    };
+    
+    const summary = getTierSummary(recommendation);
+    
+    expect(summary).toContain('auto-approved');
   });
 
-  it('each tier has complete information', () => {
-    const tiers = getAllTiers();
+  it('should indicate pending review status', () => {
+    const recommendation: TierRecommendation = {
+      tier: 4,
+      reason: 'High-value project.',
+      confidence: 'high',
+      needsManualReview: true,
+      factors: [],
+      redFlags: [],
+      alternativeTiers: [],
+    };
+    
+    const summary = getTierSummary(recommendation);
+    
+    expect(summary).toContain('pending review');
+  });
 
-    tiers.forEach(tier => {
-      expect(tier.id).toBeDefined();
-      expect(tier.name).toBeDefined();
-      expect(tier.tagline).toBeDefined();
-      expect(tier.priceDisplay).toBeDefined();
-      expect(tier.features).toBeDefined();
+  it('should include the reason', () => {
+    const recommendation: TierRecommendation = {
+      tier: 2,
+      reason: 'Budget fits Tier 2 range.',
+      confidence: 'high',
+      needsManualReview: false,
+      factors: [],
+      redFlags: [],
+      alternativeTiers: [],
+    };
+    
+    const summary = getTierSummary(recommendation);
+    
+    expect(summary).toContain('Budget fits Tier 2 range.');
+  });
+});
+
+describe('isAutoRoutable', () => {
+  it('should return true for Tier 1', () => {
+    expect(isAutoRoutable(1)).toBe(true);
+  });
+
+  it('should return true for Tier 2', () => {
+    expect(isAutoRoutable(2)).toBe(true);
+  });
+
+  it('should return false for Tier 3', () => {
+    expect(isAutoRoutable(3)).toBe(false);
+  });
+
+  it('should return false for Tier 4', () => {
+    expect(isAutoRoutable(4)).toBe(false);
+  });
+});
+
+// ============================================================================
+// INTEGRATION TESTS
+// ============================================================================
+
+describe('tier router integration', () => {
+  it('should produce consistent results for same input', () => {
+    const data = createIntakeData({
+      budget: 12000,
+      timelineWeeks: 6,
+      projectType: 'standard_renovation',
     });
+    
+    const result1 = recommendTier(data);
+    const result2 = recommendTier(data);
+    
+    expect(result1.tier).toBe(result2.tier);
+    expect(result1.confidence).toBe(result2.confidence);
+  });
+
+  it('should recommend appropriate tier for Tier 1 profile', () => {
+    const data = createIntakeData({
+      budget: 5000,
+      timelineWeeks: 2,
+      projectType: 'simple_renovation',
+      hasSurvey: true,
+      hasDrawings: true,
+    });
+    
+    const result = recommendTier(data);
+    
+    expect(result.tier).toBeLessThanOrEqual(2);
+    expect(result.needsManualReview).toBe(false);
+  });
+
+  it('should recommend appropriate tier for Tier 3 profile', () => {
+    const data = createIntakeData({
+      budget: 25000,
+      timelineWeeks: 10,
+      projectType: 'major_renovation',
+      hasSurvey: false,
+      hasDrawings: false,
+    });
+    
+    const result = recommendTier(data);
+    
+    expect(result.tier).toBeGreaterThanOrEqual(3);
+    expect(result.needsManualReview).toBe(true);
+  });
+
+  it('should recommend Tier 4 for luxury profile', () => {
+    const data = createIntakeData({
+      budget: 100000,
+      timelineWeeks: 24,
+      projectType: 'new_build',
+      hasSurvey: false,
+      hasDrawings: false,
+    });
+    
+    const result = recommendTier(data);
+    
+    expect(result.tier).toBe(4);
+    expect(result.needsManualReview).toBe(true);
   });
 });

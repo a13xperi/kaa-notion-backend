@@ -1,222 +1,268 @@
 /**
  * SAGE MVP Database Seeding Script
+ * Seeds the database with initial data for development and testing.
  *
- * Run with: npx prisma db seed
- * Or directly: npx ts-node prisma/seed.ts
+ * Usage:
+ *   npx prisma db seed
+ *   npm run prisma:seed
  */
 
 import { PrismaClient, UserType, LeadStatus, ProjectStatus, MilestoneStatus, ClientStatus } from '@prisma/client';
-import * as crypto from 'crypto';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-// Password hashing (same as auth.ts)
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-  return `${salt}:${hash}`;
-}
+// ============================================================================
+// SEED DATA
+// ============================================================================
 
-async function main() {
-  console.log('🌱 Starting database seed...\n');
+const TIERS = [
+  {
+    id: 1,
+    name: 'Seedling',
+    description: 'Quick consultation and basic guidance for simple projects',
+    features: [
+      '30-minute consultation',
+      'Basic plant recommendations',
+      'Simple layout sketch',
+      'Email support'
+    ],
+  },
+  {
+    id: 2,
+    name: 'Sprout',
+    description: 'Detailed design package for small to medium projects',
+    features: [
+      '2 design consultations',
+      'Detailed planting plan',
+      'Material recommendations',
+      '2 revision rounds',
+      'Digital deliverables'
+    ],
+  },
+  {
+    id: 3,
+    name: 'Canopy',
+    description: 'Full-service design for comprehensive landscape transformations',
+    features: [
+      'Site visit included',
+      'Complete design package',
+      '3D visualization',
+      'Contractor coordination',
+      'Unlimited revisions',
+      'Priority support'
+    ],
+  },
+  {
+    id: 4,
+    name: 'Forest',
+    description: 'Premium white-glove service for luxury projects',
+    features: [
+      'Dedicated designer',
+      'Custom solutions',
+      'Project management',
+      'Vendor coordination',
+      'Ongoing support',
+      'VIP treatment'
+    ],
+  },
+];
 
-  // ========================================
-  // 1. Create Tiers
-  // ========================================
-  console.log('📊 Creating tiers...');
+const TEST_USERS = [
+  {
+    email: 'admin@sage.design',
+    name: 'SAGE Admin',
+    password: 'Admin123!',
+    role: 'ADMIN',
+    userType: UserType.ADMIN,
+    tier: 4,
+  },
+  {
+    email: 'team@sage.design',
+    name: 'Sarah Designer',
+    password: 'Team123!',
+    role: 'TEAM',
+    userType: UserType.TEAM,
+    tier: 3,
+  },
+  {
+    email: 'client1@example.com',
+    name: 'Demo Client',
+    password: 'Client123!',
+    role: 'CLIENT',
+    userType: UserType.SAGE_CLIENT,
+    tier: 2,
+  },
+  {
+    email: 'client2@example.com',
+    name: 'Jane Smith',
+    password: 'Client123!',
+    role: 'CLIENT',
+    userType: UserType.SAGE_CLIENT,
+    tier: 3,
+  },
+];
 
-  const tiers = [
-    {
-      id: 1,
-      name: 'Seedling',
-      description: 'Quick consultation and basic guidance for simple projects',
-      features: JSON.stringify([
-        '30-minute consultation',
-        'Basic plant recommendations',
-        'Simple layout sketch',
-        'Email support'
-      ]),
-    },
-    {
-      id: 2,
-      name: 'Sprout',
-      description: 'Detailed design package for small to medium projects',
-      features: JSON.stringify([
-        '2 design consultations',
-        'Detailed planting plan',
-        'Material recommendations',
-        '2 revision rounds',
-        'Digital deliverables'
-      ]),
-    },
-    {
-      id: 3,
-      name: 'Canopy',
-      description: 'Full-service design for comprehensive landscape transformations',
-      features: JSON.stringify([
-        'Site visit included',
-        'Complete design package',
-        '3D visualization',
-        'Contractor coordination',
-        'Unlimited revisions',
-        'Priority support'
-      ]),
-    },
-    {
-      id: 4,
-      name: 'Forest',
-      description: 'Premium white-glove service for luxury projects',
-      features: JSON.stringify([
-        'Dedicated designer',
-        'Custom solutions',
-        'Project management',
-        'Vendor coordination',
-        'Ongoing support',
-        'VIP treatment'
-      ]),
-    },
-  ];
+const DEMO_LEADS = [
+  {
+    email: 'lead1@example.com',
+    name: 'John Doe',
+    projectAddress: '123 Oak Street, Portland, OR 97201',
+    budgetRange: '$5,000 - $10,000',
+    timeline: '3-6 months',
+    projectType: 'Backyard redesign',
+    hasSurvey: true,
+    hasDrawings: false,
+    recommendedTier: 2,
+    routingReason: 'Medium budget with survey available',
+    status: LeadStatus.NEW,
+  },
+  {
+    email: 'lead2@example.com',
+    name: 'Sarah Johnson',
+    projectAddress: '456 Maple Avenue, Seattle, WA 98101',
+    budgetRange: '$1,000 - $3,000',
+    timeline: '1-3 months',
+    projectType: 'Front yard landscaping',
+    hasSurvey: false,
+    hasDrawings: false,
+    recommendedTier: 1,
+    routingReason: 'Budget-conscious DIY candidate',
+    status: LeadStatus.QUALIFIED,
+  },
+  {
+    email: 'lead3@example.com',
+    name: 'Michael Chen',
+    projectAddress: '789 Pine Road, San Francisco, CA 94102',
+    budgetRange: '$20,000+',
+    timeline: '6+ months',
+    projectType: 'Full property transformation',
+    hasSurvey: true,
+    hasDrawings: true,
+    recommendedTier: 3,
+    routingReason: 'High budget with complete documentation',
+    status: LeadStatus.NEEDS_REVIEW,
+  },
+];
 
-  for (const tier of tiers) {
+// ============================================================================
+// SEED FUNCTIONS
+// ============================================================================
+
+async function seedTiers() {
+  console.log('   Seeding tiers...');
+
+  for (const tier of TIERS) {
     await prisma.tier.upsert({
       where: { id: tier.id },
-      update: tier,
-      create: tier,
+      update: {
+        name: tier.name,
+        description: tier.description,
+        features: tier.features,
+      },
+      create: {
+        id: tier.id,
+        name: tier.name,
+        description: tier.description,
+        features: tier.features,
+      },
     });
   }
-  console.log('   ✅ Created 4 tiers\n');
 
-  // ========================================
-  // 2. Create Admin User
-  // ========================================
-  console.log('👤 Creating admin user...');
+  console.log(`   Created ${TIERS.length} tiers`);
+}
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@sage.com' },
-    update: {},
-    create: {
-      email: 'admin@sage.com',
-      name: 'SAGE Admin',
-      passwordHash: hashPassword('Admin123!'),
-      role: 'ADMIN',
-      userType: UserType.ADMIN,
-    },
-  });
-  console.log(`   ✅ Admin user: ${adminUser.email}\n`);
+async function seedUsers() {
+  console.log('   Seeding users...');
 
-  // ========================================
-  // 3. Create Team Member
-  // ========================================
-  console.log('👥 Creating team member...');
+  for (const userData of TEST_USERS) {
+    const passwordHash = await bcrypt.hash(userData.password, 12);
 
-  const teamUser = await prisma.user.upsert({
-    where: { email: 'designer@sage.com' },
-    update: {},
-    create: {
-      email: 'designer@sage.com',
-      name: 'Sarah Designer',
-      passwordHash: hashPassword('Team123!'),
-      role: 'TEAM',
-      userType: UserType.TEAM,
-    },
-  });
-  console.log(`   ✅ Team member: ${teamUser.email}\n`);
-
-  // ========================================
-  // 4. Create Sample Leads
-  // ========================================
-  console.log('📋 Creating sample leads...');
-
-  const leads = [
-    {
-      email: 'john.doe@example.com',
-      name: 'John Doe',
-      projectAddress: '123 Oak Street, Portland, OR 97201',
-      budgetRange: '2000-5000',
-      timeline: '2-4_weeks',
-      projectType: 'small_renovation',
-      hasSurvey: true,
-      hasDrawings: false,
-      recommendedTier: 2,
-      routingReason: 'Budget and timeline suggest Sprout tier',
-      status: LeadStatus.NEW,
-    },
-    {
-      email: 'jane.smith@example.com',
-      name: 'Jane Smith',
-      projectAddress: '456 Maple Avenue, Seattle, WA 98101',
-      budgetRange: '15000-50000',
-      timeline: '2-4_months',
-      projectType: 'full_redesign',
-      hasSurvey: true,
-      hasDrawings: true,
-      recommendedTier: 3,
-      routingReason: 'Large project with existing documentation',
-      status: LeadStatus.QUALIFIED,
-    },
-    {
-      email: 'bob.wilson@example.com',
-      name: 'Bob Wilson',
-      projectAddress: '789 Pine Road, San Francisco, CA 94102',
-      budgetRange: 'under_500',
-      timeline: 'asap',
-      projectType: 'consultation',
-      hasSurvey: false,
-      hasDrawings: false,
-      recommendedTier: 1,
-      routingReason: 'Quick consultation requested',
-      status: LeadStatus.NEW,
-    },
-  ];
-
-  for (const lead of leads) {
-    await prisma.lead.upsert({
-      where: { id: lead.email.replace('@', '-').replace('.', '-') },
-      update: lead,
-      create: lead,
+    await prisma.user.upsert({
+      where: { email: userData.email },
+      update: {
+        name: userData.name,
+        passwordHash,
+        role: userData.role,
+        userType: userData.userType,
+        tier: userData.tier,
+      },
+      create: {
+        email: userData.email,
+        name: userData.name,
+        passwordHash,
+        role: userData.role,
+        userType: userData.userType,
+        tier: userData.tier,
+      },
     });
   }
-  console.log(`   ✅ Created ${leads.length} sample leads\n`);
 
-  // ========================================
-  // 5. Create Demo Client with Project
-  // ========================================
-  console.log('🏠 Creating demo client with project...');
+  console.log(`   Created ${TEST_USERS.length} users`);
+}
 
-  // Create demo client user
-  const demoUser = await prisma.user.upsert({
-    where: { email: 'demo@example.com' },
-    update: {},
-    create: {
-      email: 'demo@example.com',
-      name: 'Demo Client',
-      passwordHash: hashPassword('Demo123!'),
-      role: 'CLIENT',
-      userType: UserType.SAGE_CLIENT,
-      tier: 2,
-    },
+async function seedLeads() {
+  console.log('   Seeding leads...');
+
+  for (const leadData of DEMO_LEADS) {
+    const existingLead = await prisma.lead.findFirst({
+      where: { email: leadData.email },
+    });
+
+    if (!existingLead) {
+      await prisma.lead.create({
+        data: leadData,
+      });
+    }
+  }
+
+  console.log(`   Created ${DEMO_LEADS.length} leads`);
+}
+
+async function seedDemoProject() {
+  console.log('   Seeding demo project...');
+
+  // Find a client user
+  const clientUser = await prisma.user.findFirst({
+    where: { userType: UserType.SAGE_CLIENT },
   });
 
-  // Create client
-  const demoClient = await prisma.client.upsert({
-    where: { userId: demoUser.id },
-    update: {},
-    create: {
-      userId: demoUser.id,
-      tier: 2,
-      status: ClientStatus.ACTIVE,
-      projectAddress: '100 Demo Street, Portland, OR 97201',
-    },
+  if (!clientUser) {
+    console.log('   No client user found, skipping project seed');
+    return;
+  }
+
+  // Check if client record exists
+  let client = await prisma.client.findUnique({
+    where: { userId: clientUser.id },
   });
 
-  // Create project
-  const demoProject = await prisma.project.upsert({
-    where: { id: 'demo-project-001' },
-    update: {},
-    create: {
-      id: 'demo-project-001',
-      clientId: demoClient.id,
-      tier: 2,
+  if (!client) {
+    client = await prisma.client.create({
+      data: {
+        userId: clientUser.id,
+        tier: clientUser.tier || 2,
+        status: ClientStatus.ACTIVE,
+        projectAddress: '100 Demo Street, Portland, OR 97201',
+      },
+    });
+  }
+
+  // Check if demo project exists
+  const existingProject = await prisma.project.findFirst({
+    where: { clientId: client.id },
+  });
+
+  if (existingProject) {
+    console.log('   Demo project already exists, skipping');
+    return;
+  }
+
+  // Create demo project
+  const project = await prisma.project.create({
+    data: {
+      clientId: client.id,
+      tier: client.tier,
       status: ProjectStatus.IN_PROGRESS,
       name: 'Demo Garden Redesign',
       projectAddress: '100 Demo Street, Portland, OR 97201',
@@ -224,7 +270,7 @@ async function main() {
     },
   });
 
-  // Create milestones for the project
+  // Create milestones
   const milestones = [
     { name: 'Intake', order: 1, status: MilestoneStatus.COMPLETED },
     { name: 'Initial Consultation', order: 2, status: MilestoneStatus.COMPLETED },
@@ -235,39 +281,50 @@ async function main() {
   ];
 
   for (const milestone of milestones) {
-    await prisma.milestone.upsert({
-      where: { id: `${demoProject.id}-milestone-${milestone.order}` },
-      update: milestone,
-      create: {
-        id: `${demoProject.id}-milestone-${milestone.order}`,
-        projectId: demoProject.id,
-        tier: 2,
-        ...milestone,
-        completedAt: milestone.status === MilestoneStatus.COMPLETED ? new Date() : null,
+    await prisma.milestone.create({
+      data: {
+        projectId: project.id,
+        tier: project.tier,
+        name: milestone.name,
+        order: milestone.order,
+        status: milestone.status,
+        completedAt: milestone.status === MilestoneStatus.COMPLETED ? new Date() : undefined,
       },
     });
   }
 
-  console.log(`   ✅ Demo client: ${demoUser.email}`);
-  console.log(`   ✅ Demo project: ${demoProject.name}`);
-  console.log(`   ✅ Created ${milestones.length} milestones\n`);
+  console.log(`   Demo project with ${milestones.length} milestones seeded`);
+}
 
-  // ========================================
-  // Summary
-  // ========================================
-  console.log('━'.repeat(50));
-  console.log('🎉 Database seeding complete!\n');
-  console.log('Test Accounts:');
-  console.log('━'.repeat(50));
-  console.log('Admin:    admin@sage.com     / Admin123!');
-  console.log('Team:     designer@sage.com  / Team123!');
-  console.log('Client:   demo@example.com   / Demo123!');
-  console.log('━'.repeat(50));
+// ============================================================================
+// MAIN
+// ============================================================================
+
+async function main() {
+  console.log('');
+  console.log('Starting database seed...');
+  console.log('');
+
+  await seedTiers();
+  await seedUsers();
+  await seedLeads();
+  await seedDemoProject();
+
+  console.log('');
+  console.log('Database seeding complete!');
+  console.log('');
+  console.log('Test accounts:');
+  console.log('----------------------------------------');
+  console.log('Admin:  admin@sage.design / Admin123!');
+  console.log('Team:   team@sage.design / Team123!');
+  console.log('Client: client1@example.com / Client123!');
+  console.log('----------------------------------------');
+  console.log('');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:', e);
+    console.error('Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {

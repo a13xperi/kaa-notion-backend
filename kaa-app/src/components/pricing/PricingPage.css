@@ -1,0 +1,376 @@
+/**
+ * Pricing Page Styles
+ */
+
+.pricing-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.pricing-page__loading,
+.pricing-page__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+}
+
+.pricing-page__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pricing-page__header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.pricing-page__title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.75rem 0;
+}
+
+.pricing-page__subtitle {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.pricing-page__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+/* Pricing Card */
+.pricing-card {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  border: 2px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pricing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+}
+
+.pricing-card--recommended {
+  border-color: #2563eb;
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.15);
+}
+
+.pricing-card--selected {
+  border-color: #22c55e;
+}
+
+.pricing-card__badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2563eb;
+  color: white;
+  padding: 0.375rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pricing-card__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.pricing-card__tier {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.pricing-card__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+}
+
+.pricing-card__highlight {
+  font-size: 0.875rem;
+  color: #2563eb;
+  margin: 0;
+  font-weight: 500;
+}
+
+.pricing-card__price {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.pricing-card__amount {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.pricing-card__term {
+  display: block;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.pricing-card__description {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  text-align: center;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.5;
+}
+
+.pricing-card__features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  flex-grow: 1;
+}
+
+.pricing-card__feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+  color: #374151;
+  padding: 0.5rem 0;
+}
+
+.pricing-card__feature-icon {
+  color: #22c55e;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pricing-card__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+}
+
+.pricing-card__button:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.pricing-card__button--primary {
+  background: #2563eb;
+  color: white;
+}
+
+.pricing-card__button--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.pricing-card__button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.pricing-card__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Tier 4 Section */
+.pricing-page__tier4 {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.pricing-page__tier4-content h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.75rem 0;
+}
+
+.pricing-page__tier4-content p {
+  font-size: 1rem;
+  color: #9ca3af;
+  margin: 0 0 1.5rem 0;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pricing-page__tier4-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #60a5fa;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pricing-page__tier4-link:hover {
+  text-decoration: underline;
+}
+
+/* FAQ Section */
+.pricing-page__faq {
+  padding-top: 2rem;
+}
+
+.pricing-page__faq h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+  margin: 0 0 2rem 0;
+}
+
+.pricing-page__faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.pricing-page__faq-item h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+}
+
+.pricing-page__faq-item p {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .pricing-page__grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .pricing-card--recommended {
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .pricing-page {
+    padding: 2rem 1rem;
+  }
+
+  .pricing-page__title {
+    font-size: 1.75rem;
+  }
+
+  .pricing-page__faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-page__tier4 {
+    padding: 2rem 1.5rem;
+  }
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .pricing-page__title {
+    color: #f9fafb;
+  }
+
+  .pricing-page__subtitle {
+    color: #9ca3af;
+  }
+
+  .pricing-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .pricing-card--recommended {
+    border-color: #3b82f6;
+  }
+
+  .pricing-card__name,
+  .pricing-card__amount {
+    color: #f9fafb;
+  }
+
+  .pricing-card__tier,
+  .pricing-card__description,
+  .pricing-card__term {
+    color: #9ca3af;
+  }
+
+  .pricing-card__feature {
+    color: #d1d5db;
+  }
+
+  .pricing-card__button {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .pricing-card__button:hover:not(:disabled) {
+    background: #4b5563;
+  }
+
+  .pricing-page__faq h2,
+  .pricing-page__faq-item h4 {
+    color: #f9fafb;
+  }
+
+  .pricing-page__faq-item p {
+    color: #9ca3af;
+  }
+}

@@ -1,219 +1,204 @@
+/**
+ * useDeliverables Hook
+ * Fetch deliverables by project ID with React Query.
+ * Handles loading, error, and success states.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectKeys } from './useProject';
+import {
+  fetchDeliverables,
+  fetchDeliverable,
+  getDeliverableDownloadUrl,
+  uploadDeliverable,
+  deleteDeliverable,
+  downloadDeliverable,
+  FetchDeliverablesParams,
+} from '../api/portalApi';
+import { Deliverable, DeliverableCategory, DeliverableDownload } from '../types/portal.types';
 
-// Types
-export interface Deliverable {
-  id: string;
-  name: string;
-  fileType: string;
-  fileSize: number;
-  category?: string | null;
-  description?: string | null;
-  uploadedAt: string;
-  milestoneId?: string | null;
-  milestoneName?: string | null;
-  thumbnailUrl?: string | null;
-}
+// ============================================================================
+// QUERY KEYS
+// ============================================================================
 
-export interface DeliverablesResponse {
-  success: boolean;
-  data: {
-    deliverables: Deliverable[];
-    groupedByCategory?: Record<string, Deliverable[]>;
-    groupedByMilestone?: Record<string, Deliverable[]>;
-    totalCount: number;
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-export interface DownloadUrlResponse {
-  success: boolean;
-  data: {
-    url: string;
-    expiresAt: string;
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-export interface UseDeliverablesOptions {
-  projectId: string;
-  enabled?: boolean;
-  groupBy?: 'category' | 'milestone' | 'none';
-}
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
-// Fetch deliverables for a project
-async function fetchDeliverables(projectId: string): Promise<DeliverablesResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/projects/${projectId}/deliverables`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Project not found');
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to fetch deliverables: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Get download URL for a deliverable
-async function getDownloadUrl(deliverableId: string): Promise<DownloadUrlResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/deliverables/${deliverableId}/download`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Deliverable not found');
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to get download URL: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Query key factory
-export const deliverablesKeys = {
+export const deliverableKeys = {
   all: ['deliverables'] as const,
-  lists: () => [...deliverablesKeys.all, 'list'] as const,
-  list: (projectId: string) => [...deliverablesKeys.lists(), projectId] as const,
-  download: (deliverableId: string) => [...deliverablesKeys.all, 'download', deliverableId] as const,
+  lists: () => [...deliverableKeys.all, 'list'] as const,
+  list: (projectId: string, params: FetchDeliverablesParams) =>
+    [...deliverableKeys.lists(), projectId, params] as const,
+  details: () => [...deliverableKeys.all, 'detail'] as const,
+  detail: (id: string) => [...deliverableKeys.details(), id] as const,
+  download: (id: string) => [...deliverableKeys.all, 'download', id] as const,
 };
 
+// ============================================================================
+// HOOKS
+// ============================================================================
+
 /**
- * Hook to fetch deliverables for a project with download functionality
- *
- * @example
- * ```tsx
- * const {
- *   deliverables,
- *   isLoading,
- *   downloadDeliverable,
- *   isDownloading
- * } = useDeliverables({ projectId: 'abc123' });
- *
- * if (isLoading) return <GridSkeleton />;
- *
- * return (
- *   <DeliverableList
- *     deliverables={deliverables}
- *     onDownload={(id) => downloadDeliverable(id)}
- *   />
- * );
- * ```
+ * Fetch all deliverables for a project
  */
-export function useDeliverables(options: UseDeliverablesOptions) {
-  const { projectId, enabled = true, groupBy = 'none' } = options;
+export function useDeliverables(
+  projectId: string | undefined,
+  params: FetchDeliverablesParams = {}
+) {
+  return useQuery({
+    queryKey: deliverableKeys.list(projectId || '', params),
+    queryFn: () => fetchDeliverables(projectId!, params),
+    select: (response) => ({
+      deliverables: response.data.deliverables,
+      summary: response.data.summary,
+      projectName: response.data.projectName,
+      success: response.success,
+    }),
+    enabled: !!projectId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch a single deliverable by ID
+ */
+export function useDeliverable(deliverableId: string | undefined) {
+  return useQuery({
+    queryKey: deliverableKeys.detail(deliverableId || ''),
+    queryFn: () => fetchDeliverable(deliverableId!),
+    select: (response) => response.data,
+    enabled: !!deliverableId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Get download URL for a deliverable
+ */
+export function useDeliverableDownloadUrl(deliverableId: string | undefined) {
+  return useQuery({
+    queryKey: deliverableKeys.download(deliverableId || ''),
+    queryFn: () => getDeliverableDownloadUrl(deliverableId!),
+    select: (response) => response.data,
+    enabled: !!deliverableId,
+    staleTime: 55 * 60 * 1000, // 55 minutes (URL expires in 60)
+    gcTime: 60 * 60 * 1000,
+  });
+}
+
+/**
+ * Mutation to upload a new deliverable
+ */
+export function useUploadDeliverable() {
   const queryClient = useQueryClient();
 
-  const query = useQuery<DeliverablesResponse, Error>({
-    queryKey: deliverablesKeys.list(projectId),
-    queryFn: () => fetchDeliverables(projectId),
-    enabled: enabled && !!projectId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
-  });
-
-  // Mutation for getting download URL and triggering download
-  const downloadMutation = useMutation({
-    mutationFn: async (deliverableId: string) => {
-      const result = await getDownloadUrl(deliverableId);
-      // Trigger download
-      if (result.success && result.data.url) {
-        const link = document.createElement('a');
-        link.href = result.data.url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      return result;
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      data,
+    }: {
+      projectId: string;
+      data: {
+        name: string;
+        category: string;
+        description?: string;
+        filePath: string;
+        fileUrl: string;
+        fileSize: number;
+        fileType: string;
+      };
+    }) => uploadDeliverable(projectId, data),
+    onSuccess: (data, variables) => {
+      // Invalidate the deliverables list for this project
+      queryClient.invalidateQueries({
+        queryKey: deliverableKeys.lists(),
+        predicate: (query) =>
+          Array.isArray(query.queryKey) && query.queryKey.includes(variables.projectId),
+      });
     },
   });
+}
 
-  const data = query.data?.data;
+/**
+ * Mutation to delete a deliverable
+ */
+export function useDeleteDeliverable() {
+  const queryClient = useQueryClient();
 
-  // Group deliverables based on groupBy option
-  const groupedDeliverables = (() => {
-    if (!data?.deliverables) return {};
+  return useMutation({
+    mutationFn: (deliverableId: string) => deleteDeliverable(deliverableId),
+    onSuccess: () => {
+      // Invalidate all deliverable lists
+      queryClient.invalidateQueries({ queryKey: deliverableKeys.lists() });
+    },
+  });
+}
 
-    if (groupBy === 'none') {
-      return { all: data.deliverables };
-    }
+/**
+ * Hook to trigger download of a deliverable
+ */
+export function useDownloadDeliverable() {
+  return useMutation({
+    mutationFn: (deliverableId: string) => downloadDeliverable(deliverableId),
+  });
+}
 
-    if (groupBy === 'category' && data.groupedByCategory) {
-      return data.groupedByCategory;
-    }
+// ============================================================================
+// DERIVED HOOKS
+// ============================================================================
 
-    if (groupBy === 'milestone' && data.groupedByMilestone) {
-      return data.groupedByMilestone;
-    }
+/**
+ * Fetch deliverables filtered by category
+ */
+export function useDeliverablesByCategory(
+  projectId: string | undefined,
+  category: DeliverableCategory
+) {
+  return useDeliverables(projectId, { category });
+}
 
-    // Manual grouping if not provided by API
-    const grouped: Record<string, Deliverable[]> = {};
-    data.deliverables.forEach((d) => {
-      const key = groupBy === 'category'
-        ? (d.category || 'Uncategorized')
-        : (d.milestoneName || 'Other');
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(d);
-    });
-    return grouped;
-  })();
+/**
+ * Get deliverable statistics for a project
+ */
+export function useDeliverableStats(projectId: string | undefined) {
+  const { data, isLoading } = useDeliverables(projectId);
+
+  if (!data) {
+    return {
+      isLoading,
+      stats: null,
+    };
+  }
 
   return {
-    // Data
-    deliverables: data?.deliverables ?? [],
-    groupedDeliverables,
-    totalCount: data?.totalCount ?? 0,
-
-    // Status
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    isSuccess: query.isSuccess,
-
-    // Error
-    error: query.error,
-
-    // Actions
-    refetch: query.refetch,
-    downloadDeliverable: downloadMutation.mutate,
-    downloadDeliverableAsync: downloadMutation.mutateAsync,
-
-    // Download status
-    isDownloading: downloadMutation.isPending,
-    downloadingId: downloadMutation.variables,
-    downloadError: downloadMutation.error,
-
-    // Raw query for advanced usage
-    query,
+    isLoading: false,
+    stats: {
+      total: data.summary.total,
+      totalSize: data.summary.totalSize,
+      totalSizeFormatted: data.summary.totalSizeFormatted,
+      byCategory: data.summary.byCategory,
+      categories: Object.keys(data.summary.byCategory),
+    },
   };
 }
 
-export default useDeliverables;
+/**
+ * Get recent deliverables for a project
+ */
+export function useRecentDeliverables(projectId: string | undefined, limit: number = 5) {
+  const { data, isLoading, error } = useDeliverables(projectId);
+
+  const recentDeliverables = data?.deliverables
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+
+  return {
+    isLoading,
+    error,
+    deliverables: recentDeliverables || [],
+  };
+}
+
+// ============================================================================
+// TYPE EXPORTS
+// ============================================================================
+
+export type { Deliverable, DeliverableCategory, DeliverableDownload, FetchDeliverablesParams };

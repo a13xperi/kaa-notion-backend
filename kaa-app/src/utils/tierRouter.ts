@@ -1,309 +1,260 @@
 /**
- * Tier Router - Determines service tier recommendations based on intake form data
- *
- * Tier Definitions:
- * - Tier 1: The Concept (No-Touch, Fully Automated) - $299
- * - Tier 2: The Builder (Low-Touch, Systematized) - $1,499
- * - Tier 3: The Concierge (Site Visits, Hybrid) - $4,999+
- * - Tier 4: KAA White Glove (High-Touch, Invitation Only) - Premium/Custom
+ * Tier Router
+ * Deterministic tier recommendation based on intake form data.
+ * Uses configuration from sageTiers.ts as the single source of truth.
  */
 
-// Budget range options (aligned with Stripe products)
-export type BudgetRange =
-  | 'under_500'      // < $500 - Tier 1
-  | '500_2000'       // $500 - $2,000 - Tier 1-2
-  | '2000_5000'      // $2,000 - $5,000 - Tier 2
-  | '5000_15000'     // $5,000 - $15,000 - Tier 2-3
-  | '15000_50000'    // $15,000 - $50,000 - Tier 3
-  | 'over_50000'     // $50,000+ - Tier 3-4
-  | 'percentage'     // % of install - Tier 4
-  | 'not_sure';      // Needs review
+import {
+  TierId,
+  ProjectType,
+  TimelineCategory,
+  BUDGET_THRESHOLDS,
+  TIMELINE_WEEKS,
+  TIER_DEFINITIONS,
+  PROJECT_TYPE_ROUTING,
+  ASSET_ROUTING,
+  RED_FLAGS,
+  getTierForBudget,
+  getTimelineCategory,
+  getProjectTypeInfo,
+  formatBudget,
+} from '../config/sageTiers';
 
-// Timeline options
-export type Timeline =
-  | 'asap'           // < 2 weeks - Fast track
-  | '2_4_weeks'      // 2-4 weeks - Tier 1
-  | '1_2_months'     // 4-8 weeks - Tier 2
-  | '2_4_months'     // 8-16 weeks - Tier 3
-  | '4_plus_months'  // 4+ months - Tier 3-4
-  | 'flexible';      // No rush - Any tier
+// ============================================================================
+// TYPES
+// ============================================================================
 
-// Project type options
-export type ProjectType =
-  | 'simple_consultation'  // Quick advice - Tier 1
-  | 'small_renovation'     // Minor changes - Tier 1-2
-  | 'standard_renovation'  // Full renovation - Tier 2
-  | 'addition'             // Home addition - Tier 2-3
-  | 'new_build'            // New construction - Tier 3-4
-  | 'commercial'           // Commercial project - Tier 4
-  | 'multiple_properties'  // Multiple sites - Tier 4
-  | 'complex';             // Complex/custom - Tier 4
-
-/**
- * Input data from the intake form
- */
 export interface IntakeFormData {
-  budgetRange: BudgetRange | string;
-  timeline: Timeline | string;
-  projectType: ProjectType | string;
+  /** Budget amount in dollars */
+  budget: number;
+  /** Timeline in weeks */
+  timelineWeeks: number;
+  /** Type of project */
+  projectType: ProjectType;
+  /** Whether client has an existing survey */
   hasSurvey: boolean;
+  /** Whether client has existing drawings */
   hasDrawings: boolean;
-  projectAddress: string;
-  email?: string;
-  name?: string;
+  /** Project address (optional, for location-based adjustments) */
+  projectAddress?: string;
 }
 
-/**
- * Confidence level for the tier recommendation
- */
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
-/**
- * Output from the tier router
- */
-export interface TierRecommendation {
-  tier: 1 | 2 | 3 | 4;
-  reason: string;
-  confidence: ConfidenceLevel;
-  needsManualReview: boolean;
-  factors: TierFactor[];
-}
-
-/**
- * Individual factor that influenced the tier recommendation
- */
-export interface TierFactor {
-  factor: 'budget' | 'timeline' | 'project_type' | 'assets' | 'complexity';
-  suggestedTier: 1 | 2 | 3 | 4;
-  weight: number;
+export interface RoutingReason {
+  factor: 'budget' | 'timeline' | 'assets' | 'project_type' | 'red_flag';
   description: string;
+  suggestedTier: TierId;
+  weight: number;
 }
 
-/**
- * Configuration for tier thresholds
- * Can be overridden with environment variables or database config
- */
-export interface TierConfig {
-  budgetThresholds: {
-    tier1Max: number;
-    tier2Max: number;
-    tier3Max: number;
-  };
-  timelineWeeks: {
-    fastTrack: number;
-    standard: number;
-    extended: number;
-  };
+export interface TierRecommendation {
+  /** Recommended tier (1-4) */
+  tier: TierId;
+  /** Human-readable reason for the recommendation */
+  reason: string;
+  /** Confidence level in the recommendation */
+  confidence: ConfidenceLevel;
+  /** Whether manual review is required */
+  needsManualReview: boolean;
+  /** Detailed breakdown of routing factors */
+  factors: RoutingReason[];
+  /** Any red flags detected */
+  redFlags: string[];
+  /** Alternative tiers that could apply */
+  alternativeTiers: TierId[];
 }
 
-const DEFAULT_CONFIG: TierConfig = {
-  budgetThresholds: {
-    tier1Max: 500,
-    tier2Max: 5000,
-    tier3Max: 50000,
-  },
-  timelineWeeks: {
-    fastTrack: 2,
-    standard: 8,
-    extended: 16,
-  },
-};
+// ============================================================================
+// SCORING WEIGHTS
+// ============================================================================
+
+const FACTOR_WEIGHTS = {
+  budget: 40,
+  timeline: 20,
+  assets: 25,
+  project_type: 15,
+} as const;
+
+// ============================================================================
+// TIER ROUTER IMPLEMENTATION
+// ============================================================================
 
 /**
- * Analyze budget range and suggest a tier
+ * Analyzes budget and returns routing reason
  */
-function analyzeBudget(budgetRange: string): TierFactor {
-  let suggestedTier: 1 | 2 | 3 | 4;
+function analyzeBudget(budget: number): RoutingReason {
+  const tier = getTierForBudget(budget);
+  const thresholds = BUDGET_THRESHOLDS;
+
   let description: string;
-  let weight = 3; // Budget is a high-weight factor
-
-  switch (budgetRange) {
-    case 'under_500':
-      suggestedTier = 1;
-      description = 'Budget range aligns with Tier 1 (The Concept)';
-      break;
-    case '500_2000':
-      suggestedTier = 1;
-      description = 'Budget range suitable for Tier 1-2 services';
-      break;
-    case '2000_5000':
-      suggestedTier = 2;
-      description = 'Budget range aligns with Tier 2 (The Builder)';
-      break;
-    case '5000_15000':
-      suggestedTier = 2;
-      description = 'Mid-range budget suitable for Tier 2-3';
-      weight = 2;
-      break;
-    case '15000_50000':
-      suggestedTier = 3;
-      description = 'Budget range aligns with Tier 3 (The Concierge)';
-      break;
-    case 'over_50000':
-      suggestedTier = 4;
-      description = 'Premium budget may qualify for Tier 4 (KAA White Glove)';
-      break;
-    case 'percentage':
-      suggestedTier = 4;
-      description = 'Percentage-based pricing indicates Tier 4 project';
-      break;
-    case 'not_sure':
-      suggestedTier = 2;
-      description = 'Budget unclear - defaulting to mid-tier, needs review';
-      weight = 1;
-      break;
-    default:
-      suggestedTier = 2;
-      description = 'Unknown budget range - defaulting to mid-tier';
-      weight = 1;
+  if (budget < thresholds.TIER_1_MIN) {
+    description = `Budget (${formatBudget(budget)}) is below minimum threshold`;
+  } else if (budget < thresholds.TIER_2_MIN) {
+    description = `Budget (${formatBudget(budget)}) fits Tier 1 range (${formatBudget(thresholds.TIER_1_MIN)} - ${formatBudget(thresholds.TIER_1_MAX)})`;
+  } else if (budget < thresholds.TIER_3_MIN) {
+    description = `Budget (${formatBudget(budget)}) fits Tier 2 range (${formatBudget(thresholds.TIER_2_MIN)} - ${formatBudget(thresholds.TIER_2_MAX)})`;
+  } else if (budget < thresholds.TIER_4_MIN) {
+    description = `Budget (${formatBudget(budget)}) fits Tier 3 range (${formatBudget(thresholds.TIER_3_MIN)} - ${formatBudget(thresholds.TIER_3_MAX)})`;
+  } else {
+    description = `Budget (${formatBudget(budget)}) qualifies for Tier 4 (${formatBudget(thresholds.TIER_4_MIN)}+)`;
   }
 
   return {
     factor: 'budget',
-    suggestedTier,
-    weight,
     description,
+    suggestedTier: tier,
+    weight: FACTOR_WEIGHTS.budget,
   };
 }
 
 /**
- * Analyze timeline and suggest a tier
+ * Analyzes timeline and returns routing reason
  */
-function analyzeTimeline(timeline: string): TierFactor {
-  let suggestedTier: 1 | 2 | 3 | 4;
+function analyzeTimeline(weeks: number): RoutingReason {
+  const category = getTimelineCategory(weeks);
+  let suggestedTier: TierId;
   let description: string;
-  let weight = 2; // Timeline is a medium-weight factor
 
-  switch (timeline) {
-    case 'asap':
+  switch (category) {
+    case 'fast':
       suggestedTier = 1;
-      description = 'Fast turnaround requires automated Tier 1-2 process';
-      weight = 3; // Tight timeline is important
+      description = `Fast timeline (${weeks} weeks) suits automated Tier 1/2 delivery`;
       break;
-    case '2_4_weeks':
-      suggestedTier = 1;
-      description = 'Short timeline aligns with Tier 1 delivery';
-      break;
-    case '1_2_months':
+    case 'standard':
       suggestedTier = 2;
-      description = 'Standard timeline suitable for Tier 2';
+      description = `Standard timeline (${weeks} weeks) allows for Tier 1-3 options`;
       break;
-    case '2_4_months':
+    case 'extended':
       suggestedTier = 3;
-      description = 'Extended timeline allows for Tier 3 site visits';
+      description = `Extended timeline (${weeks} weeks) indicates complex project requiring Tier 3/4`;
       break;
-    case '4_plus_months':
-      suggestedTier = 3;
-      description = 'Long timeline suitable for complex Tier 3-4 projects';
-      break;
-    case 'flexible':
-      suggestedTier = 2;
-      description = 'Flexible timeline - tier based on other factors';
-      weight = 1;
-      break;
-    default:
-      suggestedTier = 2;
-      description = 'Unknown timeline - defaulting to standard';
-      weight = 1;
   }
 
   return {
     factor: 'timeline',
-    suggestedTier,
-    weight,
     description,
+    suggestedTier,
+    weight: FACTOR_WEIGHTS.timeline,
   };
 }
 
 /**
- * Analyze project type and suggest a tier
+ * Analyzes existing assets and returns routing reason
  */
-function analyzeProjectType(projectType: string): TierFactor {
-  let suggestedTier: 1 | 2 | 3 | 4;
-  let description: string;
-  let weight = 3; // Project type is a high-weight factor
+function analyzeAssets(hasSurvey: boolean, hasDrawings: boolean): RoutingReason {
+  const assetMatch = ASSET_ROUTING.find(
+    (a) => a.hasSurvey === hasSurvey && a.hasDrawings === hasDrawings
+  );
 
-  switch (projectType) {
-    case 'simple_consultation':
-      suggestedTier = 1;
-      description = 'Simple consultation fits Tier 1 automated guidance';
-      break;
-    case 'small_renovation':
-      suggestedTier = 1;
-      description = 'Small renovation suitable for Tier 1-2';
-      break;
-    case 'standard_renovation':
-      suggestedTier = 2;
-      description = 'Standard renovation aligns with Tier 2 package';
-      break;
-    case 'addition':
-      suggestedTier = 2;
-      description = 'Addition project may need Tier 2-3 depending on scope';
-      weight = 2;
-      break;
-    case 'new_build':
-      suggestedTier = 3;
-      description = 'New build requires Tier 3+ site visits and planning';
-      break;
-    case 'commercial':
-      suggestedTier = 4;
-      description = 'Commercial projects require Tier 4 white-glove service';
-      break;
-    case 'multiple_properties':
-      suggestedTier = 4;
-      description = 'Multiple properties require Tier 4 coordination';
-      break;
-    case 'complex':
-      suggestedTier = 4;
-      description = 'Complex project requires Tier 4 custom approach';
-      break;
-    default:
-      suggestedTier = 2;
-      description = 'Unknown project type - defaulting to mid-tier';
-      weight = 1;
+  if (!assetMatch) {
+    return {
+      factor: 'assets',
+      description: 'Unable to determine asset status',
+      suggestedTier: 3,
+      weight: FACTOR_WEIGHTS.assets,
+    };
   }
 
-  return {
-    factor: 'project_type',
-    suggestedTier,
-    weight,
-    description,
-  };
-}
-
-/**
- * Analyze existing assets and suggest a tier
- */
-function analyzeAssets(hasSurvey: boolean, hasDrawings: boolean): TierFactor {
-  let suggestedTier: 1 | 2 | 3 | 4;
+  const suggestedTier = assetMatch.eligibleTiers[0];
   let description: string;
-  let weight = 2; // Assets are a medium-weight factor
 
   if (hasSurvey && hasDrawings) {
-    suggestedTier = 1;
-    description = 'Has survey and drawings - ready for Tier 1-2 fast track';
-    weight = 3;
+    description = 'Has both survey and drawings - ready for streamlined delivery (Tier 1/2)';
   } else if (hasSurvey || hasDrawings) {
-    suggestedTier = 2;
-    description = 'Partial assets - some preparation needed (Tier 2)';
+    description = `Has ${hasSurvey ? 'survey' : 'drawings'} only - some additional work needed (Tier 2/3)`;
   } else {
-    suggestedTier = 3;
-    description = 'No existing assets - site visit required (Tier 3+)';
-    weight = 3;
+    description = 'No existing assets - site visit required (Tier 3/4)';
   }
 
   return {
     factor: 'assets',
-    suggestedTier,
-    weight,
     description,
+    suggestedTier,
+    weight: FACTOR_WEIGHTS.assets,
   };
 }
 
 /**
- * Calculate weighted average tier from all factors
+ * Analyzes project type and returns routing reason
  */
-function calculateWeightedTier(factors: TierFactor[]): number {
+function analyzeProjectType(projectType: ProjectType): RoutingReason {
+  const typeInfo = getProjectTypeInfo(projectType);
+
+  if (!typeInfo) {
+    return {
+      factor: 'project_type',
+      description: `Unknown project type: ${projectType}`,
+      suggestedTier: 3,
+      weight: FACTOR_WEIGHTS.project_type,
+    };
+  }
+
+  const suggestedTier = typeInfo.eligibleTiers[0];
+  const siteVisitNote = typeInfo.requiresSiteVisit ? ' (site visit required)' : '';
+
+  return {
+    factor: 'project_type',
+    description: `${typeInfo.label} project eligible for Tier ${typeInfo.eligibleTiers.join('/')}${siteVisitNote}`,
+    suggestedTier,
+    weight: FACTOR_WEIGHTS.project_type,
+  };
+}
+
+/**
+ * Detects red flags that require manual review
+ */
+function detectRedFlags(data: IntakeFormData, factors: RoutingReason[]): string[] {
+  const redFlags: string[] = [];
+  const budgetTier = getTierForBudget(data.budget);
+  const timelineCategory = getTimelineCategory(data.timelineWeeks);
+  const projectInfo = getProjectTypeInfo(data.projectType);
+
+  // Budget below minimum
+  if (data.budget < BUDGET_THRESHOLDS.TIER_1_MIN) {
+    redFlags.push('Budget below minimum threshold');
+  }
+
+  // Unrealistic timeline for complex projects
+  if (
+    timelineCategory === 'fast' &&
+    (data.projectType === 'new_build' ||
+      data.projectType === 'complex' ||
+      data.projectType === 'major_renovation')
+  ) {
+    redFlags.push('Timeline unrealistic for project complexity');
+  }
+
+  // No assets but expecting fast delivery
+  if (!data.hasSurvey && !data.hasDrawings && data.timelineWeeks < TIMELINE_WEEKS.FAST_MAX) {
+    redFlags.push('No existing assets but expecting fast delivery');
+  }
+
+  // Complex project with low budget
+  if (
+    (data.projectType === 'complex' || data.projectType === 'multiple_properties') &&
+    budgetTier < 3
+  ) {
+    redFlags.push('Complex project type with insufficient budget');
+  }
+
+  // Budget-timeline mismatch (high budget but fast timeline)
+  if (budgetTier >= 3 && timelineCategory === 'fast') {
+    redFlags.push('High budget project with unrealistic timeline');
+  }
+
+  // Multiple properties always needs review
+  if (data.projectType === 'multiple_properties') {
+    redFlags.push('Multiple properties require white-glove service evaluation');
+  }
+
+  return redFlags;
+}
+
+/**
+ * Calculates weighted tier score from all factors
+ */
+function calculateWeightedTier(factors: RoutingReason[]): TierId {
   let totalWeight = 0;
   let weightedSum = 0;
 
@@ -312,219 +263,161 @@ function calculateWeightedTier(factors: TierFactor[]): number {
     totalWeight += factor.weight;
   }
 
-  return totalWeight > 0 ? weightedSum / totalWeight : 2;
+  const weightedAverage = weightedSum / totalWeight;
+  // Round to nearest tier (1-4)
+  return Math.max(1, Math.min(4, Math.round(weightedAverage))) as TierId;
 }
 
 /**
- * Determine confidence level based on factor agreement
+ * Determines confidence level based on factor agreement
  */
-function determineConfidence(factors: TierFactor[], finalTier: number): ConfidenceLevel {
-  const tierSuggestions = factors.map(f => f.suggestedTier);
-  const agreementCount = tierSuggestions.filter(t => t === finalTier).length;
-  const totalFactors = factors.length;
+function calculateConfidence(factors: RoutingReason[], finalTier: TierId): ConfidenceLevel {
+  // Count how many factors agree with the final tier (within 1 tier)
+  const agreementCount = factors.filter(
+    (f) => Math.abs(f.suggestedTier - finalTier) <= 1
+  ).length;
 
-  // Check for conflicting high-weight factors
-  const highWeightFactors = factors.filter(f => f.weight >= 3);
-  const highWeightConflict = highWeightFactors.some(f =>
-    Math.abs(f.suggestedTier - finalTier) >= 2
-  );
+  const agreementRatio = agreementCount / factors.length;
 
-  if (highWeightConflict) {
-    return 'low';
-  }
-
-  const agreementRatio = agreementCount / totalFactors;
-
-  if (agreementRatio >= 0.75) {
-    return 'high';
-  } else if (agreementRatio >= 0.5) {
-    return 'medium';
-  } else {
-    return 'low';
-  }
+  if (agreementRatio >= 0.75) return 'high';
+  if (agreementRatio >= 0.5) return 'medium';
+  return 'low';
 }
 
 /**
- * Determine if manual review is needed
+ * Gets alternative tiers that could also apply
  */
-function needsReview(
-  tier: number,
-  confidence: ConfidenceLevel,
-  factors: TierFactor[],
-  data: IntakeFormData
-): boolean {
-  // Tier 4 always needs manual review (we choose the client)
-  if (tier === 4) {
-    return true;
-  }
+function getAlternativeTiers(factors: RoutingReason[], finalTier: TierId): TierId[] {
+  const uniqueTiers = new Set(factors.map((f) => f.suggestedTier));
+  uniqueTiers.delete(finalTier);
 
-  // Low confidence needs review
-  if (confidence === 'low') {
-    return true;
-  }
-
-  // Budget unclear needs review
-  if (data.budgetRange === 'not_sure') {
-    return true;
-  }
-
-  // ASAP timeline with high tier needs review (may not be feasible)
-  if (data.timeline === 'asap' && tier >= 3) {
-    return true;
-  }
-
-  // Complex or commercial projects always need review
-  if (data.projectType === 'complex' ||
-      data.projectType === 'commercial' ||
-      data.projectType === 'multiple_properties') {
-    return true;
-  }
-
-  // High-weight factor suggests significantly different tier
-  const majorMismatch = factors.some(f =>
-    f.weight >= 3 && Math.abs(f.suggestedTier - tier) >= 2
-  );
-  if (majorMismatch) {
-    return true;
-  }
-
-  return false;
+  return Array.from(uniqueTiers)
+    .filter((t) => Math.abs(t - finalTier) === 1) // Only adjacent tiers
+    .sort((a, b) => a - b);
 }
 
 /**
- * Generate human-readable reason for tier recommendation
+ * Main tier recommendation function
+ * Returns a deterministic tier recommendation based on intake form data
  */
-function generateReason(factors: TierFactor[], tier: number): string {
-  // Get the most influential factors (highest weight)
-  const sortedFactors = [...factors].sort((a, b) => b.weight - a.weight);
-  const topFactors = sortedFactors.slice(0, 3);
-
-  const reasons = topFactors
-    .filter(f => f.suggestedTier === tier || Math.abs(f.suggestedTier - tier) <= 1)
-    .map(f => f.description);
-
-  if (reasons.length === 0) {
-    return `Tier ${tier} recommended based on weighted analysis of project factors`;
-  }
-
-  return reasons.join('; ');
-}
-
-/**
- * Main tier router function
- * Analyzes intake form data and returns a tier recommendation
- */
-export function recommendTier(
-  data: IntakeFormData,
-  config: TierConfig = DEFAULT_CONFIG
-): TierRecommendation {
+export function recommendTier(data: IntakeFormData): TierRecommendation {
   // Analyze each factor
-  const factors: TierFactor[] = [
-    analyzeBudget(data.budgetRange),
-    analyzeTimeline(data.timeline),
-    analyzeProjectType(data.projectType),
+  const factors: RoutingReason[] = [
+    analyzeBudget(data.budget),
+    analyzeTimeline(data.timelineWeeks),
     analyzeAssets(data.hasSurvey, data.hasDrawings),
+    analyzeProjectType(data.projectType),
   ];
 
+  // Detect red flags
+  const redFlags = detectRedFlags(data, factors);
+
   // Calculate weighted tier
-  const weightedTier = calculateWeightedTier(factors);
+  let tier = calculateWeightedTier(factors);
 
-  // Round to nearest tier (1-4)
-  let tier = Math.round(weightedTier);
-  tier = Math.max(1, Math.min(4, tier)) as 1 | 2 | 3 | 4;
+  // Apply hard rules that override weighted calculation
+  // Rule: No assets always means at least Tier 3
+  if (!data.hasSurvey && !data.hasDrawings && tier < 3) {
+    tier = 3;
+  }
 
-  // Determine confidence
-  const confidence = determineConfidence(factors, tier);
+  // Rule: New build or complex projects always Tier 3+
+  if (
+    (data.projectType === 'new_build' ||
+      data.projectType === 'complex' ||
+      data.projectType === 'multiple_properties') &&
+    tier < 3
+  ) {
+    tier = data.projectType === 'multiple_properties' ? 4 : 3;
+  }
 
-  // Check if manual review is needed
-  const manualReview = needsReview(tier, confidence, factors, data);
+  // Rule: Very high budget goes to Tier 4
+  if (data.budget >= BUDGET_THRESHOLDS.TIER_4_MIN) {
+    tier = Math.max(tier, 4) as TierId;
+  }
 
-  // Generate reason
-  const reason = generateReason(factors, tier);
+  // Calculate confidence
+  const confidence = calculateConfidence(factors, tier);
+
+  // Determine if manual review is needed
+  const needsManualReview =
+    tier === 4 || // Tier 4 always needs review
+    confidence === 'low' ||
+    redFlags.length > 0 ||
+    TIER_DEFINITIONS[tier].requiresManualReview;
+
+  // Get alternative tiers
+  const alternativeTiers = getAlternativeTiers(factors, tier);
+
+  // Build human-readable reason
+  const primaryFactors = factors
+    .filter((f) => f.suggestedTier === tier || Math.abs(f.suggestedTier - tier) <= 1)
+    .map((f) => f.description);
+
+  const reason = primaryFactors.slice(0, 2).join('. ') + '.';
 
   return {
     tier,
     reason,
     confidence,
-    needsManualReview: manualReview,
+    needsManualReview,
     factors,
+    redFlags,
+    alternativeTiers,
   };
 }
 
 /**
- * Get tier display information
+ * Validates intake form data before routing
  */
-export interface TierInfo {
-  id: 1 | 2 | 3 | 4;
-  name: string;
-  tagline: string;
-  priceDisplay: string;
-  features: string[];
-}
+export function validateIntakeData(data: Partial<IntakeFormData>): string[] {
+  const errors: string[] = [];
 
-export function getTierInfo(tier: 1 | 2 | 3 | 4): TierInfo {
-  const tiers: Record<number, TierInfo> = {
-    1: {
-      id: 1,
-      name: 'The Concept',
-      tagline: 'DIY Guidance',
-      priceDisplay: '$299',
-      features: [
-        'Professional concept design',
-        'Plant and material recommendations',
-        'DIY implementation guide',
-        'Digital delivery in 2-4 weeks',
-      ],
-    },
-    2: {
-      id: 2,
-      name: 'The Builder',
-      tagline: 'Design Package',
-      priceDisplay: '$1,499',
-      features: [
-        'Complete design package',
-        'Detailed planting plans',
-        'Material specifications',
-        'Designer review sessions',
-        'Revision rounds included',
-      ],
-    },
-    3: {
-      id: 3,
-      name: 'The Concierge',
-      tagline: 'Full Service',
-      priceDisplay: 'Starting at $4,999',
-      features: [
-        'On-site consultation',
-        'Complete design and planning',
-        'Contractor coordination',
-        'Project management',
-        'Multiple revision rounds',
-      ],
-    },
-    4: {
-      id: 4,
-      name: 'KAA White Glove',
-      tagline: 'Luxury Service',
-      priceDisplay: 'By Invitation',
-      features: [
-        'Exclusive, invitation-only service',
-        'Dedicated design team',
-        'Full project oversight',
-        'Premium materials sourcing',
-        'Ongoing maintenance planning',
-      ],
-    },
-  };
+  if (data.budget === undefined || data.budget < 0) {
+    errors.push('Budget is required and must be a positive number');
+  }
 
-  return tiers[tier];
+  if (data.timelineWeeks === undefined || data.timelineWeeks < 1) {
+    errors.push('Timeline is required and must be at least 1 week');
+  }
+
+  if (!data.projectType) {
+    errors.push('Project type is required');
+  }
+
+  if (data.hasSurvey === undefined) {
+    errors.push('Survey status is required');
+  }
+
+  if (data.hasDrawings === undefined) {
+    errors.push('Drawings status is required');
+  }
+
+  return errors;
 }
 
 /**
- * Get all tiers for comparison display
+ * Gets a summary of the tier recommendation for display
  */
-export function getAllTiers(): TierInfo[] {
-  return [1, 2, 3, 4].map(tier => getTierInfo(tier as 1 | 2 | 3 | 4));
+export function getTierSummary(recommendation: TierRecommendation): string {
+  const tierDef = TIER_DEFINITIONS[recommendation.tier];
+  const reviewStatus = recommendation.needsManualReview
+    ? ' (pending review)'
+    : ' (auto-approved)';
+
+  return `${tierDef.name}${reviewStatus}: ${recommendation.reason}`;
 }
 
-export default recommendTier;
+/**
+ * Checks if a tier is eligible for auto-routing (no manual review)
+ */
+export function isAutoRoutable(tier: TierId): boolean {
+  return TIER_DEFINITIONS[tier].autoRoute && !TIER_DEFINITIONS[tier].requiresManualReview;
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+// Re-export types from sageTiers for convenience
+export type { TierId, ProjectType, TimelineCategory } from '../config/sageTiers';

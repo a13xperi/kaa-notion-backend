@@ -1,204 +1,151 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsKeys } from './useProjects';
+/**
+ * useProject Hook
+ * Fetch a single project with milestones and deliverables.
+ * Combines project details with related data.
+ */
 
-// Types
-export interface Milestone {
-  id: string;
-  name: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  order: number;
-  dueDate?: string | null;
-  completedAt?: string | null;
-  description?: string | null;
-}
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { fetchProject, fetchMilestones, fetchDeliverables } from '../api/portalApi';
+import { projectKeys } from './useProjects';
+import { milestoneKeys } from './useMilestones';
+import { deliverableKeys } from './useDeliverables';
+import { ProjectDetail, Milestone, Deliverable } from '../types/portal.types';
 
-export interface Deliverable {
-  id: string;
-  name: string;
-  fileType: string;
-  fileSize: number;
-  category?: string | null;
-  description?: string | null;
-  uploadedAt: string;
-  milestoneId?: string | null;
-  milestoneName?: string | null;
-  thumbnailUrl?: string | null;
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-export interface Payment {
-  id: string;
-  amount: number;
-  currency: string;
-  status: 'PENDING' | 'SUCCEEDED' | 'FAILED';
-  paidAt?: string | null;
-}
-
-export interface ProjectDetail {
-  id: string;
-  name: string;
-  tier: number;
-  tierName: string;
-  status: string;
-  progress: number;
-  projectAddress?: string | null;
-  createdAt: string;
-  updatedAt: string;
-
-  // Related data
-  milestones: Milestone[];
-  deliverables: Deliverable[];
-  payments: Payment[];
-
-  // Computed
-  currentMilestone?: Milestone | null;
-  completedMilestones: number;
-  totalMilestones: number;
-}
-
-export interface ProjectResponse {
-  success: boolean;
-  data: ProjectDetail;
-  error?: {
-    code: string;
-    message: string;
+export interface ProjectWithRelations extends ProjectDetail {
+  milestonesData?: {
+    milestones: Milestone[];
+    summary: {
+      total: number;
+      completed: number;
+      inProgress: number;
+      pending: number;
+      percentage: number;
+    };
+  };
+  deliverablesData?: {
+    deliverables: Deliverable[];
+    summary: {
+      total: number;
+      byCategory: Record<string, number>;
+      totalSize: number;
+      totalSizeFormatted: string;
+    };
   };
 }
 
-export interface UseProjectOptions {
-  projectId: string;
-  enabled?: boolean;
-  includeMilestones?: boolean;
-  includeDeliverables?: boolean;
-  includePayments?: boolean;
-}
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
-// Fetch function
-async function fetchProject(projectId: string): Promise<ProjectResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/projects/${projectId}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Project not found');
-    }
-    if (response.status === 403) {
-      throw new Error('You do not have permission to view this project');
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to fetch project: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Update project status (admin only)
-async function updateProjectStatus(
-  projectId: string,
-  status: string
-): Promise<ProjectResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/projects/${projectId}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-    body: JSON.stringify({ status }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to update project: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Query key factory
-export const projectKeys = {
-  all: ['project'] as const,
-  details: () => [...projectKeys.all, 'detail'] as const,
-  detail: (id: string) => [...projectKeys.details(), id] as const,
-};
+// ============================================================================
+// HOOKS
+// ============================================================================
 
 /**
- * Hook to fetch a single project with milestones, deliverables, and payments
- *
- * @example
- * ```tsx
- * const { project, isLoading, error } = useProject({ projectId: 'abc123' });
- *
- * if (isLoading) return <ProjectSkeleton />;
- * if (error) return <Error message={error.message} />;
- * if (!project) return <NotFound />;
- *
- * return <ProjectDetail project={project} />;
- * ```
+ * Fetch a project with all its related data (milestones, deliverables)
+ * Uses parallel queries for better performance
  */
-export function useProject(options: UseProjectOptions) {
-  const { projectId, enabled = true } = options;
-  const queryClient = useQueryClient();
-
-  const query = useQuery<ProjectResponse, Error>({
-    queryKey: projectKeys.detail(projectId),
-    queryFn: () => fetchProject(projectId),
-    enabled: enabled && !!projectId,
-    staleTime: 1000 * 60 * 1, // 1 minute
-    gcTime: 1000 * 60 * 5, // 5 minutes
+export function useProjectWithRelations(projectId: string | undefined) {
+  const queries = useQueries({
+    queries: [
+      {
+        queryKey: projectKeys.detail(projectId || ''),
+        queryFn: () => fetchProject(projectId!),
+        enabled: !!projectId,
+        staleTime: 30 * 1000,
+      },
+      {
+        queryKey: milestoneKeys.list(projectId || ''),
+        queryFn: () => fetchMilestones(projectId!),
+        enabled: !!projectId,
+        staleTime: 30 * 1000,
+      },
+      {
+        queryKey: deliverableKeys.list(projectId || '', {}),
+        queryFn: () => fetchDeliverables(projectId!),
+        enabled: !!projectId,
+        staleTime: 30 * 1000,
+      },
+    ],
   });
 
-  // Mutation for updating project status
-  const updateStatusMutation = useMutation({
-    mutationFn: (status: string) => updateProjectStatus(projectId, status),
-    onSuccess: () => {
-      // Invalidate project and projects list
-      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
-      queryClient.invalidateQueries({ queryKey: projectsKeys.lists() });
-    },
-  });
+  const [projectQuery, milestonesQuery, deliverablesQuery] = queries;
 
-  const project = query.data?.data ?? null;
+  const isLoading = queries.some((q) => q.isLoading);
+  const isError = queries.some((q) => q.isError);
+  const error = queries.find((q) => q.error)?.error;
+
+  // Combine all data
+  let data: ProjectWithRelations | undefined;
+
+  if (projectQuery.data?.success && projectQuery.data.data) {
+    data = {
+      ...projectQuery.data.data,
+      milestonesData: milestonesQuery.data?.success
+        ? {
+            milestones: milestonesQuery.data.data.milestones,
+            summary: milestonesQuery.data.data.summary,
+          }
+        : undefined,
+      deliverablesData: deliverablesQuery.data?.success
+        ? {
+            deliverables: deliverablesQuery.data.data.deliverables,
+            summary: deliverablesQuery.data.data.summary,
+          }
+        : undefined,
+    };
+  }
 
   return {
-    // Data
-    project,
-    milestones: project?.milestones ?? [],
-    deliverables: project?.deliverables ?? [],
-    payments: project?.payments ?? [],
-    currentMilestone: project?.currentMilestone ?? null,
-
-    // Status
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    isSuccess: query.isSuccess,
-
-    // Error
-    error: query.error,
-
-    // Actions
-    refetch: query.refetch,
-    updateStatus: updateStatusMutation.mutate,
-    updateStatusAsync: updateStatusMutation.mutateAsync,
-
-    // Mutation status
-    isUpdating: updateStatusMutation.isPending,
-    updateError: updateStatusMutation.error,
-
-    // Raw query for advanced usage
-    query,
+    data,
+    isLoading,
+    isError,
+    error,
+    projectQuery,
+    milestonesQuery,
+    deliverablesQuery,
+    refetch: () => {
+      queries.forEach((q) => q.refetch());
+    },
   };
 }
 
-export default useProject;
+/**
+ * Fetch just the project basics (no relations)
+ */
+export function useProjectBasic(projectId: string | undefined) {
+  return useQuery({
+    queryKey: projectKeys.detail(projectId || ''),
+    queryFn: () => fetchProject(projectId!),
+    select: (response) => response.data,
+    enabled: !!projectId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Get project progress summary
+ */
+export function useProjectProgress(projectId: string | undefined) {
+  const { data: project, isLoading } = useProjectBasic(projectId);
+
+  if (isLoading || !project) {
+    return {
+      isLoading,
+      progress: null,
+    };
+  }
+
+  return {
+    isLoading: false,
+    progress: {
+      percentage: project.progress.percentage,
+      completed: project.progress.completed,
+      total: project.progress.total,
+      currentMilestone: project.progress.currentMilestone,
+      status: project.status,
+    },
+  };
+}
+
+// Type is already exported at definition above

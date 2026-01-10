@@ -1,0 +1,376 @@
+/**
+ * User Profile Styles
+ */
+
+.user-profile {
+  max-width: 500px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.user-profile__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  position: relative;
+}
+
+.user-profile__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-profile__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-profile__email {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-profile__type {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.user-profile__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.user-profile__close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.user-profile__sections {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.user-profile__section {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.user-profile__section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.user-profile__section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 1rem 0;
+}
+
+.user-profile__details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.user-profile__detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-profile__label {
+  font-size: 0.9375rem;
+  color: #6b7280;
+}
+
+.user-profile__value {
+  font-size: 0.9375rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.user-profile__status {
+  display: inline-flex;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.user-profile__status--active {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.user-profile__status--onboarding {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.user-profile__status--completed {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.user-profile__status--closed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Tier Card */
+.user-profile__tier-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.user-profile__tier-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-profile__tier-info {
+  flex: 1;
+}
+
+.user-profile__tier-name {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.user-profile__tier-status {
+  font-size: 0.8125rem;
+  color: #22c55e;
+}
+
+.user-profile__tier-upgrade {
+  font-size: 0.875rem;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.user-profile__tier-upgrade:hover {
+  text-decoration: underline;
+}
+
+/* Projects */
+.user-profile__projects {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.user-profile__project {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.user-profile__project:hover {
+  background: #f3f4f6;
+}
+
+.user-profile__project-name {
+  font-size: 0.9375rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.user-profile__project-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.user-profile__project-status--onboarding {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.user-profile__project-status--in_progress {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.user-profile__project-status--completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.user-profile__projects-more {
+  display: block;
+  text-align: center;
+  padding: 0.75rem;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.user-profile__projects-more:hover {
+  text-decoration: underline;
+}
+
+/* Actions */
+.user-profile__section--actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.user-profile__action {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.user-profile__action--secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.user-profile__action--secondary:hover {
+  background: #e5e7eb;
+}
+
+.user-profile__action--danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.user-profile__action--danger:hover {
+  background: #fee2e2;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .user-profile {
+    background: #1f2937;
+  }
+
+  .user-profile__section {
+    border-color: #374151;
+  }
+
+  .user-profile__label {
+    color: #9ca3af;
+  }
+
+  .user-profile__value,
+  .user-profile__email,
+  .user-profile__project-name,
+  .user-profile__tier-name {
+    color: #f9fafb;
+  }
+
+  .user-profile__tier-card,
+  .user-profile__project {
+    background: #111827;
+  }
+
+  .user-profile__project:hover {
+    background: #1f2937;
+  }
+
+  .user-profile__action--secondary {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .user-profile__action--secondary:hover {
+    background: #4b5563;
+  }
+
+  .user-profile__action--danger {
+    background: #450a0a;
+    color: #fca5a5;
+  }
+
+  .user-profile__action--danger:hover {
+    background: #7f1d1d;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .user-profile__header {
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem 1.5rem;
+  }
+
+  .user-profile__info {
+    order: 1;
+  }
+
+  .user-profile__close {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .user-profile__section--actions {
+    flex-direction: column;
+  }
+}

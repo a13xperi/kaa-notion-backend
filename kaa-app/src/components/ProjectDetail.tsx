@@ -1,351 +1,313 @@
-import React from 'react';
+/**
+ * ProjectDetail Component
+ * Full project view with milestones timeline, deliverables, and status.
+ */
+
+import React, { useState, JSX } from 'react';
+import { MilestoneTimeline } from './MilestoneTimeline';
+import { DeliverableList } from './DeliverableList';
+import {
+  ProjectDetail as ProjectDetailType,
+  Milestone,
+  formatDate,
+  formatCurrency,
+  TIER_NAMES,
+} from '../types/portal.types';
 import './ProjectDetail.css';
 
-// Types
-export interface Milestone {
-  id: string;
-  name: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  order: number;
-  dueDate?: string | null;
-  completedAt?: string | null;
-}
-
-export interface Deliverable {
-  id: string;
-  name: string;
-  fileType: string;
-  fileSize: number;
-  category: string;
-  createdAt: string;
-}
-
-export interface Payment {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  paidAt?: string | null;
-}
-
-export interface ProjectProgress {
-  completed: number;
-  total: number;
-  percentage: number;
-  currentMilestone: string | null;
-}
-
-export interface ProjectDetailData {
-  id: string;
-  name: string;
-  tier: number;
-  status: string;
-  projectAddress?: string | null;
-  createdAt: string;
-  milestones: Milestone[];
-  deliverables: Deliverable[];
-  payments: Payment[];
-  progress?: ProjectProgress;
-  client?: {
-    user?: {
-      name?: string | null;
-      email?: string | null;
-    };
-  };
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface ProjectDetailProps {
-  project: ProjectDetailData;
-  onBack: () => void;
-  onDownloadDeliverable: (deliverableId: string) => void;
-  onViewAllDeliverables?: () => void;
+  project: ProjectDetailType;
+  onBack?: () => void;
+  onMilestoneClick?: (milestone: Milestone) => void;
+  onDeliverableDownload?: (id: string) => Promise<void>;
+  onDeliverableView?: (id: string) => void;
   isLoading?: boolean;
 }
 
-// Status display configuration
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  INTAKE: { label: 'Intake', className: 'status--intake' },
-  ONBOARDING: { label: 'Onboarding', className: 'status--onboarding' },
-  IN_PROGRESS: { label: 'In Progress', className: 'status--in-progress' },
-  AWAITING_FEEDBACK: { label: 'Awaiting Feedback', className: 'status--awaiting' },
-  REVISIONS: { label: 'Revisions', className: 'status--revisions' },
-  DELIVERED: { label: 'Delivered', className: 'status--delivered' },
-  CLOSED: { label: 'Closed', className: 'status--closed' },
-};
+type TabId = 'overview' | 'milestones' | 'deliverables' | 'payments';
 
-// Tier display configuration
-const TIER_CONFIG: Record<number, { name: string; className: string }> = {
-  1: { name: 'Seedling', className: 'tier--1' },
-  2: { name: 'Sprout', className: 'tier--2' },
-  3: { name: 'Canopy', className: 'tier--3' },
-  4: { name: 'Legacy', className: 'tier--4' },
-};
-
-// Format file size
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+interface Tab {
+  id: TabId;
+  label: string;
+  icon: string;
+  count?: number;
 }
 
-// Format date
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    ONBOARDING: 'status-blue',
+    IN_PROGRESS: 'status-yellow',
+    AWAITING_FEEDBACK: 'status-purple',
+    REVISIONS: 'status-yellow',
+    DELIVERED: 'status-green',
+    CLOSED: 'status-gray',
+  };
+  return colors[status] || 'status-gray';
 }
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({
+function getPaymentStatusColor(status: string): string {
+  if (status === 'paid') return 'payment-green';
+  if (status === 'pending') return 'payment-yellow';
+  return 'payment-gray';
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+export function ProjectDetail({
   project,
   onBack,
-  onDownloadDeliverable,
-  onViewAllDeliverables,
+  onMilestoneClick,
+  onDeliverableDownload,
+  onDeliverableView,
   isLoading = false,
-}) => {
-  const status = STATUS_CONFIG[project.status] || { label: project.status, className: '' };
-  const tier = TIER_CONFIG[project.tier] || { name: `Tier ${project.tier}`, className: '' };
-  const progress = project.progress;
+}: ProjectDetailProps): JSX.Element {
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
 
-  // Sort milestones by order
-  const sortedMilestones = [...project.milestones].sort((a, b) => a.order - b.order);
+  const tabs: Tab[] = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'milestones', label: 'Milestones', icon: '📋', count: project.milestones.length },
+    { id: 'deliverables', label: 'Deliverables', icon: '📁', count: project.deliverables.length },
+    { id: 'payments', label: 'Payments', icon: '💳', count: project.payments.history.length },
+  ];
 
-  // Get recent deliverables (latest 4)
-  const recentDeliverables = [...project.deliverables]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 4);
+  const tierName = TIER_NAMES[project.tier] || `Tier ${project.tier}`;
 
-  // Get latest payment
-  const latestPayment = project.payments[0];
+  if (isLoading) {
+    return (
+      <div className="project-detail project-detail--loading">
+        <div className="project-detail__skeleton" />
+      </div>
+    );
+  }
 
   return (
     <div className="project-detail">
       {/* Header */}
-      <header className="detail-header">
-        <button type="button" className="back-btn" onClick={onBack} aria-label="Go back">
-          <span aria-hidden="true">←</span>
-          <span>Back to Projects</span>
-        </button>
+      <header className="project-detail__header">
+        {onBack && (
+          <button className="project-detail__back" onClick={onBack}>
+            ← Back to Projects
+          </button>
+        )}
 
-        <div className="header-content">
-          <div className="header-badges">
-            <span className={`tier-badge ${tier.className}`}>{tier.name}</span>
-            <span className={`status-badge ${status.className}`}>{status.label}</span>
+        <div className="project-detail__title-section">
+          <h1 className="project-detail__title">{project.name}</h1>
+          <div className="project-detail__badges">
+            <span className={`project-detail__status ${getStatusColor(project.status)}`}>
+              {project.status.replace('_', ' ')}
+            </span>
+            <span className="project-detail__tier">{tierName}</span>
+            <span className={`project-detail__payment ${getPaymentStatusColor(project.paymentStatus)}`}>
+              {project.paymentStatus}
+            </span>
           </div>
-          <h1 className="project-title">{project.name}</h1>
-          {project.projectAddress && (
-            <p className="project-address">{project.projectAddress}</p>
-          )}
+        </div>
+
+        <div className="project-detail__meta">
+          <span>Created {formatDate(project.createdAt)}</span>
+          <span className="project-detail__separator">•</span>
+          <span>Updated {formatDate(project.updatedAt)}</span>
         </div>
       </header>
 
-      {/* Progress Overview */}
-      {progress && (
-        <section className="detail-section progress-section">
-          <div className="progress-overview">
-            <div className="progress-ring-container">
-              <svg className="progress-ring" viewBox="0 0 100 100">
-                <circle
-                  className="progress-ring-bg"
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  fill="none"
-                  strokeWidth="8"
-                />
-                <circle
-                  className="progress-ring-fill"
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  fill="none"
-                  strokeWidth="8"
-                  strokeDasharray={`${progress.percentage * 2.83} 283`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 50 50)"
-                />
-              </svg>
-              <div className="progress-ring-text">
-                <span className="progress-value">{progress.percentage}%</span>
-                <span className="progress-label">Complete</span>
-              </div>
-            </div>
-            <div className="progress-details">
-              <div className="progress-stat">
-                <span className="stat-value">{progress.completed}</span>
-                <span className="stat-label">Milestones Done</span>
-              </div>
-              <div className="progress-stat">
-                <span className="stat-value">{progress.total - progress.completed}</span>
-                <span className="stat-label">Remaining</span>
-              </div>
-              {progress.currentMilestone && (
-                <div className="current-milestone-info">
-                  <span className="current-label">Currently working on:</span>
-                  <span className="current-name">{progress.currentMilestone}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Milestones Timeline */}
-      <section className="detail-section">
-        <h2 className="section-title">Project Timeline</h2>
-        <div className="milestones-timeline">
-          {sortedMilestones.map((milestone, index) => (
-            <div
-              key={milestone.id}
-              className={`timeline-item timeline-item--${milestone.status.toLowerCase()}`}
-            >
-              <div className="timeline-marker">
-                {milestone.status === 'COMPLETED' ? (
-                  <span className="marker-check">✓</span>
-                ) : milestone.status === 'IN_PROGRESS' ? (
-                  <span className="marker-progress" />
-                ) : (
-                  <span className="marker-pending">{index + 1}</span>
-                )}
-              </div>
-              <div className="timeline-content">
-                <h3 className="milestone-name">{milestone.name}</h3>
-                <div className="milestone-meta">
-                  {milestone.completedAt ? (
-                    <span className="milestone-date">
-                      Completed {formatDate(milestone.completedAt)}
-                    </span>
-                  ) : milestone.dueDate ? (
-                    <span className="milestone-date">
-                      Due {formatDate(milestone.dueDate)}
-                    </span>
-                  ) : null}
-                  <span className={`milestone-status status--${milestone.status.toLowerCase()}`}>
-                    {milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status}
-                  </span>
-                </div>
-              </div>
-              {index < sortedMilestones.length - 1 && (
-                <div className={`timeline-connector ${milestone.status === 'COMPLETED' ? 'connector--completed' : ''}`} />
-              )}
-            </div>
-          ))}
+      {/* Progress bar */}
+      <div className="project-detail__progress-section">
+        <div className="project-detail__progress-header">
+          <span className="project-detail__progress-label">Project Progress</span>
+          <span className="project-detail__progress-value">{project.progress.percentage}%</span>
         </div>
-      </section>
-
-      {/* Deliverables */}
-      <section className="detail-section">
-        <div className="section-header">
-          <h2 className="section-title">Deliverables</h2>
-          {project.deliverables.length > 4 && onViewAllDeliverables && (
-            <button type="button" className="view-all-btn" onClick={onViewAllDeliverables}>
-              View All ({project.deliverables.length})
-            </button>
+        <div className="project-detail__progress-bar">
+          <div
+            className="project-detail__progress-fill"
+            style={{ width: `${project.progress.percentage}%` }}
+          />
+        </div>
+        <div className="project-detail__progress-meta">
+          <span>
+            {project.progress.completed} of {project.progress.total} milestones completed
+          </span>
+          {project.progress.currentMilestone && (
+            <span className="project-detail__current-milestone">
+              Current: <strong>{project.progress.currentMilestone.name}</strong>
+            </span>
           )}
         </div>
+      </div>
 
-        {recentDeliverables.length === 0 ? (
-          <div className="empty-deliverables">
-            <p>No deliverables yet</p>
-            <span>Files will appear here as they are uploaded</span>
-          </div>
-        ) : (
-          <div className="deliverables-grid">
-            {recentDeliverables.map((deliverable) => (
-              <button
-                key={deliverable.id}
-                type="button"
-                className="deliverable-card"
-                onClick={() => onDownloadDeliverable(deliverable.id)}
-                aria-label={`Download ${deliverable.name}`}
-              >
-                <div className="deliverable-icon">
-                  {getFileIcon(deliverable.fileType)}
+      {/* Tabs */}
+      <nav className="project-detail__tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`project-detail__tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span className="project-detail__tab-icon">{tab.icon}</span>
+            <span className="project-detail__tab-label">{tab.label}</span>
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="project-detail__tab-count">{tab.count}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* Tab content */}
+      <div className="project-detail__content">
+        {activeTab === 'overview' && (
+          <div className="project-detail__overview">
+            {/* Quick stats */}
+            <div className="project-detail__stats">
+              <div className="project-detail__stat">
+                <span className="project-detail__stat-value">{project.progress.completed}</span>
+                <span className="project-detail__stat-label">Milestones Complete</span>
+              </div>
+              <div className="project-detail__stat">
+                <span className="project-detail__stat-value">{project.deliverables.length}</span>
+                <span className="project-detail__stat-label">Deliverables</span>
+              </div>
+              <div className="project-detail__stat">
+                <span className="project-detail__stat-value">
+                  {formatCurrency(project.payments.totalPaid)}
+                </span>
+                <span className="project-detail__stat-label">Total Paid</span>
+              </div>
+            </div>
+
+            {/* Client info */}
+            <div className="project-detail__section">
+              <h3 className="project-detail__section-title">📍 Project Location</h3>
+              <p className="project-detail__address">{project.client.projectAddress}</p>
+            </div>
+
+            {/* Lead info */}
+            {project.lead && (
+              <div className="project-detail__section">
+                <h3 className="project-detail__section-title">📝 Project Details</h3>
+                <div className="project-detail__lead-info">
+                  {project.lead.projectType && (
+                    <div className="project-detail__info-row">
+                      <span className="project-detail__info-label">Type:</span>
+                      <span className="project-detail__info-value">
+                        {project.lead.projectType.replace('_', ' ')}
+                      </span>
+                    </div>
+                  )}
+                  {project.lead.budgetRange && (
+                    <div className="project-detail__info-row">
+                      <span className="project-detail__info-label">Budget:</span>
+                      <span className="project-detail__info-value">{project.lead.budgetRange}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="deliverable-info">
-                  <span className="deliverable-name">{deliverable.name}</span>
-                  <span className="deliverable-meta">
-                    {formatFileSize(deliverable.fileSize)} • {deliverable.category}
-                  </span>
-                </div>
-                <span className="download-icon" aria-hidden="true">↓</span>
-              </button>
-            ))}
+              </div>
+            )}
+
+            {/* Mini timeline */}
+            <div className="project-detail__section">
+              <h3 className="project-detail__section-title">📋 Timeline Preview</h3>
+              <MilestoneTimeline
+                milestones={project.milestones.slice(0, 5)}
+                onMilestoneClick={onMilestoneClick}
+                compact
+                showDates={false}
+              />
+              {project.milestones.length > 5 && (
+                <button
+                  className="project-detail__view-all"
+                  onClick={() => setActiveTab('milestones')}
+                >
+                  View all {project.milestones.length} milestones →
+                </button>
+              )}
+            </div>
           </div>
         )}
-      </section>
 
-      {/* Payment Info */}
-      {latestPayment && (
-        <section className="detail-section payment-section">
-          <h2 className="section-title">Payment</h2>
-          <div className="payment-card">
-            <div className="payment-amount">
-              <span className="amount-value">
-                ${(latestPayment.amount / 100).toLocaleString()}
-              </span>
-              <span className="amount-currency">{latestPayment.currency.toUpperCase()}</span>
-            </div>
-            <div className="payment-status">
-              <span className={`payment-badge payment-badge--${latestPayment.status.toLowerCase()}`}>
-                {latestPayment.status}
-              </span>
-              {latestPayment.paidAt && (
-                <span className="payment-date">
-                  Paid on {formatDate(latestPayment.paidAt)}
+        {activeTab === 'milestones' && (
+          <MilestoneTimeline
+            milestones={project.milestones}
+            projectName={project.name}
+            summary={{
+              total: project.progress.total,
+              completed: project.progress.completed,
+              inProgress: project.progress.inProgress || 0,
+              pending: project.progress.total - project.progress.completed - (project.progress.inProgress || 0),
+              percentage: project.progress.percentage,
+            }}
+            onMilestoneClick={onMilestoneClick}
+          />
+        )}
+
+        {activeTab === 'deliverables' && (
+          <DeliverableList
+            deliverables={project.deliverables.map((d) => ({
+              ...d,
+              projectId: project.id,
+              description: null,
+              fileSizeFormatted: '',
+              uploadedBy: { id: '', email: null },
+            }))}
+            projectName={project.name}
+            onDownload={onDeliverableDownload}
+            onView={onDeliverableView}
+            emptyMessage="No deliverables have been uploaded yet"
+          />
+        )}
+
+        {activeTab === 'payments' && (
+          <div className="project-detail__payments">
+            <div className="project-detail__payment-summary">
+              <div className="project-detail__payment-total">
+                <span className="project-detail__payment-total-label">Total Paid</span>
+                <span className="project-detail__payment-total-value">
+                  {formatCurrency(project.payments.totalPaid)}
                 </span>
-              )}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
 
-      {/* Project Info */}
-      <section className="detail-section info-section">
-        <h2 className="section-title">Project Info</h2>
-        <div className="info-grid">
-          <div className="info-item">
-            <span className="info-label">Created</span>
-            <span className="info-value">{formatDate(project.createdAt)}</span>
+            {project.payments.history.length === 0 ? (
+              <div className="project-detail__empty">
+                <span className="project-detail__empty-icon">💳</span>
+                <p>No payment history</p>
+              </div>
+            ) : (
+              <div className="project-detail__payment-list">
+                {project.payments.history.map((payment) => (
+                  <div key={payment.id} className="project-detail__payment-item">
+                    <div className="project-detail__payment-info">
+                      <span className="project-detail__payment-amount">
+                        {formatCurrency(payment.amount)}
+                      </span>
+                      <span className="project-detail__payment-date">
+                        {formatDate(payment.createdAt)}
+                      </span>
+                    </div>
+                    <span
+                      className={`project-detail__payment-status ${
+                        payment.status === 'SUCCEEDED' ? 'status-green' : 'status-yellow'
+                      }`}
+                    >
+                      {payment.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="info-item">
-            <span className="info-label">Tier</span>
-            <span className="info-value">{tier.name}</span>
-          </div>
-          <div className="info-item">
-            <span className="info-label">Status</span>
-            <span className="info-value">{status.label}</span>
-          </div>
-          {project.projectAddress && (
-            <div className="info-item info-item--full">
-              <span className="info-label">Address</span>
-              <span className="info-value">{project.projectAddress}</span>
-            </div>
-          )}
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
-};
-
-// File icon helper
-function getFileIcon(fileType: string): React.ReactNode {
-  const type = fileType.toLowerCase();
-
-  if (type.includes('pdf')) {
-    return <span className="file-icon file-icon--pdf">PDF</span>;
-  }
-  if (type.includes('image') || type.includes('png') || type.includes('jpg') || type.includes('jpeg')) {
-    return <span className="file-icon file-icon--image">IMG</span>;
-  }
-  if (type.includes('zip') || type.includes('rar')) {
-    return <span className="file-icon file-icon--archive">ZIP</span>;
-  }
-  if (type.includes('doc') || type.includes('word')) {
-    return <span className="file-icon file-icon--doc">DOC</span>;
-  }
-  return <span className="file-icon file-icon--generic">FILE</span>;
 }
 
 export default ProjectDetail;

@@ -1,187 +1,167 @@
+/**
+ * useMilestones Hook
+ * Fetch milestones by project ID with React Query.
+ * Handles loading, error, and success states.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectKeys } from './useProject';
-import { projectsKeys } from './useProjects';
+import {
+  fetchMilestones,
+  fetchMilestone,
+  updateMilestoneStatus,
+} from '../api/portalApi';
+import { Milestone, MilestoneStatus, MilestoneSummary } from '../types/portal.types';
 
-// Types
-export interface Milestone {
-  id: string;
-  name: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  order: number;
-  dueDate?: string | null;
-  completedAt?: string | null;
-  description?: string | null;
-}
+// ============================================================================
+// QUERY KEYS
+// ============================================================================
 
-export interface MilestonesResponse {
-  success: boolean;
-  data: {
-    milestones: Milestone[];
-    progress: {
-      completed: number;
-      total: number;
-      percentage: number;
-    };
-    currentMilestone?: Milestone | null;
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-export interface UpdateMilestoneResponse {
-  success: boolean;
-  data: Milestone;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-export interface UseMilestonesOptions {
-  projectId: string;
-  enabled?: boolean;
-}
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
-// Fetch milestones for a project
-async function fetchMilestones(projectId: string): Promise<MilestonesResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/projects/${projectId}/milestones`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Project not found');
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to fetch milestones: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Update milestone status (admin only)
-async function updateMilestoneStatus(
-  milestoneId: string,
-  status: Milestone['status']
-): Promise<UpdateMilestoneResponse> {
-  const token = localStorage.getItem('auth_token');
-
-  const response = await fetch(`${API_BASE}/milestones/${milestoneId}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
-    body: JSON.stringify({ status }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to update milestone: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// Query key factory
-export const milestonesKeys = {
+export const milestoneKeys = {
   all: ['milestones'] as const,
-  lists: () => [...milestonesKeys.all, 'list'] as const,
-  list: (projectId: string) => [...milestonesKeys.lists(), projectId] as const,
+  lists: () => [...milestoneKeys.all, 'list'] as const,
+  list: (projectId: string) => [...milestoneKeys.lists(), projectId] as const,
+  details: () => [...milestoneKeys.all, 'detail'] as const,
+  detail: (id: string) => [...milestoneKeys.details(), id] as const,
 };
 
+// ============================================================================
+// HOOKS
+// ============================================================================
+
 /**
- * Hook to fetch milestones for a project
- *
- * @example
- * ```tsx
- * const {
- *   milestones,
- *   progress,
- *   currentMilestone,
- *   isLoading,
- *   updateMilestone
- * } = useMilestones({ projectId: 'abc123' });
- *
- * if (isLoading) return <TimelineSkeleton />;
- *
- * return (
- *   <MilestoneTimeline
- *     milestones={milestones}
- *     onMilestoneClick={(m) => updateMilestone({ id: m.id, status: 'COMPLETED' })}
- *   />
- * );
- * ```
+ * Fetch all milestones for a project
  */
-export function useMilestones(options: UseMilestonesOptions) {
-  const { projectId, enabled = true } = options;
+export function useMilestones(projectId: string | undefined) {
+  return useQuery({
+    queryKey: milestoneKeys.list(projectId || ''),
+    queryFn: () => fetchMilestones(projectId!),
+    select: (response) => ({
+      milestones: response.data.milestones,
+      summary: response.data.summary,
+      projectName: response.data.projectName,
+      tier: response.data.tier,
+      success: response.success,
+    }),
+    enabled: !!projectId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch a single milestone by ID
+ */
+export function useMilestone(milestoneId: string | undefined) {
+  return useQuery({
+    queryKey: milestoneKeys.detail(milestoneId || ''),
+    queryFn: () => fetchMilestone(milestoneId!),
+    select: (response) => response.data,
+    enabled: !!milestoneId,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Mutation to update milestone status
+ */
+export function useUpdateMilestoneStatus() {
   const queryClient = useQueryClient();
 
-  const query = useQuery<MilestonesResponse, Error>({
-    queryKey: milestonesKeys.list(projectId),
-    queryFn: () => fetchMilestones(projectId),
-    enabled: enabled && !!projectId,
-    staleTime: 1000 * 60 * 1, // 1 minute
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  // Mutation for updating milestone status
-  const updateMutation = useMutation({
-    mutationFn: ({ milestoneId, status }: { milestoneId: string; status: Milestone['status'] }) =>
-      updateMilestoneStatus(milestoneId, status),
-    onSuccess: () => {
-      // Invalidate milestones, project detail, and projects list
-      queryClient.invalidateQueries({ queryKey: milestonesKeys.list(projectId) });
-      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
-      queryClient.invalidateQueries({ queryKey: projectsKeys.lists() });
+  return useMutation({
+    mutationFn: ({
+      milestoneId,
+      data,
+    }: {
+      milestoneId: string;
+      data: { status?: MilestoneStatus; dueDate?: string | null; completedAt?: string | null };
+    }) => updateMilestoneStatus(milestoneId, data),
+    onSuccess: (data, variables) => {
+      // Update the milestone in cache
+      if (data.success && data.data) {
+        queryClient.setQueryData(milestoneKeys.detail(variables.milestoneId), data);
+        
+        // Get the milestone to find its projectId
+        const milestone = data.data;
+        if (milestone.projectId) {
+          // Invalidate the project's milestone list
+          queryClient.invalidateQueries({ queryKey: milestoneKeys.list(milestone.projectId) });
+          // Invalidate the project detail (progress changed)
+          queryClient.invalidateQueries({ queryKey: ['projects', 'detail', milestone.projectId] });
+        }
+      }
     },
   });
+}
 
-  const data = query.data?.data;
+// ============================================================================
+// DERIVED HOOKS
+// ============================================================================
+
+/**
+ * Get the current (in-progress) milestone for a project
+ */
+export function useCurrentMilestone(projectId: string | undefined) {
+  const { data, isLoading } = useMilestones(projectId);
+
+  const currentMilestone = data?.milestones.find((m) => m.status === 'IN_PROGRESS');
+  const nextMilestone = data?.milestones.find((m) => m.status === 'PENDING');
 
   return {
-    // Data
-    milestones: data?.milestones ?? [],
-    progress: data?.progress ?? { completed: 0, total: 0, percentage: 0 },
-    currentMilestone: data?.currentMilestone ?? null,
-
-    // Computed
-    completedCount: data?.progress.completed ?? 0,
-    totalCount: data?.progress.total ?? 0,
-    progressPercentage: data?.progress.percentage ?? 0,
-
-    // Status
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    isSuccess: query.isSuccess,
-
-    // Error
-    error: query.error,
-
-    // Actions
-    refetch: query.refetch,
-    updateMilestone: updateMutation.mutate,
-    updateMilestoneAsync: updateMutation.mutateAsync,
-
-    // Mutation status
-    isUpdating: updateMutation.isPending,
-    updateError: updateMutation.error,
-
-    // Raw query for advanced usage
-    query,
+    isLoading,
+    currentMilestone: currentMilestone || nextMilestone,
+    allMilestones: data?.milestones || [],
+    summary: data?.summary,
   };
 }
 
-export default useMilestones;
+/**
+ * Get overdue milestones for a project
+ */
+export function useOverdueMilestones(projectId: string | undefined) {
+  const { data, isLoading } = useMilestones(projectId);
+
+  const now = new Date();
+  const overdue = data?.milestones.filter((m) => {
+    if (m.status === 'COMPLETED') return false;
+    if (!m.dueDate) return false;
+    return new Date(m.dueDate) < now;
+  }) || [];
+
+  return {
+    isLoading,
+    overdueMilestones: overdue,
+    count: overdue.length,
+  };
+}
+
+/**
+ * Get milestone progress for a project
+ */
+export function useMilestoneProgress(projectId: string | undefined) {
+  const { data, isLoading } = useMilestones(projectId);
+
+  if (!data) {
+    return {
+      isLoading,
+      progress: null,
+    };
+  }
+
+  return {
+    isLoading: false,
+    progress: {
+      completed: data.summary.completed,
+      inProgress: data.summary.inProgress,
+      pending: data.summary.pending,
+      total: data.summary.total,
+      percentage: data.summary.percentage,
+    },
+  };
+}
+
+// ============================================================================
+// TYPE EXPORTS
+// ============================================================================
+
+export type { Milestone, MilestoneStatus, MilestoneSummary };

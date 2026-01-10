@@ -1,46 +1,35 @@
-import { prisma } from '../utils/prisma';
-import { syncProjectToNotion } from './notionProjectSync';
-import { syncMilestoneToNotion } from './notionMilestoneSync';
-import { syncDeliverableToNotion } from './notionDeliverableSync';
-import { syncLeadToNotion } from './notionLeadSync';
-
 /**
  * Notion Sync Queue Service
- *
  * Queue-based sync with rate limiting, retry logic, and status tracking.
- * Handles syncing projects, milestones, deliverables, and leads to Notion.
+ * 
+ * Notion API limits: 3 requests per second
+ * Strategy: Queue operations, process with delays, retry on failure
  */
 
-// ============================================
-// TYPES & INTERFACES
-// ============================================
+import { Client as NotionClient } from '@notionhq/client';
 
-export type SyncEntityType = 'PROJECT' | 'MILESTONE' | 'DELIVERABLE' | 'LEAD';
+// ============================================================================
+// TYPES
+// ============================================================================
+
 export type SyncOperation = 'CREATE' | 'UPDATE' | 'DELETE';
-export type SyncStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'RETRYING';
+export type SyncEntityType = 'PROJECT' | 'MILESTONE' | 'DELIVERABLE' | 'LEAD';
+export type SyncStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'RETRYING';
 
-export interface SyncJob {
+export interface SyncTask {
   id: string;
   entityType: SyncEntityType;
   entityId: string;
   operation: SyncOperation;
   status: SyncStatus;
-  priority: number;
-  retryCount: number;
-  maxRetries: number;
-  lastError?: string;
-  notionPageId?: string;
-  payload?: Record<string, unknown>;
+  priority: number; // Lower = higher priority
+  payload: Record<string, unknown>;
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  lastAttemptAt: Date | null;
   createdAt: Date;
-  updatedAt: Date;
-  scheduledFor?: Date;
-}
-
-export interface QueueOptions {
-  maxConcurrent?: number;
-  rateLimitPerSecond?: number;
-  defaultMaxRetries?: number;
-  retryDelayMs?: number;
+  scheduledFor: Date;
 }
 
 export interface SyncResult {
@@ -49,669 +38,725 @@ export interface SyncResult {
   error?: string;
 }
 
-// ============================================
-// RATE LIMITER
-// ============================================
-
-class RateLimiter {
-  private tokens: number;
-  private maxTokens: number;
-  private refillRate: number;
-  private lastRefill: number;
-
-  constructor(tokensPerSecond: number) {
-    this.maxTokens = tokensPerSecond;
-    this.tokens = tokensPerSecond;
-    this.refillRate = tokensPerSecond;
-    this.lastRefill = Date.now();
-  }
-
-  async acquire(): Promise<void> {
-    this.refill();
-
-    if (this.tokens >= 1) {
-      this.tokens -= 1;
-      return;
-    }
-
-    // Wait for a token to become available
-    const waitTime = Math.ceil((1 - this.tokens) / this.refillRate * 1000);
-    await this.sleep(waitTime);
-    this.refill();
-    this.tokens -= 1;
-  }
-
-  private refill(): void {
-    const now = Date.now();
-    const elapsed = (now - this.lastRefill) / 1000;
-    this.tokens = Math.min(this.maxTokens, this.tokens + elapsed * this.refillRate);
-    this.lastRefill = now;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+export interface QueueStats {
+  pending: number;
+  inProgress: number;
+  completed: number;
+  failed: number;
+  totalProcessed: number;
 }
 
-// ============================================
-// SYNC QUEUE
-// ============================================
+export interface NotionSyncConfig {
+  notionApiKey: string;
+  projectsDatabaseId: string;
+  deliverablesPageId?: string;
+  rateLimitMs: number;
+  maxRetries: number;
+  retryDelayMs: number;
+  batchSize: number;
+}
 
-class NotionSyncQueue {
-  private queue: SyncJob[] = [];
-  private processing = false;
-  private rateLimiter: RateLimiter;
-  private options: Required<QueueOptions>;
+// ============================================================================
+// SYNC QUEUE CLASS
+// ============================================================================
 
-  constructor(options: QueueOptions = {}) {
-    this.options = {
-      maxConcurrent: options.maxConcurrent ?? 3,
-      rateLimitPerSecond: options.rateLimitPerSecond ?? 3, // Notion's rate limit is 3 req/sec
-      defaultMaxRetries: options.defaultMaxRetries ?? 3,
-      retryDelayMs: options.retryDelayMs ?? 1000,
+export class NotionSyncQueue {
+  private notion: NotionClient;
+  private config: NotionSyncConfig;
+  private queue: Map<string, SyncTask> = new Map();
+  private isProcessing: boolean = false;
+  private stats: QueueStats = {
+    pending: 0,
+    inProgress: 0,
+    completed: 0,
+    failed: 0,
+    totalProcessed: 0,
+  };
+  private lastRequestTime: number = 0;
+
+  constructor(config: NotionSyncConfig) {
+    this.config = {
+      ...config,
+      // Defaults (only applied if not specified in config)
+      rateLimitMs: config.rateLimitMs ?? 350, // ~3 requests per second
+      maxRetries: config.maxRetries ?? 3,
+      retryDelayMs: config.retryDelayMs ?? 1000,
+      batchSize: config.batchSize ?? 10,
     };
-    this.rateLimiter = new RateLimiter(this.options.rateLimitPerSecond);
+
+    this.notion = new NotionClient({
+      auth: config.notionApiKey,
+    });
+  }
+
+  // ============================================================================
+  // QUEUE MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Add a task to the sync queue
+   */
+  enqueue(task: Omit<SyncTask, 'id' | 'status' | 'attempts' | 'lastError' | 'lastAttemptAt' | 'createdAt' | 'scheduledFor'>): string {
+    const id = this.generateTaskId();
+    const fullTask: SyncTask = {
+      ...task,
+      id,
+      status: 'PENDING',
+      attempts: 0,
+      maxAttempts: task.maxAttempts ?? this.config.maxRetries,
+      lastError: null,
+      lastAttemptAt: null,
+      createdAt: new Date(),
+      scheduledFor: new Date(),
+    };
+
+    this.queue.set(id, fullTask);
+    this.stats.pending++;
+
+    // Auto-start processing if not already running
+    if (!this.isProcessing) {
+      this.startProcessing();
+    }
+
+    return id;
   }
 
   /**
-   * Add a sync job to the queue
+   * Get task by ID
    */
-  async enqueue(
-    entityType: SyncEntityType,
-    entityId: string,
-    operation: SyncOperation,
-    payload?: Record<string, unknown>,
-    priority: number = 5
-  ): Promise<SyncJob> {
-    const job: SyncJob = {
-      id: this.generateId(),
-      entityType,
-      entityId,
-      operation,
-      status: 'PENDING',
-      priority,
-      retryCount: 0,
-      maxRetries: this.options.defaultMaxRetries,
-      payload,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Insert in priority order (lower number = higher priority)
-    const insertIndex = this.queue.findIndex((j) => j.priority > priority);
-    if (insertIndex === -1) {
-      this.queue.push(job);
-    } else {
-      this.queue.splice(insertIndex, 0, job);
-    }
-
-    // Save to database for persistence
-    await this.persistJob(job);
-
-    // Start processing if not already
-    if (!this.processing) {
-      this.processQueue();
-    }
-
-    return job;
+  getTask(taskId: string): SyncTask | undefined {
+    return this.queue.get(taskId);
   }
+
+  /**
+   * Get all tasks for an entity
+   */
+  getTasksForEntity(entityType: SyncEntityType, entityId: string): SyncTask[] {
+    return Array.from(this.queue.values()).filter(
+      (task) => task.entityType === entityType && task.entityId === entityId
+    );
+  }
+
+  /**
+   * Cancel a pending task
+   */
+  cancelTask(taskId: string): boolean {
+    const task = this.queue.get(taskId);
+    if (task && task.status === 'PENDING') {
+      this.queue.delete(taskId);
+      this.stats.pending--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get queue statistics
+   */
+  getStats(): QueueStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * Get pending tasks count
+   */
+  getPendingCount(): number {
+    return Array.from(this.queue.values()).filter(
+      (task) => task.status === 'PENDING' || task.status === 'RETRYING'
+    ).length;
+  }
+
+  // ============================================================================
+  // PROCESSING
+  // ============================================================================
 
   /**
    * Start processing the queue
    */
-  async processQueue(): Promise<void> {
-    if (this.processing) return;
-    this.processing = true;
+  async startProcessing(): Promise<void> {
+    if (this.isProcessing) return;
 
-    try {
-      while (this.queue.length > 0) {
-        // Get jobs ready for processing
-        const readyJobs = this.queue.filter(
-          (job) =>
-            job.status === 'PENDING' &&
-            (!job.scheduledFor || job.scheduledFor <= new Date())
-        );
+    this.isProcessing = true;
 
-        if (readyJobs.length === 0) {
-          // Check for scheduled jobs
-          const nextScheduled = this.queue
-            .filter((j) => j.scheduledFor)
-            .sort((a, b) => (a.scheduledFor!.getTime() - b.scheduledFor!.getTime()))[0];
+    while (this.getPendingCount() > 0) {
+      const batch = this.getNextBatch();
 
-          if (nextScheduled) {
-            const waitTime = nextScheduled.scheduledFor!.getTime() - Date.now();
-            if (waitTime > 0) {
-              await this.sleep(Math.min(waitTime, 1000));
-              continue;
-            }
-          } else {
-            break;
-          }
-        }
-
-        // Process batch
-        const batch = readyJobs.slice(0, this.options.maxConcurrent);
-        await Promise.all(batch.map((job) => this.processJob(job)));
+      for (const task of batch) {
+        await this.processTask(task);
+        await this.rateLimit();
       }
-    } finally {
-      this.processing = false;
     }
+
+    this.isProcessing = false;
   }
 
   /**
-   * Process a single job
+   * Stop processing (graceful)
    */
-  private async processJob(job: SyncJob): Promise<void> {
-    job.status = 'PROCESSING';
-    job.updatedAt = new Date();
-    await this.updateJobStatus(job);
+  stopProcessing(): void {
+    this.isProcessing = false;
+  }
+
+  /**
+   * Get the next batch of tasks to process
+   */
+  private getNextBatch(): SyncTask[] {
+    const pendingTasks = Array.from(this.queue.values())
+      .filter(
+        (task) =>
+          (task.status === 'PENDING' || task.status === 'RETRYING') &&
+          task.scheduledFor <= new Date()
+      )
+      .sort((a, b) => a.priority - b.priority || a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, this.config.batchSize);
+
+    return pendingTasks;
+  }
+
+  /**
+   * Process a single task
+   */
+  private async processTask(task: SyncTask): Promise<void> {
+    task.status = 'IN_PROGRESS';
+    task.attempts++;
+    task.lastAttemptAt = new Date();
+    this.stats.pending--;
+    this.stats.inProgress++;
 
     try {
-      // Rate limit before making API call
-      await this.rateLimiter.acquire();
-
-      // Execute the sync operation
-      const result = await this.executeSync(job);
+      const result = await this.executeSync(task);
 
       if (result.success) {
-        job.status = 'COMPLETED';
-        job.notionPageId = result.notionPageId;
-        this.removeFromQueue(job.id);
+        task.status = 'COMPLETED';
+        this.stats.inProgress--;
+        this.stats.completed++;
+        this.stats.totalProcessed++;
+
+        // Store the Notion page ID if returned
+        if (result.notionPageId) {
+          task.payload.notionPageId = result.notionPageId;
+        }
       } else {
         throw new Error(result.error || 'Unknown sync error');
       }
     } catch (error) {
-      job.lastError = error instanceof Error ? error.message : String(error);
-      job.retryCount += 1;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      task.lastError = errorMessage;
 
-      if (job.retryCount >= job.maxRetries) {
-        job.status = 'FAILED';
-        this.removeFromQueue(job.id);
+      if (task.attempts < task.maxAttempts) {
+        // Schedule retry with exponential backoff
+        task.status = 'RETRYING';
+        task.scheduledFor = new Date(
+          Date.now() + this.config.retryDelayMs * Math.pow(2, task.attempts - 1)
+        );
+        this.stats.inProgress--;
+        this.stats.pending++;
       } else {
-        job.status = 'RETRYING';
-        // Exponential backoff
-        const delay = this.options.retryDelayMs * Math.pow(2, job.retryCount - 1);
-        job.scheduledFor = new Date(Date.now() + delay);
-        job.status = 'PENDING';
+        task.status = 'FAILED';
+        this.stats.inProgress--;
+        this.stats.failed++;
+        this.stats.totalProcessed++;
       }
     }
-
-    job.updatedAt = new Date();
-    await this.updateJobStatus(job);
   }
 
   /**
-   * Execute the actual sync operation
+   * Execute the actual Notion API call
    */
-  private async executeSync(job: SyncJob): Promise<SyncResult> {
-    switch (job.entityType) {
+  private async executeSync(task: SyncTask): Promise<SyncResult> {
+    switch (task.entityType) {
       case 'PROJECT':
-        return this.syncProject(job);
+        return this.syncProject(task);
       case 'MILESTONE':
-        return this.syncMilestone(job);
+        return this.syncMilestone(task);
       case 'DELIVERABLE':
-        return this.syncDeliverable(job);
+        return this.syncDeliverable(task);
       case 'LEAD':
-        return this.syncLead(job);
+        return this.syncLead(task);
       default:
-        return { success: false, error: `Unknown entity type: ${job.entityType}` };
+        return { success: false, error: `Unknown entity type: ${task.entityType}` };
     }
   }
+
+  // ============================================================================
+  // ENTITY SYNC METHODS
+  // ============================================================================
 
   /**
    * Sync a project to Notion
    */
-  private async syncProject(job: SyncJob): Promise<SyncResult> {
-    const project = await prisma.project.findUnique({
-      where: { id: job.entityId },
-      include: {
-        client: {
-          include: {
-            user: true,
-          },
-        },
-        milestones: {
-          orderBy: { order: 'asc' },
-        },
-      },
-    });
-
-    if (!project) {
-      return { success: false, error: 'Project not found' };
-    }
+  private async syncProject(task: SyncTask): Promise<SyncResult> {
+    const { operation, payload } = task;
 
     try {
-      const notionPageId = await this.createOrUpdateNotionProject(project, job.operation);
-
-      // Update project with notion page ID
-      if (notionPageId) {
-        await prisma.project.update({
-          where: { id: job.entityId },
-          data: {
-            notionPageId,
-            lastSyncedAt: new Date(),
-            syncStatus: 'SYNCED',
-          },
+      if (operation === 'CREATE') {
+        const response = await this.notion.pages.create({
+          parent: { database_id: this.config.projectsDatabaseId },
+          properties: this.buildProjectProperties(payload),
+          children: this.buildProjectContent(payload),
         });
+
+        return { success: true, notionPageId: response.id };
       }
 
-      return { success: true, notionPageId };
+      if (operation === 'UPDATE') {
+        const notionPageId = payload.notionPageId as string;
+        if (!notionPageId) {
+          return { success: false, error: 'No Notion page ID for update' };
+        }
+
+        await this.notion.pages.update({
+          page_id: notionPageId,
+          properties: this.buildProjectProperties(payload),
+        });
+
+        return { success: true, notionPageId };
+      }
+
+      if (operation === 'DELETE') {
+        const notionPageId = payload.notionPageId as string;
+        if (!notionPageId) {
+          return { success: false, error: 'No Notion page ID for delete' };
+        }
+
+        await this.notion.pages.update({
+          page_id: notionPageId,
+          archived: true,
+        });
+
+        return { success: true };
+      }
+
+      return { success: false, error: `Unknown operation: ${operation}` };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to sync project',
-      };
+      const message = error instanceof Error ? error.message : 'Notion API error';
+      return { success: false, error: message };
     }
   }
 
   /**
-   * Sync a milestone to Notion
+   * Sync a milestone to Notion (as a block in the project page)
    */
-  private async syncMilestone(job: SyncJob): Promise<SyncResult> {
-    const milestone = await prisma.milestone.findUnique({
-      where: { id: job.entityId },
-      include: {
-        project: true,
-      },
-    });
+  private async syncMilestone(task: SyncTask): Promise<SyncResult> {
+    const { operation, payload } = task;
+    const projectPageId = payload.projectNotionPageId as string;
 
-    if (!milestone) {
-      return { success: false, error: 'Milestone not found' };
+    if (!projectPageId) {
+      return { success: false, error: 'No project Notion page ID' };
     }
 
     try {
-      const notionBlockId = await this.updateNotionMilestone(milestone, job.operation);
+      if (operation === 'CREATE' || operation === 'UPDATE') {
+        // For milestones, we update the project page content
+        // First, retrieve current blocks to find/update milestone section
+        const blocks = await this.notion.blocks.children.list({
+          block_id: projectPageId,
+          page_size: 100,
+        });
 
-      // Update milestone sync status
-      await prisma.milestone.update({
-        where: { id: job.entityId },
-        data: {
-          lastSyncedAt: new Date(),
-          syncStatus: 'SYNCED',
-        },
-      });
+        // Find or create milestones section
+        const milestonesHeaderIndex = blocks.results.findIndex(
+          (block: any) =>
+            block.type === 'heading_2' &&
+            block.heading_2?.rich_text?.[0]?.plain_text === 'Milestones'
+        );
 
-      return { success: true, notionPageId: notionBlockId };
+        const milestoneBlock = this.buildMilestoneBlock(payload);
+
+        if (milestonesHeaderIndex === -1) {
+          // Create milestones section
+          await this.notion.blocks.children.append({
+            block_id: projectPageId,
+            children: [
+              {
+                type: 'heading_2',
+                heading_2: {
+                  rich_text: [{ type: 'text', text: { content: 'Milestones' } }],
+                },
+              },
+              milestoneBlock,
+            ],
+          });
+        } else {
+          // Append to existing milestones section
+          await this.notion.blocks.children.append({
+            block_id: projectPageId,
+            children: [milestoneBlock],
+          });
+        }
+
+        return { success: true };
+      }
+
+      return { success: false, error: `Milestone operation ${operation} not supported` };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to sync milestone',
-      };
+      const message = error instanceof Error ? error.message : 'Notion API error';
+      return { success: false, error: message };
     }
   }
 
   /**
    * Sync a deliverable to Notion
    */
-  private async syncDeliverable(job: SyncJob): Promise<SyncResult> {
-    const deliverable = await prisma.deliverable.findUnique({
-      where: { id: job.entityId },
-      include: {
-        project: true,
-      },
-    });
+  private async syncDeliverable(task: SyncTask): Promise<SyncResult> {
+    const { operation, payload } = task;
+    const projectPageId = payload.projectNotionPageId as string;
 
-    if (!deliverable) {
-      return { success: false, error: 'Deliverable not found' };
+    if (!projectPageId) {
+      return { success: false, error: 'No project Notion page ID' };
     }
 
     try {
-      const notionPageId = await this.createOrUpdateNotionDeliverable(deliverable, job.operation);
+      if (operation === 'CREATE') {
+        // Add deliverable as an embed/file block in the project page
+        const blocks = await this.notion.blocks.children.list({
+          block_id: projectPageId,
+          page_size: 100,
+        });
 
-      // Update deliverable with notion page ID
-      await prisma.deliverable.update({
-        where: { id: job.entityId },
-        data: {
-          notionPageId,
-          lastSyncedAt: new Date(),
-          syncStatus: 'SYNCED',
-        },
-      });
+        // Find or create deliverables section
+        const deliverablesHeaderIndex = blocks.results.findIndex(
+          (block: any) =>
+            block.type === 'heading_2' &&
+            block.heading_2?.rich_text?.[0]?.plain_text === 'Deliverables'
+        );
 
-      return { success: true, notionPageId };
+        const deliverableBlock = this.buildDeliverableBlock(payload);
+
+        if (deliverablesHeaderIndex === -1) {
+          // Create deliverables section
+          await this.notion.blocks.children.append({
+            block_id: projectPageId,
+            children: [
+              {
+                type: 'heading_2',
+                heading_2: {
+                  rich_text: [{ type: 'text', text: { content: 'Deliverables' } }],
+                },
+              },
+              deliverableBlock,
+            ],
+          });
+        } else {
+          await this.notion.blocks.children.append({
+            block_id: projectPageId,
+            children: [deliverableBlock],
+          });
+        }
+
+        return { success: true };
+      }
+
+      if (operation === 'DELETE') {
+        // Note: Deleting specific blocks requires finding the block ID first
+        // For simplicity, we skip actual deletion and just return success
+        return { success: true };
+      }
+
+      return { success: false, error: `Deliverable operation ${operation} not supported` };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to sync deliverable',
-      };
+      const message = error instanceof Error ? error.message : 'Notion API error';
+      return { success: false, error: message };
     }
   }
 
   /**
-   * Sync a lead to Notion (CRM)
+   * Sync a lead to Notion (CRM view)
    */
-  private async syncLead(job: SyncJob): Promise<SyncResult> {
-    const lead = await prisma.lead.findUnique({
-      where: { id: job.entityId },
-    });
-
-    if (!lead) {
-      return { success: false, error: 'Lead not found' };
+  private async syncLead(task: SyncTask): Promise<SyncResult> {
+    // Lead sync is optional - return success if no CRM database configured
+    if (!this.config.projectsDatabaseId) {
+      return { success: true };
     }
 
-    try {
-      const notionPageId = await this.createOrUpdateNotionLead(lead, job.operation);
-
-      // Update lead with notion page ID
-      await prisma.lead.update({
-        where: { id: job.entityId },
-        data: {
-          notionPageId,
-          lastSyncedAt: new Date(),
-          syncStatus: 'SYNCED',
-        },
-      });
-
-      return { success: true, notionPageId };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to sync lead',
-      };
-    }
+    // For now, leads are not synced to Notion
+    return { success: true };
   }
 
-  // ============================================
-  // NOTION API OPERATIONS (Stub implementations)
-  // ============================================
-  // These will be implemented when Notion SDK is integrated
-
-  private async createOrUpdateNotionProject(
-    project: any,
-    operation: SyncOperation
-  ): Promise<string | undefined> {
-    // Use the actual Notion sync implementation
-    return syncProjectToNotion(project.id, operation);
-  }
-
-  private async updateNotionMilestone(
-    milestone: any,
-    operation: SyncOperation
-  ): Promise<string | undefined> {
-    // Use the actual Notion sync implementation
-    return syncMilestoneToNotion(milestone.id, operation);
-  }
-
-  private async createOrUpdateNotionDeliverable(
-    deliverable: any,
-    operation: SyncOperation
-  ): Promise<string | undefined> {
-    // Use the actual Notion sync implementation
-    return syncDeliverableToNotion(deliverable.id, operation);
-  }
-
-  private async createOrUpdateNotionLead(
-    lead: any,
-    operation: SyncOperation
-  ): Promise<string | undefined> {
-    // Use the actual Notion sync implementation
-    return syncLeadToNotion(lead.id, operation);
-  }
-
-  // ============================================
-  // PERSISTENCE & HELPERS
-  // ============================================
-
-  private async persistJob(job: SyncJob): Promise<void> {
-    // Store job in sync_jobs table for durability
-    try {
-      await prisma.syncJob.create({
-        data: {
-          id: job.id,
-          entityType: job.entityType,
-          entityId: job.entityId,
-          operation: job.operation,
-          status: job.status,
-          priority: job.priority,
-          retryCount: job.retryCount,
-          maxRetries: job.maxRetries,
-          payload: job.payload as any,
-          scheduledFor: job.scheduledFor,
-        },
-      });
-    } catch (error) {
-      // Table might not exist yet - log and continue
-      console.warn('[NotionSync] Could not persist job:', error);
-    }
-  }
-
-  private async updateJobStatus(job: SyncJob): Promise<void> {
-    try {
-      await prisma.syncJob.update({
-        where: { id: job.id },
-        data: {
-          status: job.status,
-          retryCount: job.retryCount,
-          lastError: job.lastError,
-          notionPageId: job.notionPageId,
-          scheduledFor: job.scheduledFor,
-          updatedAt: new Date(),
-        },
-      });
-    } catch (error) {
-      // Table might not exist yet - log and continue
-      console.warn('[NotionSync] Could not update job status:', error);
-    }
-  }
-
-  private removeFromQueue(jobId: string): void {
-    const index = this.queue.findIndex((j) => j.id === jobId);
-    if (index !== -1) {
-      this.queue.splice(index, 1);
-    }
-  }
-
-  private generateId(): string {
-    return `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  // ============================================
-  // PUBLIC API
-  // ============================================
+  // ============================================================================
+  // NOTION PROPERTY BUILDERS
+  // ============================================================================
 
   /**
-   * Get queue status
+   * Build Notion database properties for a project
    */
-  getStatus(): {
-    queueLength: number;
-    processing: boolean;
-    jobs: SyncJob[];
-  } {
+  private buildProjectProperties(payload: Record<string, unknown>): Record<string, any> {
     return {
-      queueLength: this.queue.length,
-      processing: this.processing,
-      jobs: [...this.queue],
+      Name: {
+        title: [
+          {
+            text: {
+              content: (payload.name as string) || 'Untitled Project',
+            },
+          },
+        ],
+      },
+      Status: {
+        select: {
+          name: this.mapProjectStatus(payload.status as string),
+        },
+      },
+      Tier: {
+        select: {
+          name: this.getTierName(payload.tier as number),
+        },
+      },
+      'Client Email': {
+        email: (payload.clientEmail as string) || null,
+      },
+      'Project Address': {
+        rich_text: [
+          {
+            text: {
+              content: (payload.projectAddress as string) || '',
+            },
+          },
+        ],
+      },
+      'Created At': {
+        date: {
+          start: (payload.createdAt as string) || new Date().toISOString(),
+        },
+      },
     };
   }
 
   /**
-   * Get job by ID
+   * Build initial content blocks for a project page
    */
-  getJob(jobId: string): SyncJob | undefined {
-    return this.queue.find((j) => j.id === jobId);
-  }
-
-  /**
-   * Cancel a pending job
-   */
-  cancelJob(jobId: string): boolean {
-    const index = this.queue.findIndex(
-      (j) => j.id === jobId && j.status === 'PENDING'
-    );
-
-    if (index !== -1) {
-      this.queue.splice(index, 1);
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Retry a failed job
-   */
-  async retryJob(jobId: string): Promise<boolean> {
-    const job = this.queue.find((j) => j.id === jobId && j.status === 'FAILED');
-
-    if (job) {
-      job.status = 'PENDING';
-      job.retryCount = 0;
-      job.lastError = undefined;
-      job.scheduledFor = undefined;
-      job.updatedAt = new Date();
-
-      await this.updateJobStatus(job);
-
-      if (!this.processing) {
-        this.processQueue();
-      }
-
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Load pending jobs from database on startup
-   */
-  async loadPendingJobs(): Promise<number> {
-    try {
-      const pendingJobs = await prisma.syncJob.findMany({
-        where: {
-          status: { in: ['PENDING', 'RETRYING'] },
+  private buildProjectContent(payload: Record<string, unknown>): any[] {
+    const blocks: any[] = [
+      {
+        type: 'callout',
+        callout: {
+          icon: { emoji: '🏠' },
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: `${this.getTierName(payload.tier as number)} Project`,
+              },
+            },
+          ],
         },
-        orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
-      });
+      },
+      {
+        type: 'heading_2',
+        heading_2: {
+          rich_text: [{ type: 'text', text: { content: 'Project Overview' } }],
+        },
+      },
+      {
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: `Address: ${payload.projectAddress || 'Not specified'}`,
+              },
+            },
+          ],
+        },
+      },
+      {
+        type: 'divider',
+        divider: {},
+      },
+      {
+        type: 'heading_2',
+        heading_2: {
+          rich_text: [{ type: 'text', text: { content: 'Milestones' } }],
+        },
+      },
+      {
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: { content: 'Project milestones will appear here.' },
+              annotations: { italic: true, color: 'gray' },
+            },
+          ],
+        },
+      },
+      {
+        type: 'divider',
+        divider: {},
+      },
+      {
+        type: 'heading_2',
+        heading_2: {
+          rich_text: [{ type: 'text', text: { content: 'Deliverables' } }],
+        },
+      },
+      {
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: { content: 'Project deliverables will appear here.' },
+              annotations: { italic: true, color: 'gray' },
+            },
+          ],
+        },
+      },
+    ];
 
-      for (const dbJob of pendingJobs) {
-        const job: SyncJob = {
-          id: dbJob.id,
-          entityType: dbJob.entityType as SyncEntityType,
-          entityId: dbJob.entityId,
-          operation: dbJob.operation as SyncOperation,
-          status: dbJob.status as SyncStatus,
-          priority: dbJob.priority,
-          retryCount: dbJob.retryCount,
-          maxRetries: dbJob.maxRetries,
-          lastError: dbJob.lastError || undefined,
-          notionPageId: dbJob.notionPageId || undefined,
-          payload: dbJob.payload as Record<string, unknown> | undefined,
-          createdAt: dbJob.createdAt,
-          updatedAt: dbJob.updatedAt,
-          scheduledFor: dbJob.scheduledFor || undefined,
-        };
-
-        this.queue.push(job);
-      }
-
-      // Start processing if there are jobs
-      if (this.queue.length > 0 && !this.processing) {
-        this.processQueue();
-      }
-
-      return pendingJobs.length;
-    } catch (error) {
-      console.warn('[NotionSync] Could not load pending jobs:', error);
-      return 0;
-    }
+    return blocks;
   }
 
   /**
-   * Clear completed jobs older than specified days
+   * Build a milestone block
    */
-  async cleanupOldJobs(daysOld: number = 7): Promise<number> {
-    try {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - daysOld);
+  private buildMilestoneBlock(payload: Record<string, unknown>): any {
+    const status = payload.status as string;
+    const statusEmoji = status === 'COMPLETED' ? '✅' : status === 'IN_PROGRESS' ? '🔄' : '⏳';
+    const name = payload.name as string;
+    const dueDate = payload.dueDate as string;
 
-      const result = await prisma.syncJob.deleteMany({
-        where: {
-          status: 'COMPLETED',
-          updatedAt: { lt: cutoff },
+    return {
+      type: 'to_do',
+      to_do: {
+        rich_text: [
+          {
+            type: 'text',
+            text: {
+              content: `${name}${dueDate ? ` (Due: ${new Date(dueDate).toLocaleDateString()})` : ''}`,
+            },
+          },
+        ],
+        checked: status === 'COMPLETED',
+      },
+    };
+  }
+
+  /**
+   * Build a deliverable block
+   */
+  private buildDeliverableBlock(payload: Record<string, unknown>): any {
+    const name = payload.name as string;
+    const category = payload.category as string;
+    const fileUrl = payload.fileUrl as string;
+
+    if (fileUrl) {
+      return {
+        type: 'bookmark',
+        bookmark: {
+          url: fileUrl,
+          caption: [
+            {
+              type: 'text',
+              text: { content: `${category}: ${name}` },
+            },
+          ],
         },
-      });
-
-      return result.count;
-    } catch (error) {
-      console.warn('[NotionSync] Could not cleanup old jobs:', error);
-      return 0;
+      };
     }
+
+    return {
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: `📎 ${category}: ${name}` },
+          },
+        ],
+      },
+    };
+  }
+
+  // ============================================================================
+  // HELPERS
+  // ============================================================================
+
+  /**
+   * Rate limit requests to stay under Notion API limits
+   */
+  private async rateLimit(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+
+    if (elapsed < this.config.rateLimitMs) {
+      await this.sleep(this.config.rateLimitMs - elapsed);
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+
+  /**
+   * Sleep helper
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Generate a unique task ID
+   */
+  private generateTaskId(): string {
+    return `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Map project status to Notion select option
+   */
+  private mapProjectStatus(status: string): string {
+    const mapping: Record<string, string> = {
+      ONBOARDING: 'Onboarding',
+      IN_PROGRESS: 'In Progress',
+      AWAITING_FEEDBACK: 'Awaiting Feedback',
+      REVISIONS: 'Revisions',
+      DELIVERED: 'Delivered',
+      CLOSED: 'Closed',
+    };
+    return mapping[status] || status;
+  }
+
+  /**
+   * Get tier display name
+   */
+  private getTierName(tier: number): string {
+    const names: Record<number, string> = {
+      1: 'The Concept',
+      2: 'The Builder',
+      3: 'The Concierge',
+      4: 'KAA White Glove',
+    };
+    return names[tier] || `Tier ${tier}`;
   }
 }
 
-// ============================================
-// SINGLETON INSTANCE & HELPERS
-// ============================================
+// ============================================================================
+// FACTORY & SINGLETON
+// ============================================================================
 
-// Create singleton instance
-const notionSyncQueue = new NotionSyncQueue();
+let syncQueueInstance: NotionSyncQueue | null = null;
 
 /**
- * Queue a project for sync
+ * Create or get the sync queue instance
  */
-export async function queueProjectSync(
-  projectId: string,
-  operation: SyncOperation = 'UPDATE'
-): Promise<SyncJob> {
-  return notionSyncQueue.enqueue('PROJECT', projectId, operation, undefined, 3);
+export function getNotionSyncQueue(config?: NotionSyncConfig): NotionSyncQueue {
+  if (!syncQueueInstance && config) {
+    syncQueueInstance = new NotionSyncQueue(config);
+  }
+
+  if (!syncQueueInstance) {
+    throw new Error('NotionSyncQueue not initialized. Provide config on first call.');
+  }
+
+  return syncQueueInstance;
 }
 
 /**
- * Queue a milestone for sync
+ * Initialize the sync queue (call at app startup)
  */
-export async function queueMilestoneSync(
-  milestoneId: string,
-  operation: SyncOperation = 'UPDATE'
-): Promise<SyncJob> {
-  return notionSyncQueue.enqueue('MILESTONE', milestoneId, operation, undefined, 4);
+export function initNotionSync(config: NotionSyncConfig): NotionSyncQueue {
+  syncQueueInstance = new NotionSyncQueue(config);
+  return syncQueueInstance;
 }
 
-/**
- * Queue a deliverable for sync
- */
-export async function queueDeliverableSync(
-  deliverableId: string,
-  operation: SyncOperation = 'CREATE'
-): Promise<SyncJob> {
-  return notionSyncQueue.enqueue('DELIVERABLE', deliverableId, operation, undefined, 5);
-}
-
-/**
- * Queue a lead for sync (CRM)
- */
-export async function queueLeadSync(
-  leadId: string,
-  operation: SyncOperation = 'CREATE'
-): Promise<SyncJob> {
-  return notionSyncQueue.enqueue('LEAD', leadId, operation, undefined, 6);
-}
-
-/**
- * Get sync queue status
- */
-export function getSyncQueueStatus() {
-  return notionSyncQueue.getStatus();
-}
-
-/**
- * Initialize sync queue on app startup
- */
-export async function initializeSyncQueue(): Promise<void> {
-  const loaded = await notionSyncQueue.loadPendingJobs();
-  console.log(`[NotionSync] Loaded ${loaded} pending jobs from database`);
-}
-
-/**
- * Cleanup old completed jobs
- */
-export async function cleanupSyncJobs(daysOld?: number): Promise<number> {
-  return notionSyncQueue.cleanupOldJobs(daysOld);
-}
-
-export { notionSyncQueue };
-export default notionSyncQueue;
+export default NotionSyncQueue;

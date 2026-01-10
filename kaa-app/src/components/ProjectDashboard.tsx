@@ -1,99 +1,145 @@
-import React from 'react';
+/**
+ * ProjectDashboard Component
+ * Main portal view with project list, status, and quick actions.
+ */
+
+import React, { useState, useMemo, JSX } from 'react';
+import {
+  ProjectSummary,
+  ProjectStatus,
+  formatDate,
+  TIER_NAMES,
+} from '../types/portal.types';
 import './ProjectDashboard.css';
 
-// Types
-export interface ProjectProgress {
-  completed: number;
-  total: number;
-  percentage: number;
-  currentMilestone: string | null;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  tier: number;
-  status: string;
-  projectAddress?: string | null;
-  createdAt: string;
-  progress?: ProjectProgress;
-  milestones?: Array<{
-    id: string;
-    name: string;
-    status: string;
-    order: number;
-  }>;
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface ProjectDashboardProps {
-  projects: Project[];
+  projects: ProjectSummary[];
   userName?: string;
-  onProjectClick: (projectId: string) => void;
-  onViewAllProjects?: () => void;
+  onProjectClick?: (projectId: string) => void;
+  onCreateProject?: () => void;
   isLoading?: boolean;
-  error?: string | null;
+  error?: string;
 }
 
-// Status display configuration
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  INTAKE: { label: 'Intake', className: 'status--intake' },
-  ONBOARDING: { label: 'Onboarding', className: 'status--onboarding' },
-  IN_PROGRESS: { label: 'In Progress', className: 'status--in-progress' },
-  AWAITING_FEEDBACK: { label: 'Awaiting Feedback', className: 'status--awaiting' },
-  REVISIONS: { label: 'Revisions', className: 'status--revisions' },
-  DELIVERED: { label: 'Delivered', className: 'status--delivered' },
-  CLOSED: { label: 'Closed', className: 'status--closed' },
-};
+type SortOption = 'recent' | 'name' | 'progress' | 'status';
+type FilterOption = 'all' | ProjectStatus;
 
-// Tier display configuration
-const TIER_CONFIG: Record<number, { name: string; className: string }> = {
-  1: { name: 'Seedling', className: 'tier--1' },
-  2: { name: 'Sprout', className: 'tier--2' },
-  3: { name: 'Canopy', className: 'tier--3' },
-  4: { name: 'Legacy', className: 'tier--4' },
-};
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
-const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
+function getStatusColor(status: ProjectStatus): string {
+  const colors: Record<ProjectStatus, string> = {
+    ONBOARDING: 'status-blue',
+    IN_PROGRESS: 'status-yellow',
+    AWAITING_FEEDBACK: 'status-purple',
+    REVISIONS: 'status-yellow',
+    DELIVERED: 'status-green',
+    CLOSED: 'status-gray',
+  };
+  return colors[status] || 'status-gray';
+}
+
+function getStatusLabel(status: ProjectStatus): string {
+  return status.replace('_', ' ');
+}
+
+function getProgressColor(percentage: number): string {
+  if (percentage >= 75) return 'progress-green';
+  if (percentage >= 50) return 'progress-yellow';
+  if (percentage >= 25) return 'progress-orange';
+  return 'progress-gray';
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+export function ProjectDashboard({
   projects,
   userName,
   onProjectClick,
-  onViewAllProjects,
+  onCreateProject,
   isLoading = false,
-  error = null,
-}) => {
-  // Get greeting based on time of day
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
+  error,
+}: ProjectDashboardProps): JSX.Element {
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Get active projects (not delivered or closed)
-  const activeProjects = projects.filter(
-    (p) => p.status !== 'DELIVERED' && p.status !== 'CLOSED'
-  );
+  // Filter and sort projects
+  const filteredProjects = useMemo(() => {
+    let result = [...projects];
 
-  // Get completed projects
-  const completedProjects = projects.filter((p) => p.status === 'DELIVERED');
+    // Filter by status
+    if (filterBy !== 'all') {
+      result = result.filter((p) => p.status === filterBy);
+    }
 
-  if (isLoading) {
-    return (
-      <div className="project-dashboard">
-        <div className="dashboard-loading">
-          <div className="loading-spinner" aria-label="Loading projects" />
-          <p>Loading your projects...</p>
-        </div>
-      </div>
-    );
-  }
+    // Filter by search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(query));
+    }
+
+    // Sort
+    switch (sortBy) {
+      case 'recent':
+        result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        break;
+      case 'name':
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'progress':
+        result.sort((a, b) => b.progress.percentage - a.progress.percentage);
+        break;
+      case 'status':
+        const statusOrder: ProjectStatus[] = [
+          'IN_PROGRESS',
+          'AWAITING_FEEDBACK',
+          'REVISIONS',
+          'ONBOARDING',
+          'DELIVERED',
+          'CLOSED',
+        ];
+        result.sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
+        break;
+    }
+
+    return result;
+  }, [projects, sortBy, filterBy, searchQuery]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const active = projects.filter(
+      (p) => p.status !== 'DELIVERED' && p.status !== 'CLOSED'
+    ).length;
+    const completed = projects.filter((p) => p.status === 'DELIVERED').length;
+    const avgProgress = projects.length > 0
+      ? Math.round(projects.reduce((sum, p) => sum + p.progress.percentage, 0) / projects.length)
+      : 0;
+
+    return { total: projects.length, active, completed, avgProgress };
+  }, [projects]);
+
+  // Get unique statuses for filter
+  const availableStatuses = useMemo(() => {
+    const statuses = new Set(projects.map((p) => p.status));
+    return Array.from(statuses);
+  }, [projects]);
 
   if (error) {
     return (
-      <div className="project-dashboard">
-        <div className="dashboard-error">
-          <span className="error-icon" aria-hidden="true">!</span>
+      <div className="project-dashboard project-dashboard--error">
+        <div className="project-dashboard__error">
+          <span className="project-dashboard__error-icon">⚠️</span>
+          <h3>Failed to load projects</h3>
           <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Try Again</button>
         </div>
       </div>
     );
@@ -102,157 +148,197 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   return (
     <div className="project-dashboard">
       {/* Header */}
-      <header className="dashboard-header">
-        <div className="dashboard-greeting">
-          <h1>
-            {getGreeting()}
-            {userName && <span className="user-name">, {userName}</span>}
+      <header className="project-dashboard__header">
+        <div className="project-dashboard__greeting">
+          <h1 className="project-dashboard__title">
+            {userName ? `Welcome back, ${userName}!` : 'Your Projects'}
           </h1>
-          <p className="dashboard-subtitle">
-            {activeProjects.length > 0
-              ? `You have ${activeProjects.length} active project${activeProjects.length !== 1 ? 's' : ''}`
-              : 'Welcome to your project portal'}
+          <p className="project-dashboard__subtitle">
+            {stats.active > 0
+              ? `You have ${stats.active} active project${stats.active !== 1 ? 's' : ''}`
+              : 'No active projects'}
           </p>
         </div>
+
+        {onCreateProject && (
+          <button className="project-dashboard__new-btn" onClick={onCreateProject}>
+            + New Project
+          </button>
+        )}
       </header>
 
-      {/* Quick Stats */}
-      {projects.length > 0 && (
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <span className="stat-value">{activeProjects.length}</span>
-            <span className="stat-label">Active</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{completedProjects.length}</span>
-            <span className="stat-label">Completed</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{projects.length}</span>
-            <span className="stat-label">Total</span>
-          </div>
+      {/* Stats */}
+      <div className="project-dashboard__stats">
+        <div className="project-dashboard__stat">
+          <span className="project-dashboard__stat-value">{stats.total}</span>
+          <span className="project-dashboard__stat-label">Total Projects</span>
         </div>
-      )}
+        <div className="project-dashboard__stat">
+          <span className="project-dashboard__stat-value">{stats.active}</span>
+          <span className="project-dashboard__stat-label">Active</span>
+        </div>
+        <div className="project-dashboard__stat">
+          <span className="project-dashboard__stat-value">{stats.completed}</span>
+          <span className="project-dashboard__stat-label">Completed</span>
+        </div>
+        <div className="project-dashboard__stat">
+          <span className="project-dashboard__stat-value">{stats.avgProgress}%</span>
+          <span className="project-dashboard__stat-label">Avg Progress</span>
+        </div>
+      </div>
 
-      {/* Active Projects */}
-      <section className="dashboard-section">
-        <div className="section-header">
-          <h2>Active Projects</h2>
-          {onViewAllProjects && projects.length > 3 && (
+      {/* Controls */}
+      <div className="project-dashboard__controls">
+        <div className="project-dashboard__search">
+          <input
+            type="text"
+            placeholder="Search projects..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="project-dashboard__search-input"
+            aria-label="Search projects"
+          />
+          {searchQuery && (
             <button
-              type="button"
-              className="view-all-btn"
-              onClick={onViewAllProjects}
+              className="project-dashboard__search-clear"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
             >
-              View All
+              ✕
             </button>
           )}
         </div>
 
-        {activeProjects.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon" aria-hidden="true">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-            </div>
-            <p>No active projects</p>
-            <span className="empty-hint">Your projects will appear here once started</span>
-          </div>
-        ) : (
-          <div className="project-grid">
-            {activeProjects.slice(0, 6).map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => onProjectClick(project.id)}
-              />
+        <div className="project-dashboard__filters">
+          <select
+            value={filterBy}
+            onChange={(e) => setFilterBy(e.target.value as FilterOption)}
+            className="project-dashboard__select"
+            aria-label="Filter by status"
+          >
+            <option value="all">All Statuses</option>
+            {availableStatuses.map((status) => (
+              <option key={status} value={status}>
+                {getStatusLabel(status)}
+              </option>
             ))}
-          </div>
-        )}
-      </section>
+          </select>
 
-      {/* Recently Completed */}
-      {completedProjects.length > 0 && (
-        <section className="dashboard-section">
-          <div className="section-header">
-            <h2>Recently Completed</h2>
-          </div>
-          <div className="project-grid">
-            {completedProjects.slice(0, 3).map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => onProjectClick(project.id)}
-              />
-            ))}
-          </div>
-        </section>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="project-dashboard__select"
+            aria-label="Sort by"
+          >
+            <option value="recent">Most Recent</option>
+            <option value="name">Name</option>
+            <option value="progress">Progress</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Project list */}
+      {isLoading ? (
+        <div className="project-dashboard__loading">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="project-dashboard__skeleton-card" />
+          ))}
+        </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="project-dashboard__empty">
+          <span className="project-dashboard__empty-icon">📋</span>
+          <h3>
+            {searchQuery || filterBy !== 'all'
+              ? 'No projects match your filters'
+              : 'No projects yet'}
+          </h3>
+          <p>
+            {searchQuery || filterBy !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Your projects will appear here once they are created'}
+          </p>
+          {(searchQuery || filterBy !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setFilterBy('all');
+              }}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="project-dashboard__list">
+          {filteredProjects.map((project) => (
+            <article
+              key={project.id}
+              className="project-dashboard__card"
+              onClick={() => onProjectClick?.(project.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onProjectClick?.(project.id);
+                }
+              }}
+            >
+              <div className="project-dashboard__card-header">
+                <h3 className="project-dashboard__card-title">{project.name}</h3>
+                <div className="project-dashboard__card-badges">
+                  <span className={`project-dashboard__card-status ${getStatusColor(project.status)}`}>
+                    {getStatusLabel(project.status)}
+                  </span>
+                  <span className="project-dashboard__card-tier">
+                    {TIER_NAMES[project.tier] || `Tier ${project.tier}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="project-dashboard__card-progress">
+                <div className="project-dashboard__card-progress-header">
+                  <span>Progress</span>
+                  <span>{project.progress.percentage}%</span>
+                </div>
+                <div className="project-dashboard__card-progress-bar">
+                  <div
+                    className={`project-dashboard__card-progress-fill ${getProgressColor(project.progress.percentage)}`}
+                    style={{ width: `${project.progress.percentage}%` }}
+                  />
+                </div>
+                <div className="project-dashboard__card-progress-meta">
+                  {project.progress.completed} of {project.progress.total} milestones
+                </div>
+              </div>
+
+              {project.nextMilestone && (
+                <div className="project-dashboard__card-next">
+                  <span className="project-dashboard__card-next-label">Next:</span>
+                  <span className="project-dashboard__card-next-name">
+                    {project.nextMilestone.name}
+                  </span>
+                  {project.nextMilestone.dueDate && (
+                    <span className="project-dashboard__card-next-date">
+                      Due {formatDate(project.nextMilestone.dueDate)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="project-dashboard__card-footer">
+                <span className="project-dashboard__card-updated">
+                  Updated {formatDate(project.updatedAt)}
+                </span>
+                <span className="project-dashboard__card-arrow">→</span>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
     </div>
   );
-};
-
-// Project Card Sub-component
-interface ProjectCardProps {
-  project: Project;
-  onClick: () => void;
 }
-
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
-  const status = STATUS_CONFIG[project.status] || { label: project.status, className: '' };
-  const tier = TIER_CONFIG[project.tier] || { name: `Tier ${project.tier}`, className: '' };
-  const progress = project.progress;
-
-  return (
-    <button
-      type="button"
-      className="project-card"
-      onClick={onClick}
-      aria-label={`View project: ${project.name}`}
-    >
-      <div className="project-card-header">
-        <span className={`tier-badge ${tier.className}`}>{tier.name}</span>
-        <span className={`status-badge ${status.className}`}>{status.label}</span>
-      </div>
-
-      <h3 className="project-name">{project.name}</h3>
-
-      {project.projectAddress && (
-        <p className="project-address">{project.projectAddress}</p>
-      )}
-
-      {progress && (
-        <div className="project-progress">
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${progress.percentage}%` }}
-              aria-valuenow={progress.percentage}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              role="progressbar"
-            />
-          </div>
-          <div className="progress-info">
-            <span className="progress-text">
-              {progress.percentage}% complete
-            </span>
-            {progress.currentMilestone && (
-              <span className="current-milestone">
-                {progress.currentMilestone}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="project-card-footer">
-        <span className="view-details">View Details</span>
-        <span className="arrow" aria-hidden="true">→</span>
-      </div>
-    </button>
-  );
-};
 
 export default ProjectDashboard;

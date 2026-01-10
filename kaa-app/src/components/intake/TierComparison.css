@@ -1,0 +1,256 @@
+/**
+ * TierComparison Styles
+ */
+
+.tier-comparison {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Header */
+.tier-comparison__header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.tier-comparison__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 0.5rem 0;
+}
+
+.tier-comparison__subtitle {
+  font-size: 1.125rem;
+  color: #666;
+  margin: 0;
+}
+
+/* Card Grid */
+.tier-comparison__cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+/* Table */
+.tier-comparison__table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.tier-comparison__table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tier-comparison__table th,
+.tier-comparison__table td {
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+}
+
+.tier-comparison__feature-header {
+  text-align: left !important;
+  font-weight: 600;
+  color: #333;
+  background: #f8f9fa;
+}
+
+.tier-comparison__tier-header {
+  background: #f8f9fa;
+  min-width: 150px;
+  position: relative;
+}
+
+.tier-comparison__tier-header--recommended {
+  background: #e8f5e9;
+}
+
+.tier-comparison__tier-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.tier-comparison__tier-price {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.tier-comparison__tier-header--recommended .tier-comparison__tier-price {
+  color: #4caf50;
+}
+
+.tier-comparison__recommended-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #4caf50;
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.tier-comparison__row:hover {
+  background: #f8f9fa;
+}
+
+.tier-comparison__feature-name {
+  text-align: left !important;
+  color: #333;
+  font-weight: 500;
+}
+
+.tier-comparison__cell--included {
+  color: #4caf50;
+}
+
+.tier-comparison__cell--excluded {
+  color: #ddd;
+}
+
+.tier-comparison__check {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.tier-comparison__cross {
+  font-size: 1.25rem;
+  color: #ccc;
+}
+
+/* CTA Cells */
+.tier-comparison__cta-cell {
+  padding: 1rem !important;
+  background: #f8f9fa;
+}
+
+.tier-comparison__cta {
+  padding: 0.75rem 1.5rem;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.tier-comparison__cta:hover {
+  background: #1976d2;
+}
+
+.tier-comparison__cta--recommended {
+  background: #4caf50;
+}
+
+.tier-comparison__cta--recommended:hover {
+  background: #388e3c;
+}
+
+.tier-comparison__cta--selected {
+  background: #1565c0;
+}
+
+/* Legend */
+.tier-comparison__legend {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.tier-comparison__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .tier-comparison__cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .tier-comparison {
+    padding: 1rem;
+  }
+
+  .tier-comparison__cards {
+    grid-template-columns: 1fr;
+  }
+
+  .tier-comparison__title {
+    font-size: 1.5rem;
+  }
+
+  .tier-comparison__table-wrapper {
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+
+  .tier-comparison__tier-header {
+    min-width: 100px;
+  }
+
+  .tier-comparison__tier-name {
+    font-size: 0.875rem;
+  }
+
+  .tier-comparison__tier-price {
+    font-size: 1rem;
+  }
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  .tier-comparison__title {
+    color: #fff;
+  }
+
+  .tier-comparison__table {
+    background: #1e1e1e;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .tier-comparison__table th,
+  .tier-comparison__table td {
+    border-color: #333;
+  }
+
+  .tier-comparison__feature-header,
+  .tier-comparison__tier-header,
+  .tier-comparison__cta-cell {
+    background: #252525;
+  }
+
+  .tier-comparison__tier-header--recommended {
+    background: #1b2e1b;
+  }
+
+  .tier-comparison__tier-name,
+  .tier-comparison__feature-name {
+    color: #fff;
+  }
+
+  .tier-comparison__row:hover {
+    background: #252525;
+  }
+}

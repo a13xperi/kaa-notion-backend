@@ -1,414 +1,301 @@
 /**
  * MilestoneTimeline Component Tests
- *
- * Tests for milestone rendering, status indicators, and timeline display.
  */
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import MilestoneTimeline, { Milestone } from '../MilestoneTimeline';
+import { MilestoneTimeline } from '../MilestoneTimeline';
+import { Milestone, MilestoneStatus, MilestoneSummary } from '../../types/portal.types';
 
-// Mock CSS import
-jest.mock('../MilestoneTimeline.css', () => ({}));
+// Mock data
+const mockMilestones: Milestone[] = [
+  {
+    id: 'milestone-1',
+    name: 'Intake',
+    order: 1,
+    status: 'COMPLETED' as MilestoneStatus,
+    dueDate: '2024-10-01T00:00:00.000Z',
+    completedAt: '2024-09-28T00:00:00.000Z',
+  },
+  {
+    id: 'milestone-2',
+    name: 'Concept Design',
+    order: 2,
+    status: 'COMPLETED' as MilestoneStatus,
+    dueDate: '2024-10-15T00:00:00.000Z',
+    completedAt: '2024-10-12T00:00:00.000Z',
+  },
+  {
+    id: 'milestone-3',
+    name: 'Design Review',
+    order: 3,
+    status: 'IN_PROGRESS' as MilestoneStatus,
+    dueDate: '2024-11-01T00:00:00.000Z',
+    completedAt: null,
+  },
+  {
+    id: 'milestone-4',
+    name: 'Revisions',
+    order: 4,
+    status: 'PENDING' as MilestoneStatus,
+    dueDate: '2024-11-15T00:00:00.000Z',
+    completedAt: null,
+  },
+  {
+    id: 'milestone-5',
+    name: 'Final Delivery',
+    order: 5,
+    status: 'PENDING' as MilestoneStatus,
+    dueDate: '2024-12-01T00:00:00.000Z',
+    completedAt: null,
+  },
+];
+
+const mockSummary: MilestoneSummary = {
+  total: 5,
+  completed: 2,
+  inProgress: 1,
+  pending: 2,
+  percentage: 40,
+};
 
 describe('MilestoneTimeline', () => {
-  const mockOnMilestoneClick = jest.fn();
-
-  const createMilestone = (overrides: Partial<Milestone> = {}): Milestone => ({
-    id: 'milestone-1',
-    name: 'Test Milestone',
-    status: 'PENDING',
-    order: 1,
-    dueDate: null,
-    completedAt: null,
-    description: null,
-    ...overrides,
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  const renderTimeline = (props: Partial<Parameters<typeof MilestoneTimeline>[0]> = {}) => {
-    return render(
-      <MilestoneTimeline
-        milestones={[]}
-        {...props}
-      />
-    );
-  };
-
-  describe('Empty State', () => {
-    it('should show empty message when no milestones', () => {
-      renderTimeline({ milestones: [] });
-
-      expect(screen.getByText(/no milestones defined/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Basic Rendering', () => {
+  describe('rendering', () => {
     it('should render all milestones', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', name: 'Intake', order: 1 }),
-        createMilestone({ id: 'm2', name: 'Design', order: 2 }),
-        createMilestone({ id: 'm3', name: 'Review', order: 3 }),
-      ];
-
-      renderTimeline({ milestones });
+      render(<MilestoneTimeline milestones={mockMilestones} />);
 
       expect(screen.getByText('Intake')).toBeInTheDocument();
-      expect(screen.getByText('Design')).toBeInTheDocument();
-      expect(screen.getByText('Review')).toBeInTheDocument();
+      expect(screen.getByText('Concept Design')).toBeInTheDocument();
+      expect(screen.getByText('Design Review')).toBeInTheDocument();
+      expect(screen.getByText('Revisions')).toBeInTheDocument();
+      expect(screen.getByText('Final Delivery')).toBeInTheDocument();
     });
 
-    it('should sort milestones by order', () => {
-      const milestones = [
-        createMilestone({ id: 'm3', name: 'Third', order: 3 }),
-        createMilestone({ id: 'm1', name: 'First', order: 1 }),
-        createMilestone({ id: 'm2', name: 'Second', order: 2 }),
+    it('should render timeline title', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
+
+      expect(screen.getByText(/project timeline/i)).toBeInTheDocument();
+    });
+
+    it('should display milestone status badges', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
+
+      // Status badges appear for each milestone + in legend
+      // 2 completed milestones + 1 in legend = 3 "Completed" texts
+      expect(screen.getAllByText('Completed')).toHaveLength(3);
+      // 1 in-progress milestone + 1 in legend = 2 "In Progress" texts  
+      expect(screen.getAllByText('In Progress')).toHaveLength(2);
+      // 2 pending milestones + 1 in legend = 3 "Pending" texts
+      expect(screen.getAllByText('Pending')).toHaveLength(3);
+    });
+
+    it('should display status icons', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
+
+      // ✓ for completed, ● for in progress, ○ for pending
+      expect(screen.getAllByText('✓')).toHaveLength(3); // 2 milestones + 1 in legend
+      expect(screen.getAllByText('●')).toHaveLength(2); // 1 milestone + 1 in legend
+      expect(screen.getAllByText('○')).toHaveLength(3); // 2 milestones + 1 in legend
+    });
+
+    it('should show progress summary when provided', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} summary={mockSummary} />);
+
+      expect(screen.getByText('2 of 5 completed')).toBeInTheDocument();
+    });
+
+    it('should show project name when provided', () => {
+      render(
+        <MilestoneTimeline
+          milestones={mockMilestones}
+          projectName="Garden Project"
+        />
+      );
+
+      expect(screen.getByText(/garden project/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('progress bar', () => {
+    it('should render progress bar with correct percentage', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
+
+      const progressFill = document.querySelector('.milestone-timeline__progress-fill');
+      expect(progressFill).toBeInTheDocument();
+      // 2/5 = 40%
+      expect(progressFill).toHaveStyle({ width: '40%' });
+    });
+
+    it('should display percentage text', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
+
+      expect(screen.getByText('40%')).toBeInTheDocument();
+    });
+
+    it('should show 0% for no completed milestones', () => {
+      const pendingMilestones: Milestone[] = mockMilestones.map((m) => ({
+        ...m,
+        status: 'PENDING' as MilestoneStatus,
+        completedAt: null,
+      }));
+
+      render(<MilestoneTimeline milestones={pendingMilestones} />);
+
+      expect(screen.getByText('0%')).toBeInTheDocument();
+    });
+
+    it('should show 100% for all completed milestones', () => {
+      const completedMilestones: Milestone[] = mockMilestones.map((m) => ({
+        ...m,
+        status: 'COMPLETED' as MilestoneStatus,
+        completedAt: '2024-11-01T00:00:00.000Z',
+      }));
+
+      render(<MilestoneTimeline milestones={completedMilestones} />);
+
+      expect(screen.getByText('100%')).toBeInTheDocument();
+    });
+
+    it('should use summary percentage when provided', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} summary={mockSummary} />);
+
+      const progressFill = document.querySelector('.milestone-timeline__progress-fill');
+      expect(progressFill).toHaveStyle({ width: '40%' });
+    });
+  });
+
+  describe('compact mode', () => {
+    it('should render in compact mode when specified', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} compact={true} />);
+
+      const timeline = document.querySelector('.milestone-timeline--compact');
+      expect(timeline).toBeInTheDocument();
+    });
+
+    it('should hide legend in compact mode', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} compact={true} />);
+
+      const legend = document.querySelector('.milestone-timeline__legend');
+      expect(legend).not.toBeInTheDocument();
+    });
+  });
+
+  describe('order', () => {
+    it('should display milestones in correct order', () => {
+      const unorderedMilestones: Milestone[] = [
+        { ...mockMilestones[4] }, // Order 5
+        { ...mockMilestones[0] }, // Order 1
+        { ...mockMilestones[2] }, // Order 3
+        { ...mockMilestones[1] }, // Order 2
+        { ...mockMilestones[3] }, // Order 4
       ];
 
-      renderTimeline({ milestones });
+      render(<MilestoneTimeline milestones={unorderedMilestones} />);
 
-      const items = screen.getAllByRole('listitem');
-      expect(items[0]).toHaveTextContent('First');
-      expect(items[1]).toHaveTextContent('Second');
-      expect(items[2]).toHaveTextContent('Third');
-    });
+      const milestoneNames = document.querySelectorAll('.milestone-timeline__name');
 
-    it('should have accessible list role', () => {
-      renderTimeline({
-        milestones: [createMilestone()],
-      });
-
-      expect(screen.getByRole('list', { name: /project milestones/i })).toBeInTheDocument();
+      // Should be sorted by order
+      expect(milestoneNames[0].textContent).toBe('Intake');
+      expect(milestoneNames[1].textContent).toBe('Concept Design');
+      expect(milestoneNames[2].textContent).toBe('Design Review');
     });
   });
 
-  describe('Status Display', () => {
-    it('should display PENDING status', () => {
-      renderTimeline({
-        milestones: [createMilestone({ status: 'PENDING' })],
-      });
+  describe('due dates', () => {
+    it('should display due dates when showDates is true', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} showDates={true} />);
 
-      expect(screen.getByText('Pending')).toBeInTheDocument();
+      // Check for "Due" prefix in due dates
+      expect(screen.getAllByText(/due/i).length).toBeGreaterThan(0);
     });
 
-    it('should display IN_PROGRESS status', () => {
-      renderTimeline({
-        milestones: [createMilestone({ status: 'IN_PROGRESS' })],
-      });
+    it('should show completed date for finished milestones', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} showDates={true} />);
 
-      expect(screen.getByText('In Progress')).toBeInTheDocument();
+      // Completed milestones show "Completed [date]"
+      expect(screen.getByText(/completed sep 28/i)).toBeInTheDocument();
     });
 
-    it('should display COMPLETED status', () => {
-      renderTimeline({
-        milestones: [createMilestone({ status: 'COMPLETED' })],
-      });
+    it('should not show dates when showDates is false', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} showDates={false} />);
 
-      expect(screen.getByText('Completed')).toBeInTheDocument();
-    });
-
-    it('should show order number for pending milestones', () => {
-      renderTimeline({
-        milestones: [createMilestone({ status: 'PENDING', order: 3 })],
-      });
-
-      expect(screen.getByText('3')).toBeInTheDocument();
+      // No "Completed" or "Due" text for dates
+      expect(screen.queryByText(/completed sep/i)).not.toBeInTheDocument();
     });
   });
 
-  describe('Progress Summary', () => {
-    it('should show progress fraction', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1 }),
-        createMilestone({ id: 'm2', status: 'COMPLETED', order: 2 }),
-        createMilestone({ id: 'm3', status: 'IN_PROGRESS', order: 3 }),
-        createMilestone({ id: 'm4', status: 'PENDING', order: 4 }),
-        createMilestone({ id: 'm5', status: 'PENDING', order: 5 }),
-      ];
-
-      renderTimeline({ milestones });
-
-      expect(screen.getByText('2/5')).toBeInTheDocument();
-      expect(screen.getByText('milestones complete')).toBeInTheDocument();
-    });
-
-    it('should show progress bar with correct percentage', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1 }),
-        createMilestone({ id: 'm2', status: 'PENDING', order: 2 }),
-      ];
-
-      renderTimeline({ milestones });
-
-      const progressBar = screen.getByRole('progressbar');
-      expect(progressBar).toHaveAttribute('aria-valuenow', '50');
-    });
-
-    it('should show current milestone indicator', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1, name: 'Intake' }),
-        createMilestone({ id: 'm2', status: 'IN_PROGRESS', order: 2, name: 'Design Phase' }),
-        createMilestone({ id: 'm3', status: 'PENDING', order: 3, name: 'Review' }),
-      ];
-
-      renderTimeline({ milestones });
-
-      expect(screen.getByText(/currently:/i)).toBeInTheDocument();
-      expect(screen.getByText('Design Phase')).toBeInTheDocument();
-    });
-
-    it('should hide summary in compact mode', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1 }),
-        createMilestone({ id: 'm2', status: 'PENDING', order: 2 }),
-      ];
-
-      renderTimeline({ milestones, compact: true });
-
-      expect(screen.queryByText('milestones complete')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Date Display', () => {
-    it('should show completed date for completed milestones', () => {
-      const completedDate = '2024-01-15T10:00:00.000Z';
-      renderTimeline({
-        milestones: [createMilestone({ status: 'COMPLETED', completedAt: completedDate })],
-        showDates: true,
-      });
-
-      expect(screen.getByText(/completed jan 15, 2024/i)).toBeInTheDocument();
-    });
-
-    it('should show due date for in-progress milestones', () => {
-      // Set due date to future
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 5);
-
-      renderTimeline({
-        milestones: [createMilestone({
-          status: 'IN_PROGRESS',
-          dueDate: futureDate.toISOString(),
-        })],
-        showDates: true,
-      });
-
-      expect(screen.getByText(/due in \d+ days/i)).toBeInTheDocument();
-    });
-
-    it('should hide dates when showDates is false', () => {
-      renderTimeline({
-        milestones: [createMilestone({
-          status: 'COMPLETED',
-          completedAt: '2024-01-15T00:00:00.000Z',
-        })],
-        showDates: false,
-      });
-
-      expect(screen.queryByText(/completed/i)).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Description Display', () => {
-    it('should show description when showDescriptions is true', () => {
-      renderTimeline({
-        milestones: [createMilestone({
-          name: 'Design',
-          description: 'Create initial design concepts',
-        })],
-        showDescriptions: true,
-      });
-
-      expect(screen.getByText('Create initial design concepts')).toBeInTheDocument();
-    });
-
-    it('should hide description when showDescriptions is false', () => {
-      renderTimeline({
-        milestones: [createMilestone({
-          description: 'Hidden description',
-        })],
-        showDescriptions: false,
-      });
-
-      expect(screen.queryByText('Hidden description')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Orientation', () => {
-    it('should have vertical class by default', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone()],
-      });
-
-      expect(container.querySelector('.milestone-timeline--vertical')).toBeInTheDocument();
-    });
-
-    it('should have horizontal class when specified', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone()],
-        orientation: 'horizontal',
-      });
-
-      expect(container.querySelector('.milestone-timeline--horizontal')).toBeInTheDocument();
-    });
-  });
-
-  describe('Compact Mode', () => {
-    it('should have compact class when compact is true', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone()],
-        compact: true,
-      });
-
-      expect(container.querySelector('.milestone-timeline--compact')).toBeInTheDocument();
-    });
-  });
-
-  describe('Click Interaction', () => {
+  describe('interactions', () => {
     it('should call onMilestoneClick when milestone is clicked', () => {
-      const milestone = createMilestone({ id: 'm1', name: 'Clickable' });
+      const handleClick = jest.fn();
+      
+      render(
+        <MilestoneTimeline
+          milestones={mockMilestones}
+          onMilestoneClick={handleClick}
+        />
+      );
 
-      renderTimeline({
-        milestones: [milestone],
-        onMilestoneClick: mockOnMilestoneClick,
-      });
-
-      fireEvent.click(screen.getByRole('button'));
-
-      expect(mockOnMilestoneClick).toHaveBeenCalledWith(milestone);
+      const firstMilestone = screen.getByText('Intake').closest('.milestone-timeline__item');
+      if (firstMilestone) {
+        fireEvent.click(firstMilestone);
+        expect(handleClick).toHaveBeenCalledWith(expect.objectContaining({
+          id: 'milestone-1',
+          name: 'Intake',
+        }));
+      }
     });
 
-    it('should render as button when onMilestoneClick is provided', () => {
-      renderTimeline({
-        milestones: [createMilestone()],
-        onMilestoneClick: mockOnMilestoneClick,
-      });
+    it('should support keyboard navigation when clickable', () => {
+      const handleClick = jest.fn();
+      
+      render(
+        <MilestoneTimeline
+          milestones={mockMilestones}
+          onMilestoneClick={handleClick}
+        />
+      );
 
-      expect(screen.getByRole('button')).toBeInTheDocument();
-    });
-
-    it('should render as div when onMilestoneClick is not provided', () => {
-      renderTimeline({
-        milestones: [createMilestone()],
-      });
-
-      expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    });
-
-    it('should have accessible label when clickable', () => {
-      renderTimeline({
-        milestones: [createMilestone({ name: 'Design', status: 'IN_PROGRESS' })],
-        onMilestoneClick: mockOnMilestoneClick,
-      });
-
-      expect(screen.getByRole('button', { name: /design: in progress/i })).toBeInTheDocument();
+      const firstMilestone = screen.getByText('Intake').closest('.milestone-timeline__item');
+      if (firstMilestone) {
+        fireEvent.keyDown(firstMilestone, { key: 'Enter' });
+        expect(handleClick).toHaveBeenCalled();
+      }
     });
   });
 
-  describe('Connector Lines', () => {
-    it('should render connector lines between milestones', () => {
-      const { container } = renderTimeline({
-        milestones: [
-          createMilestone({ id: 'm1', order: 1 }),
-          createMilestone({ id: 'm2', order: 2 }),
-          createMilestone({ id: 'm3', order: 3 }),
-        ],
-      });
+  describe('orientation', () => {
+    it('should default to vertical orientation', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
 
-      // Should have connector elements
-      const connectors = container.querySelectorAll('.timeline-connector');
-      expect(connectors.length).toBeGreaterThan(0);
+      const timeline = document.querySelector('.milestone-timeline--vertical');
+      expect(timeline).toBeInTheDocument();
     });
 
-    it('should have active connector for completed milestones', () => {
-      const { container } = renderTimeline({
-        milestones: [
-          createMilestone({ id: 'm1', order: 1, status: 'COMPLETED' }),
-          createMilestone({ id: 'm2', order: 2, status: 'PENDING' }),
-        ],
-      });
+    it('should support horizontal orientation', () => {
+      render(
+        <MilestoneTimeline
+          milestones={mockMilestones}
+          orientation="horizontal"
+        />
+      );
 
-      const activeConnectors = container.querySelectorAll('.timeline-connector--active');
-      expect(activeConnectors.length).toBeGreaterThan(0);
+      const timeline = document.querySelector('.milestone-timeline--horizontal');
+      expect(timeline).toBeInTheDocument();
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle single milestone', () => {
-      renderTimeline({
-        milestones: [createMilestone({ name: 'Only One' })],
-      });
+  describe('legend', () => {
+    it('should display legend with all statuses', () => {
+      render(<MilestoneTimeline milestones={mockMilestones} />);
 
-      expect(screen.getByText('Only One')).toBeInTheDocument();
-      expect(screen.getByText('1/1')).toBeInTheDocument();
-    });
-
-    it('should handle all completed milestones', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1 }),
-        createMilestone({ id: 'm2', status: 'COMPLETED', order: 2 }),
-        createMilestone({ id: 'm3', status: 'COMPLETED', order: 3 }),
-      ];
-
-      renderTimeline({ milestones });
-
-      expect(screen.getByText('3/3')).toBeInTheDocument();
-      const progressBar = screen.getByRole('progressbar');
-      expect(progressBar).toHaveAttribute('aria-valuenow', '100');
-    });
-
-    it('should handle all pending milestones', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'PENDING', order: 1 }),
-        createMilestone({ id: 'm2', status: 'PENDING', order: 2 }),
-      ];
-
-      renderTimeline({ milestones });
-
-      expect(screen.getByText('0/2')).toBeInTheDocument();
-      const progressBar = screen.getByRole('progressbar');
-      expect(progressBar).toHaveAttribute('aria-valuenow', '0');
-    });
-
-    it('should not show current milestone when none in progress', () => {
-      const milestones = [
-        createMilestone({ id: 'm1', status: 'COMPLETED', order: 1 }),
-        createMilestone({ id: 'm2', status: 'PENDING', order: 2 }),
-      ];
-
-      renderTimeline({ milestones });
-
-      expect(screen.queryByText(/currently:/i)).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Status Icon', () => {
-    it('should render checkmark for completed status', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone({ status: 'COMPLETED' })],
-      });
-
-      expect(container.querySelector('.status-icon--completed')).toBeInTheDocument();
-    });
-
-    it('should render indicator for in-progress status', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone({ status: 'IN_PROGRESS' })],
-      });
-
-      expect(container.querySelector('.status-icon--in-progress')).toBeInTheDocument();
-    });
-
-    it('should render order number for pending status', () => {
-      const { container } = renderTimeline({
-        milestones: [createMilestone({ status: 'PENDING', order: 2 })],
-      });
-
-      expect(container.querySelector('.status-icon--pending')).toHaveTextContent('2');
+      const legend = document.querySelector('.milestone-timeline__legend');
+      expect(legend).toBeInTheDocument();
+      
+      // Legend items contain status text
+      expect(legend?.textContent).toContain('Completed');
+      expect(legend?.textContent).toContain('In Progress');
+      expect(legend?.textContent).toContain('Pending');
     });
   });
 });

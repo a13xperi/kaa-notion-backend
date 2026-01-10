@@ -1,0 +1,119 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+---
+
+<BaseLayout title="Get Started | KAA Portal">
+  <Header />
+
+  <main>
+    <section class="pt-24 pb-16 md:pt-32 md:pb-24 min-h-screen bg-bg-primary dark-mode-transition">
+      <div class="section-container">
+        <div class="max-w-lg mx-auto">
+          <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-text-primary mb-4">
+              Create Your Account
+            </h1>
+            <p class="text-text-secondary">
+              Start your 14-day free trial. No credit card required.
+            </p>
+          </div>
+
+          <div class="card p-8">
+            <form class="space-y-6">
+              <div>
+                <label class="block text-text-primary font-medium mb-2" for="name">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  class="input-field"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+
+              <div>
+                <label class="block text-text-primary font-medium mb-2" for="email">
+                  Work Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  class="input-field"
+                  placeholder="john@company.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label class="block text-text-primary font-medium mb-2" for="company">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  id="company"
+                  class="input-field"
+                  placeholder="Acme Inc."
+                  required
+                />
+              </div>
+
+              <div>
+                <label class="block text-text-primary font-medium mb-2" for="password">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  class="input-field"
+                  placeholder="Create a secure password"
+                  required
+                  minlength="8"
+                />
+              </div>
+
+              <div class="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  class="mt-1 w-4 h-4 rounded border-border text-brand-primary focus:ring-brand-primary"
+                  required
+                />
+                <label class="text-text-secondary text-sm" for="terms">
+                  I agree to the <a href="/terms" class="text-brand-primary hover:underline">Terms of Service</a> and <a href="/privacy" class="text-brand-primary hover:underline">Privacy Policy</a>
+                </label>
+              </div>
+
+              <button type="submit" class="btn-primary w-full py-4">
+                Create Account
+              </button>
+            </form>
+
+            <div class="mt-8 pt-6 border-t border-border text-center">
+              <p class="text-text-secondary text-sm">
+                Already have an account?
+                <a href="/login" class="text-brand-primary hover:underline font-medium">Sign in</a>
+              </p>
+            </div>
+          </div>
+
+          <!-- Trust Indicators -->
+          <div class="mt-8 text-center">
+            <p class="text-text-muted text-sm mb-4">Trusted by teams at</p>
+            <div class="flex items-center justify-center gap-8 opacity-50">
+              <span class="text-text-secondary font-semibold">Company A</span>
+              <span class="text-text-secondary font-semibold">Company B</span>
+              <span class="text-text-secondary font-semibold">Company C</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>

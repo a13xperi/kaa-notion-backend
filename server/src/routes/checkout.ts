@@ -1,163 +1,196 @@
+/**
+ * Checkout Routes
+ * POST /api/checkout/create-session - Create Stripe checkout session
+ */
+
 import { Router, Request, Response, NextFunction } from 'express';
-import { ZodError } from 'zod';
-import { prisma } from '../utils/prisma';
-import { createCheckoutSessionSchema, CreateCheckoutSessionInput } from '../utils/validation';
-import { createCheckoutSession, getCheckoutSession } from '../utils/stripeHelpers';
-import { isPayableTier } from '../utils/stripe';
+import { PrismaClient } from '@prisma/client';
+import { 
+  createCheckoutSession, 
+  getTierPricing, 
+  isValidTier,
+  TIER_PRICING
+} from '../utils/stripeHelpers';
+import { validationError, notFound } from '../utils/AppError';
+import { logger } from '../logger';
+import { createCheckoutSchema, type CreateCheckoutInput } from '../utils';
+import { validateBody } from '../middleware';
 
-const router = Router();
+// ============================================================================
+// ROUTER FACTORY
+// ============================================================================
 
-/**
- * POST /api/checkout/create-session
- * Create a Stripe checkout session for a lead
- */
-router.post('/create-session', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Validate request body
-    const validatedData: CreateCheckoutSessionInput = createCheckoutSessionSchema.parse(req.body);
-    const { leadId, tier, successUrl, cancelUrl } = validatedData;
+export function createCheckoutRouter(prisma: PrismaClient): Router {
+  const router = Router();
 
-    // Validate tier is payable
-    if (!isPayableTier(tier)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_TIER',
-          message: 'Tier 4 (Legacy) requires a consultation. Please contact us directly.',
-        },
-      });
-    }
+  /**
+   * @openapi
+   * /api/checkout/create-session:
+   *   post:
+   *     summary: Create Stripe checkout session
+   *     description: Create a checkout session for tier 1-3 purchase
+   *     tags: [Checkout]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateCheckoutRequest'
+   *     responses:
+   *       200:
+   *         description: Checkout session created
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/CheckoutResponse'
+   *       400:
+   *         description: Lead already converted
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   */
+  router.post(
+    '/create-session',
+    validateBody(createCheckoutSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { leadId, tier, email, projectId, successUrl, cancelUrl } =
+          req.body as CreateCheckoutInput;
 
-    // Fetch the lead
-    const lead = await prisma.lead.findUnique({
-      where: { id: leadId },
-    });
+        // Validate tier is payable (1-3, not 4)
+        if (!isValidTier(tier) || tier === 4) {
+          throw validationError('Invalid tier for checkout. Tier must be 1, 2, or 3.');
+        }
 
-    if (!lead) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'LEAD_NOT_FOUND',
-          message: 'Lead not found',
-        },
-      });
-    }
+        // Verify lead exists
+        const lead = await prisma.lead.findUnique({
+          where: { id: leadId },
+          include: { client: true },
+        });
 
-    // Check lead status - only NEW or QUALIFIED leads can checkout
-    if (lead.status === 'CONVERTED') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'LEAD_ALREADY_CONVERTED',
-          message: 'This lead has already been converted to a client',
-        },
-      });
-    }
+        if (!lead) {
+          throw notFound('Lead not found');
+        }
 
-    if (lead.status === 'CLOSED') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'LEAD_CLOSED',
-          message: 'This lead has been closed',
-        },
-      });
-    }
+        // Check if lead already has a client/payment
+        if (lead.client) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'ALREADY_CONVERTED',
+              message: 'This lead has already been converted to a client',
+            },
+          });
+        }
 
-    // Create Stripe checkout session
-    const session = await createCheckoutSession({
-      leadId: lead.id,
-      tier: tier as 1 | 2 | 3,
-      customerEmail: lead.email,
-      successUrl,
-      cancelUrl,
-      metadata: {
-        lead_email: lead.email,
-        project_address: lead.projectAddress,
-      },
-    });
-
-    // Update lead status to QUALIFIED if it was NEW
-    if (lead.status === 'NEW') {
-      await prisma.lead.update({
-        where: { id: leadId },
-        data: { status: 'QUALIFIED' },
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        sessionId: session.sessionId,
-        url: session.url,
-      },
-    });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid request data',
-          details: error.issues,
-        },
-      });
-    }
-    next(error);
-  }
-});
-
-/**
- * GET /api/checkout/session/:sessionId
- * Get checkout session status (for success page)
- */
-router.get('/session/:sessionId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { sessionId } = req.params;
-
-    if (!sessionId) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'MISSING_SESSION_ID',
-          message: 'Session ID is required',
-        },
-      });
-    }
-
-    const session = await getCheckoutSession(sessionId);
-
-    // Extract relevant information
-    const responseData = {
-      id: session.id,
-      status: session.status,
-      paymentStatus: session.payment_status,
-      customerEmail: session.customer_email || session.customer_details?.email,
-      amountTotal: session.amount_total,
-      currency: session.currency,
-      metadata: session.metadata,
-    };
-
-    return res.status(200).json({
-      success: true,
-      data: responseData,
-    });
-  } catch (error: unknown) {
-    // Handle Stripe errors
-    if (error && typeof error === 'object' && 'type' in error) {
-      const stripeError = error as { type: string; message?: string };
-      if (stripeError.type === 'StripeInvalidRequestError') {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'SESSION_NOT_FOUND',
-            message: 'Checkout session not found',
+        // Create checkout session
+        const session = await createCheckoutSession({
+          leadId,
+          tier: tier as 1 | 2 | 3,
+          email,
+          projectId,
+          successUrl,
+          cancelUrl,
+          metadata: {
+            leadEmail: lead.email,
+            projectAddress: lead.projectAddress,
           },
         });
+
+        logger.info('Checkout session created', {
+          sessionId: session.id,
+          leadId,
+          tier,
+          email,
+        });
+
+        res.status(201).json({
+          success: true,
+          data: {
+            sessionId: session.id,
+            url: session.url,
+            expiresAt: session.expires_at,
+          },
+        });
+      } catch (error) {
+        next(error);
       }
     }
-    next(error);
-  }
-});
+  );
 
-export default router;
+  /**
+   * GET /session/:sessionId
+   * Retrieves a checkout session status.
+   */
+  router.get(
+    '/session/:sessionId',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { sessionId } = req.params;
+
+        const { getCheckoutSession } = await import('../utils/stripeHelpers');
+        const session = await getCheckoutSession(sessionId);
+
+        res.json({
+          success: true,
+          data: {
+            id: session.id,
+            status: session.status,
+            paymentStatus: session.payment_status,
+            amountTotal: session.amount_total,
+            currency: session.currency,
+            customerEmail: session.customer_email,
+            metadata: session.metadata,
+          },
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/checkout/pricing:
+   *   get:
+   *     summary: Get tier pricing
+   *     description: Returns pricing information for all service tiers
+   *     tags: [Checkout]
+   *     security: []
+   *     responses:
+   *       200:
+   *         description: Pricing information
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/TierPricing'
+   */
+  router.get('/pricing', (_req: Request, res: Response) => {
+    const pricing = Object.values(TIER_PRICING)
+      .filter(p => p.tier !== 4) // Exclude Tier 4 (custom pricing)
+      .map(p => ({
+        tier: p.tier,
+        name: p.name,
+        description: p.description,
+        amount: p.amount,
+        currency: p.currency,
+        formattedPrice: `$${(p.amount / 100).toLocaleString()}`,
+      }));
+
+    res.json({
+      success: true,
+      data: pricing,
+    });
+  });
+
+  return router;
+}

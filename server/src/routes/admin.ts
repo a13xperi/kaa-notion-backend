@@ -1,535 +1,840 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { prisma } from '../utils/prisma';
-import { verifyToken } from '../utils/auth';
+/**
+ * Admin Routes
+ * API endpoints for admin dashboard and management.
+ *
+ * Routes:
+ * - GET /api/admin/dashboard - Dashboard stats (leads, projects, revenue)
+ * - GET /api/admin/leads - All leads with filtering, sorting, pagination
+ * - GET /api/admin/projects - All projects with filtering, sorting, pagination
+ * - GET /api/admin/clients - All clients with tier, status, project count
+ */
 
-const router = Router();
+import { Router, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { Client as NotionClient } from '@notionhq/client';
+import { AuthenticatedRequest } from './projects';
+import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
+import { logger } from '../logger';
+import { requireAdmin } from '../middleware';
 
-// JWT secret from environment
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-change-in-production';
+// ============================================================================
+// TYPES
+// ============================================================================
 
-// Extend Request type for authenticated user
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    role: string;
+interface DashboardStats {
+  leads: {
+    total: number;
+    byStatus: Record<string, number>;
+    thisMonth: number;
+    conversionRate: number;
+  };
+  projects: {
+    total: number;
+    active: number;
+    byTier: Record<number, number>;
+    byStatus: Record<string, number>;
+  };
+  clients: {
+    total: number;
+    active: number;
+    byTier: Record<number, number>;
+  };
+  revenue: {
+    total: number;
+    thisMonth: number;
+    byTier: Record<number, number>;
+  };
+  recentActivity: Array<{
+    id: string;
+    type: string;
+    description: string;
+    timestamp: Date;
+  }>;
+}
+
+interface PaginationParams {
+  page: number;
+  limit: number;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function parsePaginationParams(query: any): PaginationParams {
+  return {
+    page: Math.max(1, parseInt(query.page || '1')),
+    limit: Math.min(100, Math.max(1, parseInt(query.limit || '20'))),
+    sortBy: query.sortBy || 'createdAt',
+    sortOrder: query.sortOrder === 'asc' ? 'asc' : 'desc',
   };
 }
 
-/**
- * Middleware to verify JWT token and attach user to request
- */
-async function authenticateUser(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'No token provided',
-      },
-    });
-  }
-
-  const token = authHeader.substring(7);
-  const payload = verifyToken(token, JWT_SECRET);
-
-  if (!payload || typeof payload.userId !== 'string') {
-    return res.status(401).json({
-      success: false,
-      error: {
-        code: 'INVALID_TOKEN',
-        message: 'Invalid or expired token',
-      },
-    });
-  }
-
-  (req as AuthenticatedRequest).user = {
-    userId: payload.userId,
-    role: (payload.role as string) || 'CLIENT',
-  };
-
-  next();
+function getStartOfMonth(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
-/**
- * Middleware to require admin role
- */
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const user = (req as AuthenticatedRequest).user;
+// ============================================================================
+// ROUTE FACTORY
+// ============================================================================
 
-  if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Admin access required',
-      },
-    });
-  }
+export function createAdminRouter(prisma: PrismaClient): Router {
+  const router = Router();
 
-  next();
-}
+  // -------------------------------------------------------------------------
+  // GET /api/admin/dashboard - Dashboard stats
+  // -------------------------------------------------------------------------
+  router.get('/dashboard', requireAdmin(), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const startOfMonth = getStartOfMonth();
 
-/**
- * GET /api/admin/dashboard
- * Dashboard stats: leads by status, projects by tier, revenue
- */
-router.get('/dashboard', authenticateUser, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Run all queries in parallel for efficiency
-    const [
-      leadsByStatus,
-      projectsByTier,
-      projectsByStatus,
-      revenueStats,
-      recentLeads,
-      recentProjects,
-      clientCount,
-    ] = await Promise.all([
-      // Leads by status
-      prisma.lead.groupBy({
-        by: ['status'],
-        _count: { id: true },
-      }),
+      // Parallel queries for dashboard stats
+      const [
+        // Leads stats
+        totalLeads,
+        leadsThisMonth,
+        leadsByStatus,
+        convertedLeads,
 
-      // Projects by tier
-      prisma.project.groupBy({
-        by: ['tier'],
-        _count: { id: true },
-      }),
+        // Projects stats
+        totalProjects,
+        activeProjects,
+        projectsByTier,
+        projectsByStatus,
 
-      // Projects by status
-      prisma.project.groupBy({
-        by: ['status'],
-        _count: { id: true },
-      }),
+        // Clients stats
+        totalClients,
+        activeClients,
+        clientsByTier,
 
-      // Revenue stats - sum of successful payments
-      prisma.payment.aggregate({
-        where: { status: 'SUCCEEDED' },
-        _sum: { amount: true },
-        _count: { id: true },
-      }),
+        // Revenue stats
+        totalRevenue,
+        revenueThisMonth,
+        revenueByTier,
 
-      // Recent leads (last 5)
-      prisma.lead.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          email: true,
-          fullName: true,
-          status: true,
-          recommendedTier: true,
-          createdAt: true,
+        // Recent activity
+        recentAuditLogs,
+      ] = await Promise.all([
+        // Leads
+        prisma.lead.count(),
+        prisma.lead.count({ where: { createdAt: { gte: startOfMonth } } }),
+        prisma.lead.groupBy({ by: ['status'], _count: true }),
+        prisma.lead.count({ where: { status: 'CLOSED', clientId: { not: null } } }),
+
+        // Projects
+        prisma.project.count(),
+        prisma.project.count({
+          where: { status: { notIn: ['DELIVERED', 'CLOSED'] } },
+        }),
+        prisma.project.groupBy({ by: ['tier'], _count: true }),
+        prisma.project.groupBy({ by: ['status'], _count: true }),
+
+        // Clients
+        prisma.client.count(),
+        prisma.client.count({ where: { status: 'ACTIVE' } }),
+        prisma.client.groupBy({ by: ['tier'], _count: true }),
+
+        // Revenue
+        prisma.payment.aggregate({
+          where: { status: 'SUCCEEDED' },
+          _sum: { amount: true },
+        }),
+        prisma.payment.aggregate({
+          where: { status: 'SUCCEEDED', createdAt: { gte: startOfMonth } },
+          _sum: { amount: true },
+        }),
+        prisma.payment.groupBy({
+          by: ['tier'],
+          where: { status: 'SUCCEEDED' },
+          _sum: { amount: true },
+        }),
+
+        // Recent activity
+        prisma.auditLog.findMany({
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { email: true } },
+          },
+        }),
+      ]);
+
+      // Transform grouped data
+      const leadsByStatusMap: Record<string, number> = {};
+      leadsByStatus.forEach((item) => {
+        leadsByStatusMap[item.status] = item._count;
+      });
+
+      const projectsByTierMap: Record<number, number> = {};
+      projectsByTier.forEach((item) => {
+        projectsByTierMap[item.tier] = item._count;
+      });
+
+      const projectsByStatusMap: Record<string, number> = {};
+      projectsByStatus.forEach((item) => {
+        projectsByStatusMap[item.status] = item._count;
+      });
+
+      const clientsByTierMap: Record<number, number> = {};
+      clientsByTier.forEach((item) => {
+        clientsByTierMap[item.tier] = item._count;
+      });
+
+      const revenueByTierMap: Record<number, number> = {};
+      revenueByTier.forEach((item) => {
+        revenueByTierMap[item.tier] = item._sum.amount || 0;
+      });
+
+      // Calculate conversion rate
+      const conversionRate = totalLeads > 0 
+        ? Math.round((convertedLeads / totalLeads) * 100) 
+        : 0;
+
+      // Format recent activity
+      const recentActivity = recentAuditLogs.map((log) => ({
+        id: log.id,
+        type: log.action,
+        description: `${log.user?.email || 'System'} ${log.action.replace('_', ' ')} ${log.resourceType || ''}`,
+        timestamp: log.createdAt,
+      }));
+
+      const stats: DashboardStats = {
+        leads: {
+          total: totalLeads,
+          byStatus: leadsByStatusMap,
+          thisMonth: leadsThisMonth,
+          conversionRate,
         },
-      }),
+        projects: {
+          total: totalProjects,
+          active: activeProjects,
+          byTier: projectsByTierMap,
+          byStatus: projectsByStatusMap,
+        },
+        clients: {
+          total: totalClients,
+          active: activeClients,
+          byTier: clientsByTierMap,
+        },
+        revenue: {
+          total: totalRevenue._sum.amount || 0,
+          thisMonth: revenueThisMonth._sum.amount || 0,
+          byTier: revenueByTierMap,
+        },
+        recentActivity,
+      };
 
-      // Recent projects (last 5)
-      prisma.project.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 5,
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      logger.error('Error fetching dashboard stats:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Failed to fetch dashboard stats',
+          details: error instanceof Error ? error.message : undefined,
+        },
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/admin/leads - All leads with filtering
+  // -------------------------------------------------------------------------
+  router.get('/leads', requireAdmin(), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
+      const { status, tier, search, startDate, endDate } = req.query;
+
+      // Build where clause
+      const where: any = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (tier) {
+        where.recommendedTier = parseInt(tier as string);
+      }
+
+      if (search) {
+        where.OR = [
+          { email: { contains: search as string, mode: 'insensitive' } },
+          { name: { contains: search as string, mode: 'insensitive' } },
+          { projectAddress: { contains: search as string, mode: 'insensitive' } },
+        ];
+      }
+
+      if (startDate || endDate) {
+        where.createdAt = {};
+        if (startDate) where.createdAt.gte = new Date(startDate as string);
+        if (endDate) where.createdAt.lte = new Date(endDate as string);
+      }
+
+      // Get total count
+      const total = await prisma.lead.count({ where });
+
+      // Get leads
+      const leads = await prisma.lead.findMany({
+        where,
         include: {
           client: {
-            include: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
+          projects: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      res.json({
+        success: true,
+        data: leads.map((lead) => ({
+          id: lead.id,
+          email: lead.email,
+          name: lead.name,
+          projectAddress: lead.projectAddress,
+          budgetRange: lead.budgetRange,
+          timeline: lead.timeline,
+          projectType: lead.projectType,
+          hasSurvey: lead.hasSurvey,
+          hasDrawings: lead.hasDrawings,
+          recommendedTier: lead.recommendedTier,
+          routingReason: lead.routingReason,
+          status: lead.status,
+          isConverted: !!lead.clientId,
+          client: lead.client,
+          projects: lead.projects,
+          createdAt: lead.createdAt,
+          updatedAt: lead.updatedAt,
+        })),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Error fetching leads:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Failed to fetch leads',
+          details: error instanceof Error ? error.message : undefined,
+        },
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/admin/projects - All projects with filtering
+  // -------------------------------------------------------------------------
+  router.get('/projects', requireAdmin(), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
+      const { status, tier, paymentStatus, search } = req.query;
+
+      // Build where clause
+      const where: any = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (tier) {
+        where.tier = parseInt(tier as string);
+      }
+
+      if (paymentStatus) {
+        where.paymentStatus = paymentStatus;
+      }
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search as string, mode: 'insensitive' } },
+          { client: { projectAddress: { contains: search as string, mode: 'insensitive' } } },
+        ];
+      }
+
+      // Get total count
+      const total = await prisma.project.count({ where });
+
+      // Get projects
+      const projects = await prisma.project.findMany({
+        where,
+        include: {
+          client: {
+            select: {
+              id: true,
+              tier: true,
+              status: true,
+              projectAddress: true,
               user: {
                 select: {
                   email: true,
-                  name: true,
                 },
               },
             },
           },
-        },
-      }),
-
-      // Total client count
-      prisma.client.count(),
-    ]);
-
-    // Calculate tier names
-    const tierNames: Record<number, string> = {
-      1: 'Seedling',
-      2: 'Sprout',
-      3: 'Canopy',
-      4: 'Forest',
-    };
-
-    // Format leads by status
-    const formattedLeadsByStatus = leadsByStatus.reduce(
-      (acc, item) => {
-        acc[item.status] = item._count.id;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-    // Ensure all statuses are present
-    const allLeadStatuses = ['NEW', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'CLOSED', 'NURTURE'];
-    allLeadStatuses.forEach((status) => {
-      if (!(status in formattedLeadsByStatus)) {
-        formattedLeadsByStatus[status] = 0;
-      }
-    });
-
-    // Format projects by tier
-    const formattedProjectsByTier = projectsByTier.map((item) => ({
-      tier: item.tier,
-      tierName: tierNames[item.tier] || `Tier ${item.tier}`,
-      count: item._count.id,
-    }));
-
-    // Format projects by status
-    const formattedProjectsByStatus = projectsByStatus.reduce(
-      (acc, item) => {
-        acc[item.status] = item._count.id;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-    // Calculate revenue in dollars (stored as cents)
-    const totalRevenue = (revenueStats._sum.amount || 0) / 100;
-    const paymentCount = revenueStats._count.id;
-
-    // Format recent leads
-    const formattedRecentLeads = recentLeads.map((lead) => ({
-      id: lead.id,
-      email: lead.email,
-      fullName: lead.fullName,
-      status: lead.status,
-      recommendedTier: lead.recommendedTier,
-      tierName: lead.recommendedTier ? tierNames[lead.recommendedTier] : null,
-      createdAt: lead.createdAt,
-    }));
-
-    // Format recent projects
-    const formattedRecentProjects = recentProjects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      tier: project.tier,
-      tierName: tierNames[project.tier] || `Tier ${project.tier}`,
-      status: project.status,
-      clientEmail: project.client?.user?.email || null,
-      clientName: project.client?.user?.name || project.client?.companyName || null,
-      createdAt: project.createdAt,
-    }));
-
-    // Summary stats
-    const totalLeads = Object.values(formattedLeadsByStatus).reduce((a, b) => a + b, 0);
-    const totalProjects = projectsByTier.reduce((acc, item) => acc + item._count.id, 0);
-    const conversionRate = totalLeads > 0
-      ? Math.round((formattedLeadsByStatus['CONVERTED'] / totalLeads) * 100)
-      : 0;
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        summary: {
-          totalLeads,
-          totalProjects,
-          totalClients: clientCount,
-          totalRevenue,
-          paymentCount,
-          conversionRate,
-        },
-        leadsByStatus: formattedLeadsByStatus,
-        projectsByTier: formattedProjectsByTier,
-        projectsByStatus: formattedProjectsByStatus,
-        recentLeads: formattedRecentLeads,
-        recentProjects: formattedRecentProjects,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/admin/leads
- * All leads with filtering, sorting, pagination
- */
-router.get('/leads', authenticateUser, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const {
-      page = '1',
-      limit = '20',
-      status,
-      tier,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      search,
-    } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string, 10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
-    const skip = (pageNum - 1) * limitNum;
-
-    // Build where clause
-    const where: Record<string, unknown> = {};
-
-    if (status) {
-      where.status = status as string;
-    }
-
-    if (tier) {
-      where.recommendedTier = parseInt(tier as string, 10);
-    }
-
-    if (search) {
-      where.OR = [
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { fullName: { contains: search as string, mode: 'insensitive' } },
-        { companyName: { contains: search as string, mode: 'insensitive' } },
-      ];
-    }
-
-    // Build orderBy
-    const validSortFields = ['createdAt', 'updatedAt', 'email', 'fullName', 'status', 'recommendedTier'];
-    const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
-    const orderBy = { [sortField as string]: sortOrder === 'asc' ? 'asc' : 'desc' };
-
-    const [leads, total] = await Promise.all([
-      prisma.lead.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limitNum,
-      }),
-      prisma.lead.count({ where }),
-    ]);
-
-    const tierNames: Record<number, string> = {
-      1: 'Seedling',
-      2: 'Sprout',
-      3: 'Canopy',
-      4: 'Forest',
-    };
-
-    const formattedLeads = leads.map((lead) => ({
-      ...lead,
-      tierName: lead.recommendedTier ? tierNames[lead.recommendedTier] : null,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      data: formattedLeads,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/admin/projects
- * All projects with filtering, sorting, pagination
- */
-router.get('/projects', authenticateUser, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const {
-      page = '1',
-      limit = '20',
-      status,
-      tier,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      search,
-    } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string, 10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
-    const skip = (pageNum - 1) * limitNum;
-
-    // Build where clause
-    const where: Record<string, unknown> = {};
-
-    if (status) {
-      where.status = status as string;
-    }
-
-    if (tier) {
-      where.tier = parseInt(tier as string, 10);
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { client: { user: { email: { contains: search as string, mode: 'insensitive' } } } },
-        { client: { companyName: { contains: search as string, mode: 'insensitive' } } },
-      ];
-    }
-
-    // Build orderBy
-    const validSortFields = ['createdAt', 'updatedAt', 'name', 'status', 'tier'];
-    const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
-    const orderBy = { [sortField as string]: sortOrder === 'asc' ? 'asc' : 'desc' };
-
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limitNum,
-        include: {
-          client: {
-            include: {
-              user: {
-                select: { email: true, name: true },
-              },
+          milestones: {
+            select: {
+              id: true,
+              status: true,
             },
           },
-          milestones: {
-            select: { status: true },
-          },
-          _count: {
-            select: { deliverables: true },
+          payments: {
+            where: { status: 'SUCCEEDED' },
+            select: {
+              amount: true,
+            },
           },
         },
-      }),
-      prisma.project.count({ where }),
-    ]);
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
 
-    const tierNames: Record<number, string> = {
-      1: 'Seedling',
-      2: 'Sprout',
-      3: 'Canopy',
-      4: 'Forest',
-    };
+      res.json({
+        success: true,
+        data: projects.map((project) => {
+          const totalMilestones = project.milestones.length;
+          const completedMilestones = project.milestones.filter(
+            (m) => m.status === 'COMPLETED'
+          ).length;
+          const totalPaid = project.payments.reduce((sum, p) => sum + p.amount, 0);
 
-    const formattedProjects = projects.map((project) => {
-      const completedMilestones = project.milestones.filter((m) => m.status === 'COMPLETED').length;
-      const totalMilestones = project.milestones.length;
-      const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
-
-      return {
-        id: project.id,
-        name: project.name,
-        tier: project.tier,
-        tierName: tierNames[project.tier] || `Tier ${project.tier}`,
-        status: project.status,
-        progress,
-        completedMilestones,
-        totalMilestones,
-        deliverableCount: project._count.deliverables,
-        clientEmail: project.client?.user?.email || null,
-        clientName: project.client?.user?.name || project.client?.companyName || null,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
-      };
-    });
-
-    return res.status(200).json({
-      success: true,
-      data: formattedProjects,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/admin/clients
- * All clients with tier, status, project count
- */
-router.get('/clients', authenticateUser, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const {
-      page = '1',
-      limit = '20',
-      tier,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      search,
-    } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string, 10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10)));
-    const skip = (pageNum - 1) * limitNum;
-
-    // Build where clause
-    const where: Record<string, unknown> = {};
-
-    if (tier) {
-      where.tier = parseInt(tier as string, 10);
+          return {
+            id: project.id,
+            name: project.name,
+            tier: project.tier,
+            status: project.status,
+            paymentStatus: project.paymentStatus,
+            notionPageId: project.notionPageId,
+            client: {
+              id: project.client.id,
+              email: project.client.user.email,
+              projectAddress: project.client.projectAddress,
+              status: project.client.status,
+            },
+            progress: {
+              completed: completedMilestones,
+              total: totalMilestones,
+              percentage: totalMilestones > 0
+                ? Math.round((completedMilestones / totalMilestones) * 100)
+                : 0,
+            },
+            totalPaid,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+          };
+        }),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Error fetching projects:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Failed to fetch projects',
+          details: error instanceof Error ? error.message : undefined,
+        },
+      });
     }
+  });
 
-    if (search) {
-      where.OR = [
-        { user: { email: { contains: search as string, mode: 'insensitive' } } },
-        { user: { name: { contains: search as string, mode: 'insensitive' } } },
-        { companyName: { contains: search as string, mode: 'insensitive' } },
-      ];
-    }
+  // -------------------------------------------------------------------------
+  // GET /api/admin/clients - All clients with stats
+  // -------------------------------------------------------------------------
+  router.get('/clients', requireAdmin(), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
+      const { status, tier, search } = req.query;
 
-    // Build orderBy
-    const validSortFields = ['createdAt', 'updatedAt', 'tier'];
-    const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
-    const orderBy = { [sortField as string]: sortOrder === 'asc' ? 'asc' : 'desc' };
+      // Build where clause
+      const where: any = {};
 
-    const [clients, total] = await Promise.all([
-      prisma.client.findMany({
+      if (status) {
+        where.status = status;
+      }
+
+      if (tier) {
+        where.tier = parseInt(tier as string);
+      }
+
+      if (search) {
+        where.OR = [
+          { user: { email: { contains: search as string, mode: 'insensitive' } } },
+          { projectAddress: { contains: search as string, mode: 'insensitive' } },
+        ];
+      }
+
+      // Get total count
+      const total = await prisma.client.count({ where });
+
+      // Get clients
+      const clients = await prisma.client.findMany({
         where,
-        orderBy,
-        skip,
-        take: limitNum,
         include: {
           user: {
-            select: { id: true, email: true, name: true },
+            select: {
+              id: true,
+              email: true,
+              lastLogin: true,
+            },
           },
-          _count: {
-            select: { projects: true },
+          projects: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              tier: true,
+            },
+          },
+          leads: {
+            select: {
+              id: true,
+            },
           },
         },
-      }),
-      prisma.client.count({ where }),
-    ]);
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
 
-    const tierNames: Record<number, string> = {
-      1: 'Seedling',
-      2: 'Sprout',
-      3: 'Canopy',
-      4: 'Forest',
-    };
+      // Get payment totals for each client
+      const clientIds = clients.map((c) => c.id);
+      const payments = await prisma.payment.groupBy({
+        by: ['projectId'],
+        where: {
+          status: 'SUCCEEDED',
+          project: { clientId: { in: clientIds } },
+        },
+        _sum: { amount: true },
+      });
 
-    const formattedClients = clients.map((client) => ({
-      id: client.id,
-      email: client.user?.email || null,
-      name: client.user?.name || null,
-      companyName: client.companyName,
-      tier: client.tier,
-      tierName: tierNames[client.tier] || `Tier ${client.tier}`,
-      projectCount: client._count.projects,
-      stripeCustomerId: client.stripeCustomerId,
-      createdAt: client.createdAt,
-      updatedAt: client.updatedAt,
-    }));
+      // Create payment map
+      const paymentMap = new Map<string, number>();
+      for (const client of clients) {
+        const projectIds = client.projects.map((p) => p.id);
+        const total = payments
+          .filter((p) => projectIds.includes(p.projectId))
+          .reduce((sum, p) => sum + (p._sum.amount || 0), 0);
+        paymentMap.set(client.id, total);
+      }
 
-    return res.status(200).json({
-      success: true,
-      data: formattedClients,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum),
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+      res.json({
+        success: true,
+        data: clients.map((client) => ({
+          id: client.id,
+          userId: client.userId,
+          email: client.user.email,
+          tier: client.tier,
+          status: client.status,
+          projectAddress: client.projectAddress,
+          lastLogin: client.user.lastLogin,
+          stats: {
+            projectCount: client.projects.length,
+            activeProjects: client.projects.filter(
+              (p) => p.status !== 'DELIVERED' && p.status !== 'CLOSED'
+            ).length,
+            leadCount: client.leads.length,
+            totalPaid: paymentMap.get(client.id) || 0,
+          },
+          projects: client.projects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            tier: p.tier,
+          })),
+          createdAt: client.createdAt,
+          updatedAt: client.updatedAt,
+        })),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Error fetching clients:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Failed to fetch clients',
+          details: error instanceof Error ? error.message : undefined,
+        },
+      });
+    }
+  });
 
-export default router;
+  // -------------------------------------------------------------------------
+  // GET /api/admin/sync/health - Notion-Postgres reconciliation health check
+  // -------------------------------------------------------------------------
+  router.get(
+    '/sync/health',
+    requireAdmin(),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const notionApiKey = process.env.NOTION_API_KEY;
+        const projectsDatabaseId = process.env.NOTION_PROJECTS_DATABASE_ID;
+
+        if (!notionApiKey) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Notion API not configured',
+            },
+          });
+        }
+
+        if (!projectsDatabaseId) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Notion projects database ID not configured',
+            },
+          });
+        }
+
+        const notion = new NotionClient({ auth: notionApiKey });
+
+        const comparison = {
+          timestamp: new Date().toISOString(),
+          projects: {
+            postgres: {
+              total: 0,
+              withNotionLink: 0,
+              withoutNotionLink: 0,
+            },
+            notion: {
+              total: 0,
+              linked: 0,
+              unlinked: 0,
+            },
+            discrepancies: [] as Array<{
+              projectId: string;
+              notionPageId: string;
+              issues: Array<{
+                field: string;
+                postgres?: string;
+                notion?: string;
+                error?: string;
+                message?: string;
+                timeDiffSeconds?: number;
+              }>;
+            }>,
+          },
+          syncStatus: 'unknown' as string,
+        };
+
+        // Get all projects from Postgres
+        const postgresProjects = await prisma.project.findMany({
+          where: {
+            notionPageId: { not: null },
+          },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            notionPageId: true,
+            updatedAt: true,
+            tier: true,
+          },
+        });
+
+        comparison.projects.postgres.total = await prisma.project.count();
+        comparison.projects.postgres.withNotionLink = postgresProjects.length;
+        comparison.projects.postgres.withoutNotionLink =
+          comparison.projects.postgres.total - postgresProjects.length;
+
+        // Compare with Notion if database ID is configured
+        try {
+          const notionPages = await (notion as any).databases.query({
+            database_id: projectsDatabaseId,
+            page_size: 100, // Limit for performance
+          });
+
+          comparison.projects.notion.total = notionPages.results.length;
+
+          // Compare each project
+          for (const project of postgresProjects) {
+            if (!project.notionPageId) continue;
+
+            try {
+              const notionPage = await notion.pages.retrieve({
+                page_id: project.notionPageId,
+              });
+              const notionTitle = getPageTitle(notionPage);
+              const properties = (notionPage as any).properties || {};
+              const notionStatus = properties.Status?.select?.name;
+              const mappedNotionStatus = mapNotionStatusToPostgres(notionStatus);
+
+              const discrepancy: {
+                projectId: string;
+                notionPageId: string;
+                issues: Array<{
+                  field: string;
+                  postgres?: string;
+                  notion?: string;
+                  timeDiffSeconds?: number;
+                  error?: string;
+                  message?: string;
+                }>;
+              } = {
+                projectId: project.id,
+                notionPageId: project.notionPageId,
+                issues: [],
+              };
+
+              // Check for name mismatch
+              if (notionTitle && notionTitle !== 'Untitled' && notionTitle !== project.name) {
+                discrepancy.issues.push({
+                  field: 'name',
+                  postgres: project.name,
+                  notion: notionTitle,
+                });
+              }
+
+              // Check for status mismatch
+              if (mappedNotionStatus && mappedNotionStatus !== project.status) {
+                discrepancy.issues.push({
+                  field: 'status',
+                  postgres: project.status,
+                  notion: mappedNotionStatus,
+                });
+              }
+
+              // Check timestamp (Notion should be newer or equal if synced)
+              const notionTimestamp = new Date((notionPage as any).last_edited_time);
+              const postgresTimestamp = new Date(project.updatedAt);
+
+              // If Notion is significantly newer (> 1 minute), might need sync
+              const timeDiff = notionTimestamp.getTime() - postgresTimestamp.getTime();
+              if (timeDiff > 60000) {
+                // 1 minute threshold
+                discrepancy.issues.push({
+                  field: 'timestamp',
+                  postgres: project.updatedAt.toISOString(),
+                  notion: (notionPage as any).last_edited_time,
+                  timeDiffSeconds: Math.floor(timeDiff / 1000),
+                });
+              }
+
+              if (discrepancy.issues.length > 0) {
+                comparison.projects.discrepancies.push(discrepancy);
+              } else {
+                comparison.projects.notion.linked++;
+              }
+            } catch (notionError) {
+              // Notion page not found or inaccessible
+              comparison.projects.discrepancies.push({
+                projectId: project.id,
+                notionPageId: project.notionPageId,
+                issues: [
+                  {
+                    field: 'notion_access',
+                    error: 'Notion page not found or inaccessible',
+                    message: (notionError as Error).message,
+                  },
+                ],
+              });
+            }
+          }
+
+          comparison.projects.notion.unlinked =
+            comparison.projects.notion.total - comparison.projects.notion.linked;
+
+          // Determine sync status
+          const discrepancyCount = comparison.projects.discrepancies.length;
+          const totalLinked = comparison.projects.notion.linked;
+          const totalWithIssues =
+            discrepancyCount + comparison.projects.postgres.withoutNotionLink;
+
+          if (totalWithIssues === 0) {
+            comparison.syncStatus = 'healthy';
+          } else if (
+            totalLinked > 0 &&
+            discrepancyCount / (totalLinked + discrepancyCount) < 0.1
+          ) {
+            comparison.syncStatus = 'mostly_synced'; // Less than 10% discrepancies
+          } else {
+            comparison.syncStatus = 'needs_attention';
+          }
+        } catch (notionError) {
+          logger.error('Error querying Notion database', {
+            error: (notionError as Error).message,
+            databaseId: projectsDatabaseId,
+          });
+          comparison.syncStatus = 'error';
+          comparison.projects.notion.total = -1; // Indicate error
+        }
+
+        // Log audit
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: 'sync_health_check',
+            resourceType: 'sync',
+            details: {
+              syncStatus: comparison.syncStatus,
+              discrepancyCount: comparison.projects.discrepancies.length,
+            },
+          },
+        });
+
+        res.json({
+          success: true,
+          data: comparison,
+        });
+      } catch (error) {
+        logger.error('Error performing sync health check', {
+          error: (error as Error).message,
+        });
+        res.status(500).json({
+          success: false,
+          error: {
+            code: 'SERVER_ERROR',
+            message: 'Failed to perform sync health check',
+            details: error instanceof Error ? error.message : undefined,
+          },
+        });
+      }
+    }
+  );
+
+  return router;
+}
+
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
+
+export default createAdminRouter;

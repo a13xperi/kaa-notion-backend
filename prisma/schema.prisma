@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -61,6 +62,7 @@ enum ClientStatus {
 
 enum SyncStatus {
   PENDING
+  SYNCING
   SYNCED
   FAILED
 }
@@ -125,8 +127,11 @@ model Client {
 
   @@index([userId])
   @@index([tier])
+  @@index([status])
   @@index([stripeCustomerId])
   @@index([referralCode])
+  @@index([tier, status]) // Composite: filter by tier and status
+  @@index([createdAt(sort: Desc)]) // Recent clients first
   @@map("clients")
 }
 
@@ -160,6 +165,10 @@ model Lead {
   @@index([email])
   @@index([status])
   @@index([recommendedTier])
+  @@index([clientId])
+  @@index([status, recommendedTier]) // Composite: filter leads by status and tier
+  @@index([status, createdAt(sort: Desc)]) // Recent leads by status
+  @@index([createdAt(sort: Desc)]) // Recent leads first
   @@map("leads")
 }
 
@@ -174,8 +183,9 @@ model Project {
   notionPageId   String?       @map("notion_page_id") // Link to Notion project page
   paymentStatus  String        @default("pending") @map("payment_status") // 'pending', 'paid', 'refunded'
   archivedAt     DateTime?     @map("archived_at") // For multi-project archiving
+  syncStatus     SyncStatus    @default(PENDING) @map("sync_status")
   lastSyncedAt   DateTime?     @map("last_synced_at")
-  syncStatus     SyncStatus?   @map("sync_status")
+  syncError      String?       @map("sync_error")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
@@ -193,6 +203,13 @@ model Project {
   @@index([tier])
   @@index([status])
   @@index([archivedAt])
+  @@index([syncStatus])
+  @@index([leadId])
+  @@index([clientId, status]) // Projects by client and status
+  @@index([tier, status]) // Projects by tier and status
+  @@index([paymentStatus])
+  @@index([createdAt(sort: Desc)]) // Recent projects first
+  @@index([status, createdAt(sort: Desc)]) // Recent projects by status
   @@map("projects")
 }
 
@@ -219,8 +236,8 @@ model Milestone {
   dueDate       DateTime?       @map("due_date")
   completedAt   DateTime?       @map("completed_at")
   notionBlockId String?         @map("notion_block_id") // Link to Notion block in project page
+  syncStatus    SyncStatus      @default(PENDING) @map("sync_status")
   lastSyncedAt  DateTime?       @map("last_synced_at")
-  syncStatus    SyncStatus?     @map("sync_status")
   createdAt     DateTime        @default(now()) @map("created_at")
 
   // Relations
@@ -229,6 +246,11 @@ model Milestone {
 
   @@index([projectId])
   @@index([tier])
+  @@index([syncStatus])
+  @@index([status])
+  @@index([projectId, order]) // Milestones in order for a project
+  @@index([projectId, status]) // Milestones by status for a project
+  @@index([dueDate]) // Find overdue milestones
   @@map("milestones")
 }
 
@@ -254,24 +276,28 @@ model Payment {
   @@index([stripePaymentIntentId])
   @@index([stripeCheckoutSessionId])
   @@index([stripeCustomerId])
+  @@index([status])
+  @@index([projectId, status]) // Payments by project and status
+  @@index([createdAt(sort: Desc)]) // Recent payments
+  @@index([tier, status]) // Revenue by tier
   @@map("payments")
 }
 
 model Deliverable {
-  id           String      @id @default(uuid())
-  projectId    String      @map("project_id")
+  id           String     @id @default(uuid())
+  projectId    String     @map("project_id")
   name         String
-  filePath     String      @map("file_path") // Supabase Storage path
-  fileUrl      String      @map("file_url") // Public URL
-  fileSize     Int         @map("file_size") // Bytes
-  fileType     String      @map("file_type") // MIME type
+  filePath     String     @map("file_path") // Supabase Storage path
+  fileUrl      String     @map("file_url") // Public URL
+  fileSize     Int        @map("file_size") // Bytes
+  fileType     String     @map("file_type") // MIME type
   category     String // "Document", "Photo", "Invoice", etc.
   description  String?
-  notionPageId String?     @map("notion_page_id") // Link to Notion showcase page
-  lastSyncedAt DateTime?   @map("last_synced_at")
-  syncStatus   SyncStatus? @map("sync_status")
-  uploadedById String      @map("uploaded_by_id")
-  createdAt    DateTime    @default(now()) @map("created_at")
+  notionPageId String?    @map("notion_page_id") // Link to Notion showcase page
+  syncStatus   SyncStatus @default(PENDING) @map("sync_status")
+  lastSyncedAt DateTime?  @map("last_synced_at")
+  uploadedById String     @map("uploaded_by_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
 
   // Relations
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -279,6 +305,10 @@ model Deliverable {
 
   @@index([projectId])
   @@index([uploadedById])
+  @@index([syncStatus])
+  @@index([category])
+  @@index([projectId, category]) // Deliverables by project and category
+  @@index([createdAt(sort: Desc)]) // Recent deliverables
   @@map("deliverables")
 }
 
@@ -320,6 +350,8 @@ model DesignIdea {
   @@index([clientAddress])
   @@index([addedAt])
   @@map("design_ideas")
+}
+
 model SyncJob {
   id           String    @id
   entityType   String    @map("entity_type") // PROJECT, MILESTONE, DELIVERABLE, LEAD
@@ -340,6 +372,18 @@ model SyncJob {
   @@index([entityType, entityId])
   @@index([scheduledFor])
   @@map("sync_jobs")
+}
+
+// Idempotency table for Stripe webhook events
+model ProcessedStripeEvent {
+  id          String   @id // Stripe event ID (evt_xxx)
+  eventType   String   @map("event_type") // e.g., "checkout.session.completed"
+  processedAt DateTime @default(now()) @map("processed_at")
+  payload     Json? // Store event payload for debugging
+
+  @@index([eventType])
+  @@index([processedAt])
+  @@map("processed_stripe_events")
 }
 
 // ============================================

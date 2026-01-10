@@ -1,40 +1,45 @@
+/**
+ * Storage Service
+ * Handles file uploads to Supabase Storage, signed URL generation, and file deletion.
+ */
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { logger } from '../logger';
 
-/**
- * Supabase Storage Service
- *
- * Handles file uploads, signed URL generation, and file deletion
- * for deliverables and other project assets.
- */
+// ============================================================================
+// TYPES
+// ============================================================================
 
-// ============================================
-// TYPES & INTERFACES
-// ============================================
+export interface StorageConfig {
+  supabaseUrl: string;
+  supabaseServiceKey: string;
+  bucketName: string;
+  maxFileSizeMB: number;
+  allowedMimeTypes: string[];
+}
 
 export interface UploadOptions {
-  bucket?: string;
-  folder?: string;
-  fileName?: string;
-  contentType?: string;
-  upsert?: boolean;
-  cacheControl?: string;
+  projectId: string;
+  category: string;
+  fileName: string;
+  contentType: string;
+  userId: string;
 }
 
 export interface UploadResult {
   success: boolean;
-  filePath: string;
-  fileUrl: string;
-  fileSize: number;
-  fileType: string;
+  filePath?: string;
+  fileUrl?: string;
+  fileSize?: number;
   error?: string;
 }
 
 export interface SignedUrlResult {
   success: boolean;
   signedUrl?: string;
-  expiresAt?: Date;
+  expiresAt?: string;
   error?: string;
 }
 
@@ -46,654 +51,484 @@ export interface DeleteResult {
 export interface FileMetadata {
   name: string;
   size: number;
-  type: string;
-  lastModified?: Date;
+  contentType: string;
+  lastModified: string;
 }
 
-// ============================================
-// CONFIGURATION
-// ============================================
+// ============================================================================
+// DEFAULT CONFIGURATION
+// ============================================================================
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-const DEFAULT_BUCKET = process.env.STORAGE_BUCKET || 'deliverables';
-const SIGNED_URL_EXPIRY = 60 * 60; // 1 hour in seconds
-
-// Allowed file types by category
-const ALLOWED_TYPES: Record<string, string[]> = {
-  document: [
+const DEFAULT_CONFIG: Partial<StorageConfig> = {
+  bucketName: 'deliverables',
+  maxFileSizeMB: 50,
+  allowedMimeTypes: [
+    // Documents
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'text/plain',
-    'text/csv',
-  ],
-  image: [
+    // Images
     'image/jpeg',
     'image/png',
     'image/gif',
     'image/webp',
     'image/svg+xml',
     'image/tiff',
-  ],
-  drawing: [
-    'application/pdf',
-    'image/svg+xml',
-    'application/dxf',
-    'image/vnd.dxf',
-    'application/dwg',
-  ],
-  archive: [
+    // Design files
     'application/zip',
-    'application/x-rar-compressed',
-    'application/x-7z-compressed',
-    'application/gzip',
-  ],
-  video: [
+    'application/x-zip-compressed',
+    // CAD/Vector
+    'application/dxf',
+    'image/vnd.dwg',
+    // Video
     'video/mp4',
     'video/quicktime',
-    'video/x-msvideo',
-    'video/webm',
-  ],
-  audio: [
+    // Audio
     'audio/mpeg',
     'audio/wav',
-    'audio/ogg',
-    'audio/mp4',
   ],
 };
 
-// Max file sizes by category (in bytes)
-const MAX_FILE_SIZES: Record<string, number> = {
-  document: 50 * 1024 * 1024,  // 50 MB
-  image: 20 * 1024 * 1024,     // 20 MB
-  drawing: 100 * 1024 * 1024,  // 100 MB
-  archive: 500 * 1024 * 1024,  // 500 MB
-  video: 500 * 1024 * 1024,    // 500 MB
-  audio: 100 * 1024 * 1024,    // 100 MB
-  default: 50 * 1024 * 1024,   // 50 MB default
-};
+// ============================================================================
+// STORAGE SERVICE CLASS
+// ============================================================================
 
-// ============================================
-// SUPABASE CLIENT
-// ============================================
+export class StorageService {
+  private supabase: SupabaseClient;
+  private config: StorageConfig;
 
-let supabaseClient: SupabaseClient | null = null;
+  constructor(config: Partial<StorageConfig> & { supabaseUrl: string; supabaseServiceKey: string }) {
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+    } as StorageConfig;
 
-function getSupabaseClient(): SupabaseClient {
-  if (!supabaseClient) {
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      throw new Error('Supabase configuration is missing. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.');
-    }
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    this.supabase = createClient(config.supabaseUrl, config.supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
       },
     });
   }
-  return supabaseClient;
-}
 
-function isStorageConfigured(): boolean {
-  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY);
-}
+  // ============================================================================
+  // FILE UPLOAD
+  // ============================================================================
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
+  /**
+   * Upload a file to Supabase Storage
+   */
+  async uploadFile(
+    fileBuffer: Buffer,
+    options: UploadOptions
+  ): Promise<UploadResult> {
+    try {
+      // Validate file size
+      const fileSizeBytes = fileBuffer.length;
+      const maxSizeBytes = this.config.maxFileSizeMB * 1024 * 1024;
 
-/**
- * Generate a unique file path
- */
-function generateFilePath(
-  originalName: string,
-  folder?: string,
-  customFileName?: string
-): string {
-  const ext = path.extname(originalName);
-  const baseName = customFileName || `${randomUUID()}${ext}`;
+      if (fileSizeBytes > maxSizeBytes) {
+        return {
+          success: false,
+          error: `File size exceeds maximum allowed (${this.config.maxFileSizeMB}MB)`,
+        };
+      }
 
-  if (folder) {
-    // Ensure folder doesn't start or end with /
-    const cleanFolder = folder.replace(/^\/+|\/+$/g, '');
-    return `${cleanFolder}/${baseName}`;
-  }
+      // Validate content type
+      if (!this.isAllowedMimeType(options.contentType)) {
+        return {
+          success: false,
+          error: `File type not allowed: ${options.contentType}`,
+        };
+      }
 
-  return baseName;
-}
+      // Generate unique file path
+      const filePath = this.generateFilePath(options);
 
-/**
- * Get file category from MIME type
- */
-function getFileCategory(mimeType: string): string {
-  for (const [category, types] of Object.entries(ALLOWED_TYPES)) {
-    if (types.includes(mimeType)) {
-      return category;
+      // Upload to Supabase Storage
+      const { data, error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .upload(filePath, fileBuffer, {
+          contentType: options.contentType,
+          upsert: false,
+        });
+
+      if (error) {
+        logger.error('Supabase upload error', {
+          error: error.message,
+          filePath,
+        });
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      // Get public URL
+      const { data: urlData } = this.supabase.storage
+        .from(this.config.bucketName)
+        .getPublicUrl(filePath);
+
+      return {
+        success: true,
+        filePath: data.path,
+        fileUrl: urlData.publicUrl,
+        fileSize: fileSizeBytes,
+      };
+    } catch (error) {
+      logger.error('Storage upload error', {
+        error: (error as Error).message,
+        contentType: options.contentType,
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Upload failed',
+      };
     }
   }
-  return 'other';
-}
 
-/**
- * Validate file type
- */
-function isAllowedFileType(mimeType: string, category?: string): boolean {
-  if (category && ALLOWED_TYPES[category]) {
-    return ALLOWED_TYPES[category].includes(mimeType);
-  }
+  /**
+   * Upload from a readable stream (for larger files)
+   */
+  async uploadStream(
+    stream: NodeJS.ReadableStream,
+    options: UploadOptions & { fileSize: number }
+  ): Promise<UploadResult> {
+    // For streams, we need to collect chunks first
+    const chunks: Buffer[] = [];
 
-  // Check all categories
-  return Object.values(ALLOWED_TYPES).some(types => types.includes(mimeType));
-}
-
-/**
- * Validate file size
- */
-function isAllowedFileSize(size: number, category?: string): boolean {
-  const maxSize = category ? (MAX_FILE_SIZES[category] || MAX_FILE_SIZES.default) : MAX_FILE_SIZES.default;
-  return size <= maxSize;
-}
-
-/**
- * Get max file size for category
- */
-function getMaxFileSize(category?: string): number {
-  return category ? (MAX_FILE_SIZES[category] || MAX_FILE_SIZES.default) : MAX_FILE_SIZES.default;
-}
-
-/**
- * Format bytes to human readable string
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-}
-
-// ============================================
-// STORAGE OPERATIONS
-// ============================================
-
-/**
- * Upload a file to Supabase Storage
- */
-export async function uploadFile(
-  fileBuffer: Buffer,
-  originalName: string,
-  mimeType: string,
-  options: UploadOptions = {}
-): Promise<UploadResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: 0,
-      fileType: mimeType,
-      error: 'Storage is not configured',
-    };
-  }
-
-  const {
-    bucket = DEFAULT_BUCKET,
-    folder,
-    fileName,
-    contentType = mimeType,
-    upsert = false,
-    cacheControl = '3600',
-  } = options;
-
-  // Validate file type
-  const category = getFileCategory(mimeType);
-  if (!isAllowedFileType(mimeType)) {
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: fileBuffer.length,
-      fileType: mimeType,
-      error: `File type '${mimeType}' is not allowed`,
-    };
-  }
-
-  // Validate file size
-  if (!isAllowedFileSize(fileBuffer.length, category)) {
-    const maxSize = getMaxFileSize(category);
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: fileBuffer.length,
-      fileType: mimeType,
-      error: `File size exceeds maximum allowed (${formatBytes(maxSize)})`,
-    };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-    const filePath = generateFilePath(originalName, folder, fileName);
-
-    // Upload file
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, fileBuffer, {
-        contentType,
-        upsert,
-        cacheControl,
+    return new Promise((resolve) => {
+      stream.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
       });
 
-    if (error) {
-      console.error('[Storage] Upload error:', error);
-      return {
-        success: false,
-        filePath: '',
-        fileUrl: '',
-        fileSize: fileBuffer.length,
-        fileType: mimeType,
-        error: error.message,
-      };
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
-
-    console.log(`[Storage] Uploaded file: ${filePath} (${formatBytes(fileBuffer.length)})`);
-
-    return {
-      success: true,
-      filePath: data.path,
-      fileUrl: urlData.publicUrl,
-      fileSize: fileBuffer.length,
-      fileType: mimeType,
-    };
-  } catch (error) {
-    console.error('[Storage] Upload exception:', error);
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: fileBuffer.length,
-      fileType: mimeType,
-      error: error instanceof Error ? error.message : 'Upload failed',
-    };
-  }
-}
-
-/**
- * Get a signed URL for private file access
- */
-export async function getSignedUrl(
-  filePath: string,
-  bucket: string = DEFAULT_BUCKET,
-  expiresIn: number = SIGNED_URL_EXPIRY
-): Promise<SignedUrlResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      error: 'Storage is not configured',
-    };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(filePath, expiresIn);
-
-    if (error) {
-      console.error('[Storage] Signed URL error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-
-    const expiresAt = new Date(Date.now() + expiresIn * 1000);
-
-    return {
-      success: true,
-      signedUrl: data.signedUrl,
-      expiresAt,
-    };
-  } catch (error) {
-    console.error('[Storage] Signed URL exception:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate signed URL',
-    };
-  }
-}
-
-/**
- * Delete a file from storage
- */
-export async function deleteFile(
-  filePath: string,
-  bucket: string = DEFAULT_BUCKET
-): Promise<DeleteResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      error: 'Storage is not configured',
-    };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove([filePath]);
-
-    if (error) {
-      console.error('[Storage] Delete error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-
-    console.log(`[Storage] Deleted file: ${filePath}`);
-
-    return {
-      success: true,
-    };
-  } catch (error) {
-    console.error('[Storage] Delete exception:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Delete failed',
-    };
-  }
-}
-
-/**
- * Delete multiple files from storage
- */
-export async function deleteFiles(
-  filePaths: string[],
-  bucket: string = DEFAULT_BUCKET
-): Promise<DeleteResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      error: 'Storage is not configured',
-    };
-  }
-
-  if (filePaths.length === 0) {
-    return { success: true };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove(filePaths);
-
-    if (error) {
-      console.error('[Storage] Bulk delete error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-
-    console.log(`[Storage] Deleted ${filePaths.length} files`);
-
-    return {
-      success: true,
-    };
-  } catch (error) {
-    console.error('[Storage] Bulk delete exception:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Bulk delete failed',
-    };
-  }
-}
-
-/**
- * Check if a file exists in storage
- */
-export async function fileExists(
-  filePath: string,
-  bucket: string = DEFAULT_BUCKET
-): Promise<boolean> {
-  if (!isStorageConfigured()) {
-    return false;
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    // Try to get file metadata
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .list(path.dirname(filePath), {
-        search: path.basename(filePath),
+      stream.on('end', async () => {
+        const buffer = Buffer.concat(chunks);
+        const result = await this.uploadFile(buffer, options);
+        resolve(result);
       });
 
-    if (error) {
-      return false;
-    }
-
-    return data.some(file => file.name === path.basename(filePath));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * List files in a folder
- */
-export async function listFiles(
-  folder: string,
-  bucket: string = DEFAULT_BUCKET,
-  options: { limit?: number; offset?: number } = {}
-): Promise<FileMetadata[]> {
-  if (!isStorageConfigured()) {
-    return [];
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .list(folder, {
-        limit: options.limit || 100,
-        offset: options.offset || 0,
+      stream.on('error', (error) => {
+        resolve({
+          success: false,
+          error: error.message,
+        });
       });
+    });
+  }
 
-    if (error) {
-      console.error('[Storage] List files error:', error);
+  // ============================================================================
+  // SIGNED URLS
+  // ============================================================================
+
+  /**
+   * Generate a signed URL for secure file access
+   */
+  async getSignedUrl(
+    filePath: string,
+    expiresInSeconds: number = 3600
+  ): Promise<SignedUrlResult> {
+    try {
+      const { data, error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .createSignedUrl(filePath, expiresInSeconds);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+      return {
+        success: true,
+        signedUrl: data.signedUrl,
+        expiresAt,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate signed URL',
+      };
+    }
+  }
+
+  /**
+   * Generate signed URLs for multiple files
+   */
+  async getSignedUrls(
+    filePaths: string[],
+    expiresInSeconds: number = 3600
+  ): Promise<Map<string, SignedUrlResult>> {
+    const results = new Map<string, SignedUrlResult>();
+
+    await Promise.all(
+      filePaths.map(async (filePath) => {
+        const result = await this.getSignedUrl(filePath, expiresInSeconds);
+        results.set(filePath, result);
+      })
+    );
+
+    return results;
+  }
+
+  // ============================================================================
+  // FILE DELETION
+  // ============================================================================
+
+  /**
+   * Delete a file from storage
+   */
+  async deleteFile(filePath: string): Promise<DeleteResult> {
+    try {
+      const { error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .remove([filePath]);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Delete failed',
+      };
+    }
+  }
+
+  /**
+   * Delete multiple files
+   */
+  async deleteFiles(filePaths: string[]): Promise<DeleteResult> {
+    try {
+      const { error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .remove(filePaths);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Delete failed',
+      };
+    }
+  }
+
+  /**
+   * Delete all files for a project
+   */
+  async deleteProjectFiles(projectId: string): Promise<DeleteResult> {
+    try {
+      const { data: files, error: listError } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .list(`projects/${projectId}`);
+
+      if (listError) {
+        return {
+          success: false,
+          error: listError.message,
+        };
+      }
+
+      if (!files || files.length === 0) {
+        return { success: true };
+      }
+
+      const filePaths = files.map((f) => `projects/${projectId}/${f.name}`);
+      return this.deleteFiles(filePaths);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Delete failed',
+      };
+    }
+  }
+
+  // ============================================================================
+  // FILE METADATA
+  // ============================================================================
+
+  /**
+   * Get file metadata
+   */
+  async getFileMetadata(filePath: string): Promise<FileMetadata | null> {
+    try {
+      // Extract folder and file name from path
+      const folder = path.dirname(filePath);
+      const fileName = path.basename(filePath);
+
+      const { data, error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .list(folder, {
+          search: fileName,
+        });
+
+      if (error || !data || data.length === 0) {
+        return null;
+      }
+
+      const file = data.find((f) => f.name === fileName);
+      if (!file) return null;
+
+      return {
+        name: file.name,
+        size: file.metadata?.size || 0,
+        contentType: file.metadata?.mimetype || 'application/octet-stream',
+        lastModified: file.updated_at || file.created_at,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * List files in a project folder
+   */
+  async listProjectFiles(projectId: string): Promise<FileMetadata[]> {
+    try {
+      const { data, error } = await this.supabase.storage
+        .from(this.config.bucketName)
+        .list(`projects/${projectId}`);
+
+      if (error || !data) {
+        return [];
+      }
+
+      return data.map((file) => ({
+        name: file.name,
+        size: file.metadata?.size || 0,
+        contentType: file.metadata?.mimetype || 'application/octet-stream',
+        lastModified: file.updated_at || file.created_at,
+      }));
+    } catch {
       return [];
     }
-
-    return data
-      .filter(item => item.id) // Filter out folders
-      .map(item => ({
-        name: item.name,
-        size: item.metadata?.size || 0,
-        type: item.metadata?.mimetype || 'application/octet-stream',
-        lastModified: item.updated_at ? new Date(item.updated_at) : undefined,
-      }));
-  } catch (error) {
-    console.error('[Storage] List files exception:', error);
-    return [];
   }
+
+  // ============================================================================
+  // HELPERS
+  // ============================================================================
+
+  /**
+   * Generate a unique file path
+   */
+  private generateFilePath(options: UploadOptions): string {
+    const timestamp = Date.now();
+    const uniqueId = randomUUID().slice(0, 8);
+    const sanitizedName = this.sanitizeFileName(options.fileName);
+    const extension = path.extname(sanitizedName);
+    const baseName = path.basename(sanitizedName, extension);
+
+    return `projects/${options.projectId}/${options.category}/${baseName}_${timestamp}_${uniqueId}${extension}`;
+  }
+
+  /**
+   * Sanitize file name for safe storage
+   */
+  private sanitizeFileName(fileName: string): string {
+    return fileName
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/__+/g, '_')
+      .toLowerCase();
+  }
+
+  /**
+   * Check if MIME type is allowed
+   */
+  private isAllowedMimeType(mimeType: string): boolean {
+    return this.config.allowedMimeTypes.includes(mimeType);
+  }
+
+  /**
+   * Get allowed MIME types
+   */
+  getAllowedMimeTypes(): string[] {
+    return [...this.config.allowedMimeTypes];
+  }
+
+  /**
+   * Get max file size in bytes
+   */
+  getMaxFileSizeBytes(): number {
+    return this.config.maxFileSizeMB * 1024 * 1024;
+  }
+
+  /**
+   * Format file size for display
+   */
+  static formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  /**
+   * Get file extension from MIME type
+   */
+  static getExtensionFromMimeType(mimeType: string): string {
+    const mimeToExt: Record<string, string> = {
+      'application/pdf': '.pdf',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+      'application/vnd.ms-excel': '.xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'video/mp4': '.mp4',
+      'video/quicktime': '.mov',
+      'audio/mpeg': '.mp3',
+      'audio/wav': '.wav',
+      'application/zip': '.zip',
+    };
+    return mimeToExt[mimeType] || '';
+  }
+}
+
+// ============================================================================
+// FACTORY
+// ============================================================================
+
+let storageServiceInstance: StorageService | null = null;
+
+/**
+ * Initialize the storage service
+ */
+export function initStorageService(
+  config: Partial<StorageConfig> & { supabaseUrl: string; supabaseServiceKey: string }
+): StorageService {
+  storageServiceInstance = new StorageService(config);
+  return storageServiceInstance;
 }
 
 /**
- * Copy a file within storage
+ * Get the storage service instance
  */
-export async function copyFile(
-  sourcePath: string,
-  destinationPath: string,
-  bucket: string = DEFAULT_BUCKET
-): Promise<UploadResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: 0,
-      fileType: '',
-      error: 'Storage is not configured',
-    };
+export function getStorageService(): StorageService {
+  if (!storageServiceInstance) {
+    throw new Error('StorageService not initialized. Call initStorageService first.');
   }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .copy(sourcePath, destinationPath);
-
-    if (error) {
-      console.error('[Storage] Copy error:', error);
-      return {
-        success: false,
-        filePath: '',
-        fileUrl: '',
-        fileSize: 0,
-        fileType: '',
-        error: error.message,
-      };
-    }
-
-    // Get public URL for new file
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(destinationPath);
-
-    console.log(`[Storage] Copied file: ${sourcePath} -> ${destinationPath}`);
-
-    return {
-      success: true,
-      filePath: data.path,
-      fileUrl: urlData.publicUrl,
-      fileSize: 0, // Size not available from copy operation
-      fileType: '', // Type not available from copy operation
-    };
-  } catch (error) {
-    console.error('[Storage] Copy exception:', error);
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: 0,
-      fileType: '',
-      error: error instanceof Error ? error.message : 'Copy failed',
-    };
-  }
+  return storageServiceInstance;
 }
 
-/**
- * Move a file within storage
- */
-export async function moveFile(
-  sourcePath: string,
-  destinationPath: string,
-  bucket: string = DEFAULT_BUCKET
-): Promise<UploadResult> {
-  if (!isStorageConfigured()) {
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: 0,
-      fileType: '',
-      error: 'Storage is not configured',
-    };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .move(sourcePath, destinationPath);
-
-    if (error) {
-      console.error('[Storage] Move error:', error);
-      return {
-        success: false,
-        filePath: '',
-        fileUrl: '',
-        fileSize: 0,
-        fileType: '',
-        error: error.message,
-      };
-    }
-
-    // Get public URL for moved file
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(destinationPath);
-
-    console.log(`[Storage] Moved file: ${sourcePath} -> ${destinationPath}`);
-
-    return {
-      success: true,
-      filePath: data.path,
-      fileUrl: urlData.publicUrl,
-      fileSize: 0,
-      fileType: '',
-    };
-  } catch (error) {
-    console.error('[Storage] Move exception:', error);
-    return {
-      success: false,
-      filePath: '',
-      fileUrl: '',
-      fileSize: 0,
-      fileType: '',
-      error: error instanceof Error ? error.message : 'Move failed',
-    };
-  }
-}
-
-// ============================================
-// EXPORTS
-// ============================================
-
-export {
-  isStorageConfigured,
-  getFileCategory,
-  isAllowedFileType,
-  isAllowedFileSize,
-  getMaxFileSize,
-  formatBytes,
-  ALLOWED_TYPES,
-  MAX_FILE_SIZES,
-};
-
-export default {
-  uploadFile,
-  getSignedUrl,
-  deleteFile,
-  deleteFiles,
-  fileExists,
-  listFiles,
-  copyFile,
-  moveFile,
-  isStorageConfigured,
-  getFileCategory,
-  isAllowedFileType,
-  isAllowedFileSize,
-  getMaxFileSize,
-  formatBytes,
-};
+export default StorageService;

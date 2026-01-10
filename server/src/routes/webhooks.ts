@@ -1,271 +1,457 @@
-import { Router, Request, Response } from 'express';
+/**
+ * Webhook Routes
+ * POST /api/webhooks/stripe - Handle Stripe webhook events
+ * POST /api/webhooks/notion - Handle Notion webhook events (receiving updates FROM Notion)
+ */
+
+import { Router, Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
-import { prisma } from '../utils/prisma';
+import { Client as NotionClient } from '@notionhq/client';
 import {
-  verifyWebhookSignature,
-  extractCheckoutCompletedData,
-  extractPaymentSucceededData,
-  generateIdempotencyKey,
+  constructWebhookEvent,
+  isEventProcessed,
+  handleCheckoutCompleted,
+  handlePaymentSucceeded,
+  handlePaymentFailed,
 } from '../utils/stripeHelpers';
-import { isPayableTier } from '../utils/stripe';
+import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
+import { logger } from '../logger';
 
-const router = Router();
+// ============================================================================
+// TYPES
+// ============================================================================
 
-// Webhook secret from environment
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-
-/**
- * POST /api/webhooks/stripe
- * Handle Stripe webhook events
- *
- * IMPORTANT: This route must use raw body parsing for signature verification.
- * The raw body is expected to be available as req.body (Buffer) when using
- * express.raw() middleware on this specific route.
- */
-router.post('/stripe', async (req: Request, res: Response) => {
-  const signature = req.headers['stripe-signature'];
-
-  if (!signature || typeof signature !== 'string') {
-    console.error('Webhook error: Missing stripe-signature header');
-    return res.status(400).json({ error: 'Missing stripe-signature header' });
-  }
-
-  if (!webhookSecret) {
-    console.error('Webhook error: STRIPE_WEBHOOK_SECRET not configured');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
-  }
-
-  let event: Stripe.Event;
-
-  try {
-    // Verify webhook signature
-    // req.body should be the raw Buffer when using express.raw() middleware
-    event = verifyWebhookSignature(req.body, signature, webhookSecret);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`Webhook signature verification failed: ${message}`);
-    return res.status(400).json({ error: `Webhook signature verification failed: ${message}` });
-  }
-
-  // Log the event for debugging
-  console.log(`Received Stripe webhook: ${event.type} (${event.id})`);
-
-  try {
-    // Handle specific event types
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event);
-        break;
-
-      case 'payment_intent.succeeded':
-        await handlePaymentIntentSucceeded(event);
-        break;
-
-      case 'payment_intent.payment_failed':
-        await handlePaymentIntentFailed(event);
-        break;
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
-
-    // Return 200 to acknowledge receipt
-    return res.status(200).json({ received: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`Error handling webhook ${event.type}: ${message}`);
-    // Still return 200 to prevent Stripe from retrying
-    // Log the error for investigation
-    return res.status(200).json({ received: true, error: message });
-  }
-});
-
-/**
- * Handle checkout.session.completed event
- * This is fired when a customer completes the checkout flow
- */
-async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void> {
-  const session = event.data.object as Stripe.Checkout.Session;
-  const idempotencyKey = generateIdempotencyKey(event.id, 'checkout_completed');
-
-  // Check if we've already processed this event
-  const existingPayment = await prisma.payment.findFirst({
-    where: { stripePaymentIntentId: session.payment_intent as string },
-  });
-
-  if (existingPayment) {
-    console.log(`Payment already processed for session ${session.id}, skipping`);
-    return;
-  }
-
-  // Extract data from session
-  const data = extractCheckoutCompletedData(session);
-
-  if (!data.leadId) {
-    console.error(`No lead_id in session metadata for session ${session.id}`);
-    return;
-  }
-
-  // Verify payment status
-  if (data.paymentStatus !== 'paid') {
-    console.log(`Payment not yet complete for session ${session.id}, status: ${data.paymentStatus}`);
-    return;
-  }
-
-  // Find the lead
-  const lead = await prisma.lead.findUnique({
-    where: { id: data.leadId },
-  });
-
-  if (!lead) {
-    console.error(`Lead not found: ${data.leadId}`);
-    return;
-  }
-
-  // Check if lead is already converted
-  if (lead.status === 'CONVERTED') {
-    console.log(`Lead ${data.leadId} already converted, skipping`);
-    return;
-  }
-
-  // Validate tier
-  if (!isPayableTier(data.tier)) {
-    console.error(`Invalid tier ${data.tier} for lead ${data.leadId}`);
-    return;
-  }
-
-  console.log(`Processing checkout completion for lead ${data.leadId}, tier ${data.tier}`);
-
-  // Create user, client, project, and payment in a transaction
-  await prisma.$transaction(async (tx) => {
-    // Create or find user
-    let user = await tx.user.findUnique({
-      where: { email: data.customerEmail || lead.email },
-    });
-
-    if (!user) {
-      user = await tx.user.create({
-        data: {
-          email: data.customerEmail || lead.email,
-          name: lead.name,
-          role: 'CLIENT',
-        },
-      });
-      console.log(`Created user ${user.id} for email ${user.email}`);
-    }
-
-    // Create client
-    const client = await tx.client.create({
-      data: {
-        userId: user.id,
-        leadId: lead.id,
-        tier: data.tier,
-        stripeCustomerId: data.customerId,
-        status: 'ACTIVE',
-      },
-    });
-    console.log(`Created client ${client.id} for user ${user.id}`);
-
-    // Create project
-    const project = await tx.project.create({
-      data: {
-        clientId: client.id,
-        name: `${lead.name || 'Project'} - ${data.tierName}`,
-        tier: data.tier,
-        status: 'INTAKE',
-        projectAddress: lead.projectAddress,
-      },
-    });
-    console.log(`Created project ${project.id} for client ${client.id}`);
-
-    // Create payment record
-    const payment = await tx.payment.create({
-      data: {
-        projectId: project.id,
-        amount: data.amountTotal,
-        currency: data.currency.toUpperCase(),
-        status: 'SUCCEEDED',
-        stripePaymentIntentId: data.paymentIntentId,
-        stripeCheckoutSessionId: data.sessionId,
-        paidAt: new Date(),
-      },
-    });
-    console.log(`Created payment ${payment.id} for project ${project.id}`);
-
-    // Update lead status to CONVERTED
-    await tx.lead.update({
-      where: { id: lead.id },
-      data: { status: 'CONVERTED' },
-    });
-    console.log(`Updated lead ${lead.id} status to CONVERTED`);
-  });
-
-  console.log(`Successfully processed checkout for lead ${data.leadId}`);
+interface StripeWebhookRequest extends Request {
+  body: Buffer;
 }
 
-/**
- * Handle payment_intent.succeeded event
- * This is a backup handler in case checkout.session.completed fails
- */
-async function handlePaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
-  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+interface NotionWebhookPayload {
+  type: 'webhook_challenge' | 'page.updated' | 'database.updated';
+  challenge?: string;
+  object?: {
+    id: string;
+    last_edited_time: string;
+    properties?: Record<string, any>;
+  };
+}
 
-  // Check if we've already processed this payment
-  const existingPayment = await prisma.payment.findFirst({
-    where: { stripePaymentIntentId: paymentIntent.id },
-  });
+// ============================================================================
+// ROUTER FACTORY
+// ============================================================================
 
-  if (existingPayment) {
-    // Update status if needed
-    if (existingPayment.status !== 'SUCCEEDED') {
-      await prisma.payment.update({
-        where: { id: existingPayment.id },
-        data: {
-          status: 'SUCCEEDED',
-          paidAt: new Date(),
-        },
-      });
-      console.log(`Updated payment ${existingPayment.id} status to SUCCEEDED`);
+export function createWebhooksRouter(prisma: PrismaClient): Router {
+  const router = Router();
+
+  /**
+   * POST /stripe
+   * Handles Stripe webhook events.
+   * 
+   * Note: This route requires raw body parsing. The main app should configure
+   * express.raw({ type: 'application/json' }) for this path BEFORE json parsing.
+   */
+  router.post(
+    '/stripe',
+    async (req: StripeWebhookRequest, res: Response, next: NextFunction) => {
+      try {
+        const signature = req.headers['stripe-signature'];
+
+        if (!signature || typeof signature !== 'string') {
+          logger.warn('Webhook received without signature');
+          return res.status(400).json({
+            success: false,
+            error: { code: 'MISSING_SIGNATURE', message: 'Missing Stripe signature' },
+          });
+        }
+
+        // Get raw body (should be set by express.raw middleware)
+        const rawBody = req.body;
+        if (!rawBody) {
+          logger.warn('Webhook received without body');
+          return res.status(400).json({
+            success: false,
+            error: { code: 'MISSING_BODY', message: 'Missing request body' },
+          });
+        }
+
+        // Verify and construct event
+        let event: Stripe.Event;
+        try {
+          event = constructWebhookEvent(rawBody, signature);
+        } catch (err) {
+          logger.warn('Webhook signature verification failed', { error: (err as Error).message });
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_SIGNATURE', message: (err as Error).message },
+          });
+        }
+
+        logger.info('Stripe webhook received', {
+          eventId: event.id,
+          eventType: event.type,
+        });
+
+        // Check for duplicate processing (idempotency)
+        const paymentIntentId = 
+          (event.data.object as { id?: string; payment_intent?: string }).payment_intent ||
+          (event.data.object as { id?: string }).id;
+        
+        if (paymentIntentId && await isEventProcessed(prisma, paymentIntentId)) {
+          logger.info('Event already processed', { eventId: event.id, paymentIntentId });
+          return res.json({
+            success: true,
+            message: 'Event already processed',
+          });
+        }
+
+        // Handle specific event types
+        let result;
+        switch (event.type) {
+          case 'checkout.session.completed': {
+            const session = event.data.object as Stripe.Checkout.Session;
+            result = await handleCheckoutCompleted(prisma, session);
+            break;
+          }
+
+          case 'payment_intent.succeeded': {
+            const paymentIntent = event.data.object as Stripe.PaymentIntent;
+            result = await handlePaymentSucceeded(prisma, paymentIntent);
+            break;
+          }
+
+          case 'payment_intent.payment_failed': {
+            const paymentIntent = event.data.object as Stripe.PaymentIntent;
+            result = await handlePaymentFailed(prisma, paymentIntent);
+            break;
+          }
+
+          case 'customer.subscription.created':
+          case 'customer.subscription.updated':
+          case 'customer.subscription.deleted': {
+            // For future subscription support
+            logger.info('Subscription event received', { eventType: event.type });
+            result = {
+              success: true,
+              eventType: event.type,
+              eventId: event.id,
+              processed: false,
+              message: 'Subscription events not yet implemented',
+            };
+            break;
+          }
+
+          default: {
+            logger.info('Unhandled webhook event type', { eventType: event.type });
+            result = {
+              success: true,
+              eventType: event.type,
+              eventId: event.id,
+              processed: false,
+              message: `Unhandled event type: ${event.type}`,
+            };
+          }
+        }
+
+        // Log result
+        if (result.success) {
+          logger.info('Webhook processed successfully', {
+            eventId: event.id,
+            eventType: event.type,
+            processed: result.processed,
+          });
+        } else {
+          logger.warn('Webhook processing failed', {
+            eventId: event.id,
+            eventType: event.type,
+            message: result.message,
+          });
+        }
+
+        res.json({
+          success: result.success,
+          received: true,
+          eventId: event.id,
+          eventType: event.type,
+          processed: result.processed,
+        });
+      } catch (error) {
+        logger.error('Webhook error', { error: (error as Error).message });
+        next(error);
+      }
     }
-    return;
-  }
+  );
 
-  // If no existing payment, the checkout.session.completed handler should have created it
-  // Log for investigation
-  const data = extractPaymentSucceededData(paymentIntent);
-  console.log(`Payment intent succeeded but no payment record found: ${paymentIntent.id}, lead: ${data.leadId}`);
+  /**
+   * POST /notion
+   * Handles Notion webhook events (receiving updates FROM Notion).
+   * 
+   * Notion webhooks notify us when pages or databases are updated.
+   * We sync these changes to Postgres to keep data in sync.
+   * 
+   * Notion webhook verification:
+   * - Initial setup: Notion sends a challenge request, we must respond with the challenge token
+   * - Subsequent requests: Notion sends signed payloads (if configured)
+   */
+  router.post(
+    '/notion',
+    async (req: Request<{}, {}, NotionWebhookPayload>, res: Response, next: NextFunction) => {
+      const correlationId = req.correlationId || `notion-webhook-${Date.now()}`;
+      
+      try {
+        // Handle Notion webhook challenge (initial setup)
+        if (req.body.type === 'webhook_challenge') {
+          const challenge = req.body.challenge;
+          if (!challenge) {
+            return res.status(400).json({
+              success: false,
+              error: { code: 'MISSING_CHALLENGE', message: 'Missing challenge token' },
+            });
+          }
+          
+          logger.info('Notion webhook challenge received', { correlationId, challenge });
+          return res.json({ challenge });
+        }
+
+        // Handle Notion webhook events
+        const event = req.body;
+        const eventType = event.type;
+
+        if (!eventType || (eventType !== 'page.updated' && eventType !== 'database.updated')) {
+          logger.warn('Notion webhook received without valid event type', { 
+            correlationId, 
+            eventType,
+            body: req.body 
+          });
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_EVENT_TYPE', message: 'Missing or invalid event type' },
+            correlationId,
+          });
+        }
+
+        if (!event.object?.id) {
+          logger.warn('Notion webhook event missing object ID', { correlationId, eventType });
+          return res.status(400).json({
+            success: false,
+            error: { code: 'MISSING_OBJECT_ID', message: 'Missing object ID' },
+            correlationId,
+          });
+        }
+
+        logger.info('Processing Notion webhook event', {
+          correlationId,
+          eventType,
+          objectId: event.object.id,
+        });
+
+        // Check if Notion API is configured
+        const notionApiKey = process.env.NOTION_API_KEY;
+        if (!notionApiKey) {
+          logger.warn('Notion API not configured, skipping webhook processing', { correlationId });
+          return res.json({
+            success: true,
+            received: true,
+            message: 'Notion API not configured, webhook ignored',
+            correlationId,
+          });
+        }
+
+        const notion = new NotionClient({ auth: notionApiKey });
+        const pageId = event.object.id;
+        const lastEditedTime = event.object.last_edited_time;
+
+        // Check idempotency - prevent duplicate processing
+        const eventId = pageId;
+        let alreadyProcessed = false;
+
+        try {
+          // Check if we've already processed this Notion update
+          const existing = await prisma.auditLog.findFirst({
+            where: {
+              action: 'notion_webhook',
+              resourceType: 'notion_page',
+              resourceId: eventId,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (existing) {
+            // Check if this is a newer update (based on last_edited_time)
+            if (lastEditedTime && existing.details) {
+              const details = existing.details as any;
+              const existingTime = details.last_edited_time;
+              if (existingTime && new Date(lastEditedTime) <= new Date(existingTime)) {
+                alreadyProcessed = true;
+              }
+            } else {
+              // If we have an existing log but no timestamp comparison, check if processed recently (within 1 minute)
+              const recentThreshold = new Date(Date.now() - 60 * 1000);
+              if (existing.createdAt > recentThreshold) {
+                alreadyProcessed = true;
+              }
+            }
+          }
+        } catch (dbError) {
+          logger.error('Failed to check idempotency for Notion webhook', {
+            error: (dbError as Error).message,
+            correlationId,
+            eventId,
+          });
+          // Continue processing if we can't check
+        }
+
+        if (alreadyProcessed) {
+          logger.info('Notion webhook event already processed, skipping', { correlationId, eventId });
+          return res.json({
+            success: true,
+            received: true,
+            message: 'Event already processed',
+            correlationId,
+          });
+        }
+
+        // Find project by Notion page ID
+        const project = await prisma.project.findFirst({
+          where: { notionPageId: pageId },
+        });
+
+        if (!project) {
+          // Page not linked to a project - log for reference
+          logger.debug('Notion page update received but no linked project found', {
+            correlationId,
+            notionPageId: pageId,
+          });
+
+          // Still log the event
+          await prisma.auditLog.create({
+            data: {
+              action: 'notion_webhook',
+              resourceType: 'notion_page',
+              resourceId: pageId,
+              details: {
+                event_type: eventType,
+                page_id: pageId,
+                last_edited_time: lastEditedTime,
+                synced: false,
+                reason: 'No linked project found',
+              },
+            },
+          });
+
+          return res.json({
+            success: true,
+            received: true,
+            message: 'Page not linked to any project',
+            correlationId,
+          });
+        }
+
+        // Fetch full page details from Notion API to get all properties
+        let notionPage;
+        try {
+          notionPage = await notion.pages.retrieve({ page_id: pageId });
+        } catch (notionError) {
+          logger.warn('Failed to fetch Notion page details, using webhook payload', {
+            correlationId,
+            notionPageId: pageId,
+            error: (notionError as Error).message,
+          });
+          notionPage = event.object as any;
+        }
+
+        // Extract properties from Notion page
+        const properties = (notionPage as any).properties || {};
+        const updateData: any = {};
+        let hasUpdates = false;
+
+        // Sync project status if changed in Notion
+        const notionStatus = properties.Status?.select?.name;
+        if (notionStatus) {
+          const postgresStatus = mapNotionStatusToPostgres(notionStatus);
+          if (postgresStatus && postgresStatus !== project.status) {
+            updateData.status = postgresStatus;
+            hasUpdates = true;
+          }
+        }
+
+        // Sync project name if changed in Notion
+        const notionTitle = getPageTitle(notionPage as any);
+        if (notionTitle && notionTitle !== 'Untitled' && notionTitle !== project.name) {
+          updateData.name = notionTitle;
+          hasUpdates = true;
+        }
+
+        // Only update if there are changes and Notion timestamp is newer
+        if (hasUpdates) {
+          const notionTimestamp = new Date(lastEditedTime);
+          const postgresTimestamp = new Date(project.updatedAt);
+
+          // Only sync if Notion is newer (timestamp-based sync)
+          if (notionTimestamp > postgresTimestamp) {
+            updateData.updatedAt = notionTimestamp;
+
+            await prisma.project.update({
+              where: { id: project.id },
+              data: updateData,
+            });
+
+            logger.info('Synced project from Notion to Postgres', {
+              correlationId,
+              projectId: project.id,
+              notionPageId: pageId,
+              updates: Object.keys(updateData),
+              notionTimestamp: lastEditedTime,
+              postgresTimestamp: project.updatedAt.toISOString(),
+            });
+          } else {
+            logger.debug('Notion update is older than Postgres, skipping sync', {
+              correlationId,
+              projectId: project.id,
+              notionTimestamp: lastEditedTime,
+              postgresTimestamp: project.updatedAt.toISOString(),
+            });
+          }
+        }
+
+        // Log the sync
+        await prisma.auditLog.create({
+          data: {
+            action: 'notion_webhook',
+            resourceType: 'notion_page',
+            resourceId: pageId,
+            details: {
+              event_type: eventType,
+              page_id: pageId,
+              last_edited_time: lastEditedTime,
+              project_id: project.id,
+              synced: hasUpdates,
+            },
+          },
+        });
+
+        logger.info('Notion webhook processed successfully', {
+          correlationId,
+          eventType,
+          projectId: project.id,
+          notionPageId: pageId,
+          synced: hasUpdates,
+        });
+
+        res.json({
+          success: true,
+          received: true,
+          synced: hasUpdates,
+          correlationId,
+        });
+      } catch (error) {
+        logger.error('Error processing Notion webhook', {
+          error: (error as Error).message,
+          correlationId,
+        });
+        next(error);
+      }
+    }
+  );
+
+  return router;
 }
-
-/**
- * Handle payment_intent.payment_failed event
- */
-async function handlePaymentIntentFailed(event: Stripe.Event): Promise<void> {
-  const paymentIntent = event.data.object as Stripe.PaymentIntent;
-
-  console.log(`Payment failed for intent ${paymentIntent.id}`);
-
-  // Check if we have a payment record
-  const existingPayment = await prisma.payment.findFirst({
-    where: { stripePaymentIntentId: paymentIntent.id },
-  });
-
-  if (existingPayment) {
-    await prisma.payment.update({
-      where: { id: existingPayment.id },
-      data: {
-        status: 'FAILED',
-        failureReason: paymentIntent.last_payment_error?.message || 'Payment failed',
-      },
-    });
-    console.log(`Updated payment ${existingPayment.id} status to FAILED`);
-  }
-
-  // Get lead ID from metadata if available
-  const leadId = paymentIntent.metadata?.lead_id;
-  if (leadId) {
-    // Optionally update lead status or send notification
-    console.log(`Payment failed for lead ${leadId}`);
-  }
-}
-
-export default router;

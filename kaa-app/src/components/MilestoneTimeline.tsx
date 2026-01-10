@@ -1,90 +1,50 @@
-import React from 'react';
+/**
+ * MilestoneTimeline Component
+ * Visual timeline of project milestones with status indicators.
+ */
+
+import React, { JSX } from 'react';
+import {
+  Milestone,
+  MilestoneStatus,
+  MilestoneSummary,
+  formatDate,
+  STATUS_COLORS,
+} from '../types/portal.types';
 import './MilestoneTimeline.css';
 
-// Types
-export interface Milestone {
-  id: string;
-  name: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-  order: number;
-  dueDate?: string | null;
-  completedAt?: string | null;
-  description?: string | null;
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
-export interface MilestoneTimelineProps {
+interface MilestoneTimelineProps {
   milestones: Milestone[];
+  summary?: MilestoneSummary;
+  projectName?: string;
+  onMilestoneClick?: (milestone: Milestone) => void;
   orientation?: 'vertical' | 'horizontal';
   showDates?: boolean;
-  showDescriptions?: boolean;
   compact?: boolean;
-  onMilestoneClick?: (milestone: Milestone) => void;
 }
 
-// Format date helper
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function getStatusIcon(status: MilestoneStatus): string {
+  switch (status) {
+    case 'COMPLETED':
+      return '✓';
+    case 'IN_PROGRESS':
+      return '●';
+    case 'PENDING':
+      return '○';
+    default:
+      return '○';
+  }
 }
 
-// Format relative date
-function formatRelativeDate(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    const absDays = Math.abs(diffDays);
-    if (absDays === 1) return 'Yesterday';
-    if (absDays < 7) return `${absDays} days ago`;
-    if (absDays < 30) return `${Math.floor(absDays / 7)} weeks ago`;
-    return formatDate(dateString);
-  }
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Tomorrow';
-  if (diffDays < 7) return `In ${diffDays} days`;
-  if (diffDays < 30) return `In ${Math.floor(diffDays / 7)} weeks`;
-  return formatDate(dateString);
-}
-
-// Status icon component
-const StatusIcon: React.FC<{ status: Milestone['status']; order: number }> = ({
-  status,
-  order,
-}) => {
-  if (status === 'COMPLETED') {
-    return (
-      <svg
-        className="status-icon status-icon--completed"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        aria-hidden="true"
-      >
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    );
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return <span className="status-icon status-icon--in-progress" aria-hidden="true" />;
-  }
-
-  return (
-    <span className="status-icon status-icon--pending" aria-hidden="true">
-      {order}
-    </span>
-  );
-};
-
-// Get status label
-function getStatusLabel(status: Milestone['status']): string {
+function getStatusLabel(status: MilestoneStatus): string {
   switch (status) {
     case 'COMPLETED':
       return 'Completed';
@@ -97,175 +57,186 @@ function getStatusLabel(status: Milestone['status']): string {
   }
 }
 
-const MilestoneTimeline: React.FC<MilestoneTimelineProps> = ({
+function getDaysUntilDue(dueDate: string | null): { text: string; isOverdue: boolean } | null {
+  if (!dueDate) return null;
+  
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffTime = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return { text: `${Math.abs(diffDays)} days overdue`, isOverdue: true };
+  } else if (diffDays === 0) {
+    return { text: 'Due today', isOverdue: false };
+  } else if (diffDays === 1) {
+    return { text: 'Due tomorrow', isOverdue: false };
+  } else if (diffDays <= 7) {
+    return { text: `${diffDays} days left`, isOverdue: false };
+  }
+  
+  return null;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+export function MilestoneTimeline({
   milestones,
+  summary,
+  projectName,
+  onMilestoneClick,
   orientation = 'vertical',
   showDates = true,
-  showDescriptions = false,
   compact = false,
-  onMilestoneClick,
-}) => {
-  // Sort milestones by order
+}: MilestoneTimelineProps): JSX.Element {
   const sortedMilestones = [...milestones].sort((a, b) => a.order - b.order);
-
+  
   // Calculate progress
-  const completedCount = sortedMilestones.filter((m) => m.status === 'COMPLETED').length;
-  const totalCount = sortedMilestones.length;
-  const progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-  // Find current milestone
-  const currentMilestone = sortedMilestones.find((m) => m.status === 'IN_PROGRESS');
-
-  if (sortedMilestones.length === 0) {
-    return (
-      <div className="milestone-timeline milestone-timeline--empty">
-        <p className="timeline-empty-text">No milestones defined</p>
-      </div>
-    );
-  }
+  const progressPercentage = summary?.percentage ?? 
+    (milestones.length > 0
+      ? Math.round(
+          (milestones.filter((m) => m.status === 'COMPLETED').length / milestones.length) * 100
+        )
+      : 0);
 
   return (
-    <div
-      className={`milestone-timeline milestone-timeline--${orientation} ${compact ? 'milestone-timeline--compact' : ''}`}
-      role="list"
-      aria-label="Project milestones"
-    >
-      {/* Progress Summary */}
-      {!compact && (
-        <div className="timeline-summary">
-          <div className="summary-progress">
-            <span className="progress-fraction">
-              {completedCount}/{totalCount}
-            </span>
-            <span className="progress-label">milestones complete</span>
-          </div>
-          <div className="summary-bar">
-            <div
-              className="summary-bar-fill"
-              style={{ width: `${progressPercentage}%` }}
-              role="progressbar"
-              aria-valuenow={progressPercentage}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            />
-          </div>
-          {currentMilestone && (
-            <div className="summary-current">
-              <span className="current-indicator" />
-              <span className="current-text">
-                Currently: <strong>{currentMilestone.name}</strong>
+    <div className={`milestone-timeline milestone-timeline--${orientation} ${compact ? 'milestone-timeline--compact' : ''}`}>
+      {/* Header */}
+      <div className="milestone-timeline__header">
+        <div className="milestone-timeline__title-section">
+          <h3 className="milestone-timeline__title">
+            📋 Project Timeline
+            {projectName && (
+              <span className="milestone-timeline__project"> — {projectName}</span>
+            )}
+          </h3>
+          {summary && (
+            <div className="milestone-timeline__summary">
+              <span className="milestone-timeline__completed">
+                {summary.completed} of {summary.total} completed
               </span>
             </div>
           )}
         </div>
-      )}
+        
+        {/* Progress bar */}
+        <div className="milestone-timeline__progress">
+          <div className="milestone-timeline__progress-bar">
+            <div
+              className="milestone-timeline__progress-fill"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+          <span className="milestone-timeline__progress-text">{progressPercentage}%</span>
+        </div>
+      </div>
 
-      {/* Timeline Items */}
-      <div className="timeline-items">
-        {sortedMilestones.map((milestone, index) => {
-          const isFirst = index === 0;
-          const isLast = index === sortedMilestones.length - 1;
-          const isClickable = !!onMilestoneClick;
+      {/* Timeline */}
+      <div className="milestone-timeline__content">
+        <div className="milestone-timeline__track">
+          {sortedMilestones.map((milestone, index) => {
+            const statusClass = `milestone--${milestone.status.toLowerCase()}`;
+            const dueInfo = milestone.status !== 'COMPLETED' 
+              ? getDaysUntilDue(milestone.dueDate) 
+              : null;
+            const isClickable = !!onMilestoneClick;
 
-          const itemContent = (
-            <>
-              {/* Connector line before */}
-              {!isFirst && (
-                <div
-                  className={`timeline-connector timeline-connector--before ${
-                    milestone.status === 'COMPLETED' || milestone.status === 'IN_PROGRESS'
-                      ? 'timeline-connector--active'
-                      : ''
-                  }`}
-                />
-              )}
-
-              {/* Marker */}
+            return (
               <div
-                className={`timeline-marker timeline-marker--${milestone.status.toLowerCase()}`}
+                key={milestone.id}
+                className={`milestone-timeline__item ${statusClass} ${isClickable ? 'milestone-timeline__item--clickable' : ''}`}
+                onClick={() => onMilestoneClick?.(milestone)}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onMilestoneClick?.(milestone);
+                  }
+                }}
               >
-                <StatusIcon status={milestone.status} order={milestone.order} />
-              </div>
-
-              {/* Connector line after */}
-              {!isLast && (
-                <div
-                  className={`timeline-connector timeline-connector--after ${
-                    milestone.status === 'COMPLETED' ? 'timeline-connector--active' : ''
-                  }`}
-                />
-              )}
-
-              {/* Content */}
-              <div className="timeline-content">
-                <h4 className="milestone-name">{milestone.name}</h4>
-
-                {showDescriptions && milestone.description && (
-                  <p className="milestone-description">{milestone.description}</p>
+                {/* Connector line */}
+                {index < sortedMilestones.length - 1 && (
+                  <div
+                    className={`milestone-timeline__connector ${
+                      milestone.status === 'COMPLETED' ? 'milestone-timeline__connector--completed' : ''
+                    }`}
+                  />
                 )}
 
-                <div className="milestone-meta">
-                  <span
-                    className={`milestone-status milestone-status--${milestone.status.toLowerCase()}`}
-                  >
-                    {getStatusLabel(milestone.status)}
+                {/* Status indicator */}
+                <div className={`milestone-timeline__indicator ${statusClass}`}>
+                  <span className="milestone-timeline__icon">
+                    {getStatusIcon(milestone.status)}
                   </span>
+                </div>
+
+                {/* Content */}
+                <div className="milestone-timeline__details">
+                  <div className="milestone-timeline__name-row">
+                    <span className="milestone-timeline__name">{milestone.name}</span>
+                    <span className={`milestone-timeline__status-badge ${statusClass}`}>
+                      {getStatusLabel(milestone.status)}
+                    </span>
+                  </div>
 
                   {showDates && (
-                    <>
-                      {milestone.completedAt && (
-                        <span className="milestone-date milestone-date--completed">
-                          Completed {formatDate(milestone.completedAt)}
+                    <div className="milestone-timeline__dates">
+                      {milestone.completedAt ? (
+                        <span className="milestone-timeline__completed-date">
+                          ✓ Completed {formatDate(milestone.completedAt)}
+                        </span>
+                      ) : milestone.dueDate ? (
+                        <span className={`milestone-timeline__due-date ${dueInfo?.isOverdue ? 'overdue' : ''}`}>
+                          📅 Due {formatDate(milestone.dueDate)}
+                          {dueInfo && (
+                            <span className="milestone-timeline__due-badge">
+                              {dueInfo.text}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="milestone-timeline__no-date">
+                          No due date set
                         </span>
                       )}
-                      {!milestone.completedAt && milestone.dueDate && (
-                        <span
-                          className={`milestone-date ${
-                            new Date(milestone.dueDate) < new Date() &&
-                            milestone.status !== 'COMPLETED'
-                              ? 'milestone-date--overdue'
-                              : ''
-                          }`}
-                        >
-                          {milestone.status === 'IN_PROGRESS' ? 'Due ' : 'Expected '}
-                          {formatRelativeDate(milestone.dueDate)}
-                        </span>
-                      )}
-                    </>
+                    </div>
                   )}
                 </div>
+
+                {/* Order number */}
+                {!compact && (
+                  <div className="milestone-timeline__order">
+                    {milestone.order}
+                  </div>
+                )}
               </div>
-            </>
-          );
-
-          if (isClickable) {
-            return (
-              <button
-                key={milestone.id}
-                type="button"
-                className={`timeline-item timeline-item--${milestone.status.toLowerCase()} timeline-item--clickable`}
-                onClick={() => onMilestoneClick(milestone)}
-                role="listitem"
-                aria-label={`${milestone.name}: ${getStatusLabel(milestone.status)}`}
-              >
-                {itemContent}
-              </button>
             );
-          }
-
-          return (
-            <div
-              key={milestone.id}
-              className={`timeline-item timeline-item--${milestone.status.toLowerCase()}`}
-              role="listitem"
-            >
-              {itemContent}
-            </div>
-          );
-        })}
+          })}
+        </div>
       </div>
+
+      {/* Legend */}
+      {!compact && (
+        <div className="milestone-timeline__legend">
+          <div className="milestone-timeline__legend-item">
+            <span className="milestone-timeline__legend-icon milestone--completed">✓</span>
+            <span>Completed</span>
+          </div>
+          <div className="milestone-timeline__legend-item">
+            <span className="milestone-timeline__legend-icon milestone--in_progress">●</span>
+            <span>In Progress</span>
+          </div>
+          <div className="milestone-timeline__legend-item">
+            <span className="milestone-timeline__legend-icon milestone--pending">○</span>
+            <span>Pending</span>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 export default MilestoneTimeline;

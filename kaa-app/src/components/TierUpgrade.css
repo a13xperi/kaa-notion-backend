@@ -1,0 +1,341 @@
+/**
+ * Tier Upgrade Styles
+ */
+
+/* ============================================================================
+   UPGRADE PROMPT (Inline)
+   ============================================================================ */
+
+.tier-upgrade-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+}
+
+.tier-upgrade-prompt__icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tier-upgrade-prompt__content {
+  flex: 1;
+}
+
+.tier-upgrade-prompt__title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.tier-upgrade-prompt__description {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: #0c4a6e;
+  line-height: 1.5;
+}
+
+.tier-upgrade-prompt__button {
+  padding: 0.5rem 1rem;
+  background: #0284c7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tier-upgrade-prompt__button:hover {
+  background: #0369a1;
+}
+
+/* ============================================================================
+   UPGRADE MODAL
+   ============================================================================ */
+
+.tier-upgrade-modal {
+  padding: 1rem;
+}
+
+.tier-upgrade-modal__subtitle {
+  text-align: center;
+  color: #6b7280;
+  margin: 0 0 2rem 0;
+  font-size: 1rem;
+}
+
+.tier-upgrade-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.tier-upgrade-modal__note {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ============================================================================
+   TIER CARD
+   ============================================================================ */
+
+.tier-card {
+  position: relative;
+  padding: 1.5rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+.tier-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.tier-card--popular {
+  border-color: #2563eb;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+}
+
+.tier-card--current {
+  background: #f9fafb;
+}
+
+.tier-card__badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 1rem;
+  background: #2563eb;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tier-card__current-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 1rem;
+  background: #22c55e;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tier-card__name {
+  margin: 0.5rem 0 0.25rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.tier-card__price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.tier-card__description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0 0 1.5rem 0;
+}
+
+.tier-card__features {
+  list-style: none;
+  margin: 0 0 1.5rem 0;
+  padding: 0;
+}
+
+.tier-card__feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tier-card__feature:last-child {
+  border-bottom: none;
+}
+
+.tier-card__feature--excluded {
+  color: #9ca3af;
+}
+
+.tier-card__feature--highlight {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.tier-card__feature-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tier-card__feature--included .tier-card__feature-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.tier-card__feature--excluded .tier-card__feature-icon {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.tier-card__feature--highlight .tier-card__feature-icon {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.tier-card__current-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #e5e7eb;
+  color: #6b7280;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+.tier-card__downgrade-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: #9ca3af;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   DARK MODE
+   ============================================================================ */
+
+[data-theme='dark'] .tier-upgrade-prompt {
+  background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+  border-color: #0369a1;
+}
+
+[data-theme='dark'] .tier-upgrade-prompt__title {
+  color: #7dd3fc;
+}
+
+[data-theme='dark'] .tier-upgrade-prompt__description {
+  color: #bae6fd;
+}
+
+[data-theme='dark'] .tier-card {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+[data-theme='dark'] .tier-card:hover {
+  border-color: #4b5563;
+}
+
+[data-theme='dark'] .tier-card--popular {
+  border-color: #3b82f6;
+}
+
+[data-theme='dark'] .tier-card--current {
+  background: #111827;
+}
+
+[data-theme='dark'] .tier-card__name,
+[data-theme='dark'] .tier-card__price {
+  color: #f9fafb;
+}
+
+[data-theme='dark'] .tier-card__description {
+  color: #9ca3af;
+}
+
+[data-theme='dark'] .tier-card__feature {
+  color: #e5e7eb;
+  border-color: #374151;
+}
+
+[data-theme='dark'] .tier-card__feature--excluded {
+  color: #6b7280;
+}
+
+[data-theme='dark'] .tier-card__feature--highlight {
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .tier-card__feature--included .tier-card__feature-icon {
+  background: #064e3b;
+  color: #34d399;
+}
+
+[data-theme='dark'] .tier-card__feature--excluded .tier-card__feature-icon {
+  background: #374151;
+  color: #6b7280;
+}
+
+[data-theme='dark'] .tier-card__feature--highlight .tier-card__feature-icon {
+  background: #1e3a8a;
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .tier-card__current-button {
+  background: #374151;
+  color: #9ca3af;
+}
+
+[data-theme='dark'] .tier-card__downgrade-button {
+  border-color: #374151;
+  color: #6b7280;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .tier-upgrade-modal__grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tier-card {
+    padding: 1.25rem;
+  }
+  
+  .tier-card__price {
+    font-size: 1.75rem;
+  }
+}
