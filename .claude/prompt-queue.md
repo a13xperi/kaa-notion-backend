@@ -379,7 +379,12 @@
 - [x] `endpoint`: GET /api/health/live - Kubernetes liveness probe
 - [x] `endpoint`: GET /api/health/ready - Kubernetes readiness probe
 - [x] `test`: healthService.test.ts - 7 tests for health monitoring
-- [x] `verify`: 245 total tests passing
+- [x] `config`: environment.ts - Environment validation with Zod schemas
+- [x] `feature`: Startup validation of required env vars with clear error messages
+- [x] `feature`: Production warnings for weak config (JWT, missing Stripe, etc.)
+- [x] `feature`: Feature flags helper for conditional service initialization
+- [x] `test`: environment.test.ts - 17 tests for environment validation
+- [x] `verify`: 262 total tests passing
 
 ### 2025-01-09
 - [x] Initial project setup

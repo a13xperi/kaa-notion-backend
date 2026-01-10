@@ -35,8 +35,13 @@ import {
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
+import { initEnvironment, getFeatureFlags } from './config/environment';
 
 dotenv.config();
+
+// Validate environment configuration at startup
+const envConfig = initEnvironment();
+const features = getFeatureFlags();
 
 // Initialize Prisma client
 const prisma = new PrismaClient();
@@ -95,9 +100,9 @@ app.use((req, res, next) => {
 });
 
 // Initialize Notion sync service if configured
-if (process.env.NOTION_API_KEY && process.env.NOTION_PROJECTS_DATABASE_ID) {
+if (features.notionEnabled && process.env.NOTION_PROJECTS_DATABASE_ID) {
   initNotionSyncService(prisma, {
-    notionApiKey: process.env.NOTION_API_KEY,
+    notionApiKey: process.env.NOTION_API_KEY!,
     projectsDatabaseId: process.env.NOTION_PROJECTS_DATABASE_ID,
     rateLimitMs: 350,
     maxRetries: 3,
@@ -108,10 +113,10 @@ if (process.env.NOTION_API_KEY && process.env.NOTION_PROJECTS_DATABASE_ID) {
 }
 
 // Initialize storage service if configured
-if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+if (features.storageEnabled) {
   initStorageService({
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+    supabaseUrl: process.env.SUPABASE_URL!,
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
     bucketName: process.env.STORAGE_BUCKET || 'deliverables',
     maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB || '50', 10),
   });
@@ -151,7 +156,7 @@ initEmailService({
 logger.info(`Email service initialized with provider: ${emailProvider}`);
 
 // Setup Swagger API documentation
-if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
+if (features.apiDocsEnabled) {
   setupSwagger(app);
   logger.info('Swagger API documentation available at /api/docs');
 }
