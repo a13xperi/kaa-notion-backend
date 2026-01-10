@@ -7,7 +7,7 @@
  *   npm run prisma:seed
  */
 
-import { PrismaClient, UserType, LeadStatus, ProjectStatus, MilestoneStatus, ClientStatus } from '@prisma/client';
+import { PrismaClient, UserType, LeadStatus, ProjectStatus, MilestoneStatus, ClientStatus, PaymentStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -271,6 +271,34 @@ async function seedDemoProject() {
     },
   });
 
+  // Create payment record for demo project
+  const existingPayment = await prisma.payment.findFirst({
+    where: { projectId: project.id },
+  });
+
+  if (!existingPayment) {
+    const tierPricing: Record<number, number> = {
+      1: 29900,   // $299
+      2: 149900,  // $1,499
+      3: 499900,  // $4,999
+    };
+
+    await prisma.payment.create({
+      data: {
+        projectId: project.id,
+        stripePaymentIntentId: `pi_demo_${Date.now()}`,
+        stripeCheckoutSessionId: `cs_demo_${Date.now()}`,
+        stripeCustomerId: `cus_demo_${Date.now()}`,
+        amount: tierPricing[client.tier] || 149900,
+        currency: 'usd',
+        status: PaymentStatus.SUCCEEDED,
+        tier: client.tier,
+        paidAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+      },
+    });
+    console.log('   Demo payment record created');
+  }
+
   // Create milestones
   const milestones = [
     { name: 'Intake', order: 1, status: MilestoneStatus.COMPLETED },
@@ -297,6 +325,71 @@ async function seedDemoProject() {
   console.log(`   Demo project with ${milestones.length} milestones seeded`);
 }
 
+async function seedDemoPayments() {
+  console.log('   Seeding additional demo payments...');
+
+  // Create a few additional demo payment scenarios
+  const demoPayments = [
+    {
+      leadEmail: 'lead1@example.com',
+      tier: 2,
+      amount: 149900,
+      status: PaymentStatus.SUCCEEDED,
+      projectName: 'Oak Street Garden',
+      projectAddress: '123 Oak Street, Portland, OR 97201',
+    },
+    {
+      leadEmail: 'lead2@example.com',
+      tier: 1,
+      amount: 29900,
+      status: PaymentStatus.PENDING,
+      projectName: 'Maple Avenue Landscaping',
+      projectAddress: '456 Maple Avenue, Seattle, WA 98101',
+    },
+  ];
+
+  for (const demoPayment of demoPayments) {
+    // Check if lead exists
+    const lead = await prisma.lead.findFirst({
+      where: { email: demoPayment.leadEmail },
+    });
+
+    if (!lead) {
+      continue;
+    }
+
+    // Check if a project already exists for this lead
+    const existingProject = await prisma.project.findFirst({
+      where: { leadId: lead.id },
+    });
+
+    if (existingProject) {
+      // Check if payment exists
+      const existingPayment = await prisma.payment.findFirst({
+        where: { projectId: existingProject.id },
+      });
+
+      if (!existingPayment) {
+        await prisma.payment.create({
+          data: {
+            projectId: existingProject.id,
+            stripePaymentIntentId: `pi_demo_lead_${lead.id}`,
+            stripeCheckoutSessionId: `cs_demo_lead_${lead.id}`,
+            stripeCustomerId: `cus_demo_lead_${lead.id}`,
+            amount: demoPayment.amount,
+            currency: 'usd',
+            status: demoPayment.status,
+            tier: demoPayment.tier,
+            paidAt: demoPayment.status === PaymentStatus.SUCCEEDED ? new Date() : undefined,
+          },
+        });
+      }
+    }
+  }
+
+  console.log('   Additional demo payments seeded');
+}
+
 // ============================================================================
 // MAIN
 // ============================================================================
@@ -310,6 +403,7 @@ async function main() {
   await seedUsers();
   await seedLeads();
   await seedDemoProject();
+  await seedDemoPayments();
 
   console.log('');
   console.log('Database seeding complete!');
@@ -319,6 +413,15 @@ async function main() {
   console.log('Admin:  admin@sage.design / Admin123!');
   console.log('Team:   team@sage.design / Team123!');
   console.log('Client: client1@example.com / Client123!');
+  console.log('----------------------------------------');
+  console.log('');
+  console.log('Demo Payment Endpoints:');
+  console.log('----------------------------------------');
+  console.log('GET  /api/demo/status              - Check demo mode status');
+  console.log('POST /api/demo/seed-lead           - Create a demo lead');
+  console.log('POST /api/demo/checkout/create-session - Create mock checkout');
+  console.log('POST /api/demo/checkout/complete   - Complete mock payment');
+  console.log('POST /api/demo/full-flow           - Run complete demo flow');
   console.log('----------------------------------------');
   console.log('');
 }
