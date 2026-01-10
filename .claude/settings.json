@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "command": ".claude/hooks/stop-hook.sh"
+      }
+    ]
+  },
+  "ralph": {
+    "description": "Ralph Wiggum autonomous loop configuration",
+    "maxIterations": 50,
+    "completionPromise": "<promise>COMPLETE</promise>",
+    "documentation": "https://awesomeclaude.ai/ralph-wiggum"
+  }
+}
