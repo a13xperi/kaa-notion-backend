@@ -77,11 +77,7 @@ Follow the database setup commands in [docs/COMMANDS.md](./docs/COMMANDS.md).
 Start the development servers using the root scripts in
 [docs/COMMANDS.md](./docs/COMMANDS.md).
 
-**Access Points:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- API Docs: http://localhost:3001/api/docs
-- Health Check: http://localhost:3001/api/health
+See [Development Environments](./docs/DEV_ENVIRONMENTS.md#local-development) for local dev access points and Docker alternatives.
 
 ## 📁 Project Structure
 
