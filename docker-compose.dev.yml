@@ -1,0 +1,125 @@
+# SAGE MVP Platform - Docker Compose Development Configuration
+# Use with: docker compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # Frontend - React Development Server (with hot reload)
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./kaa-app
+      dockerfile: Dockerfile.dev
+    container_name: sage-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001/api
+      - REACT_APP_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./kaa-app/src:/app/src:delegated
+      - ./kaa-app/public:/app/public:delegated
+    depends_on:
+      - backend
+    networks:
+      - sage-network-dev
+    stdin_open: true
+    tty: true
+
+  # ==========================================================================
+  # Backend - Node.js Development Server (with hot reload)
+  # ==========================================================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: sage-backend-dev
+    ports:
+      - "3001:3001"
+      - "3002:3002"  # WebSocket port
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/sage?schema=public
+      - JWT_SECRET=development-secret-key
+      - JWT_EXPIRES_IN=7d
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_SUCCESS_URL=http://localhost:3000/success
+      - STRIPE_CANCEL_URL=http://localhost:3000/cancel
+      - NOTION_API_KEY=${NOTION_API_KEY:-}
+      - NOTION_PROJECTS_DATABASE_ID=${NOTION_PROJECTS_DATABASE_ID:-}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - NODE_ENV=development
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - ./server/src:/app/src:delegated
+      - ./server/prisma:/app/prisma:delegated
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sage-network-dev
+
+  # ==========================================================================
+  # Database - PostgreSQL
+  # ==========================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: sage-db-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sage
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    networks:
+      - sage-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Adminer - Database Admin UI (optional)
+  # ==========================================================================
+  adminer:
+    image: adminer:latest
+    container_name: sage-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - sage-network-dev
+    profiles:
+      - tools
+
+  # ==========================================================================
+  # MailHog - Email Testing (optional)
+  # ==========================================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: sage-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - sage-network-dev
+    profiles:
+      - tools
+
+networks:
+  sage-network-dev:
+    driver: bridge
+
+volumes:
+  postgres-data-dev:
+    driver: local
