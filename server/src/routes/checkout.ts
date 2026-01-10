@@ -36,8 +36,32 @@ export function createCheckoutRouter(prisma: PrismaClient): Router {
   const router = Router();
 
   /**
-   * POST /create-session
-   * Creates a Stripe checkout session for a tier purchase.
+   * @openapi
+   * /api/checkout/create-session:
+   *   post:
+   *     summary: Create Stripe checkout session
+   *     description: Create a checkout session for tier 1-3 purchase
+   *     tags: [Checkout]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateCheckoutRequest'
+   *     responses:
+   *       200:
+   *         description: Checkout session created
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/CheckoutResponse'
+   *       400:
+   *         description: Lead already converted
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
    */
   router.post(
     '/create-session',
@@ -147,8 +171,27 @@ export function createCheckoutRouter(prisma: PrismaClient): Router {
   );
 
   /**
-   * GET /pricing
-   * Returns tier pricing information.
+   * @openapi
+   * /api/checkout/pricing:
+   *   get:
+   *     summary: Get tier pricing
+   *     description: Returns pricing information for all service tiers
+   *     tags: [Checkout]
+   *     security: []
+   *     responses:
+   *       200:
+   *         description: Pricing information
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/TierPricing'
    */
   router.get('/pricing', (_req: Request, res: Response) => {
     const pricing = Object.values(TIER_PRICING)

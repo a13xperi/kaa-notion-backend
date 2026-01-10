@@ -364,6 +364,9 @@
 - [x] `docker`: .dockerignore files - Build optimization for both services
 - [x] `docs`: DOCKER_SETUP.md - Comprehensive Docker documentation
 - [x] `ci-cd`: .github/workflows/ci.yml - Full CI/CD pipeline with tests, build, security, deploy
+- [x] `api-docs`: config/swagger.ts - OpenAPI/Swagger configuration with schemas
+- [x] `api-docs`: Route annotations for auth, leads, checkout endpoints
+- [x] `integration`: Swagger UI at /api/docs, OpenAPI spec at /api/docs/openapi.json
 
 ### 2025-01-09
 - [x] Initial project setup

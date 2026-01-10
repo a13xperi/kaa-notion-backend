@@ -31,6 +31,7 @@ import {
   adminRateLimiter,
 } from './middleware';
 import { logger } from './logger';
+import { setupSwagger } from './config/swagger';
 
 dotenv.config();
 
@@ -120,6 +121,12 @@ initEmailService({
   replyTo: process.env.EMAIL_REPLY_TO || 'support@sage.design',
 });
 logger.info(`Email service initialized with provider: ${emailProvider}`);
+
+// Setup Swagger API documentation
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
+  setupSwagger(app);
+  logger.info('Swagger API documentation available at /api/docs');
+}
 
 // API Routes with Rate Limiting
 app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));

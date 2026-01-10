@@ -53,8 +53,29 @@ export function createAuthRouter(prisma: PrismaClient): Router {
   const router = Router();
 
   /**
-   * POST /register
-   * Register a new user account.
+   * @openapi
+   * /api/auth/register:
+   *   post:
+   *     summary: Register a new user
+   *     tags: [Auth]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/RegisterRequest'
+   *     responses:
+   *       201:
+   *         description: User registered successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/AuthResponse'
+   *       409:
+   *         description: Email already exists
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
    */
   router.post(
     '/register',
@@ -106,8 +127,29 @@ export function createAuthRouter(prisma: PrismaClient): Router {
   );
 
   /**
-   * POST /login
-   * Authenticate a user and return a JWT token.
+   * @openapi
+   * /api/auth/login:
+   *   post:
+   *     summary: Authenticate user
+   *     tags: [Auth]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/LoginRequest'
+   *     responses:
+   *       200:
+   *         description: Login successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/AuthResponse'
+   *       401:
+   *         description: Invalid credentials
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
    */
   router.post(
     '/login',
@@ -154,7 +196,28 @@ export function createAuthRouter(prisma: PrismaClient): Router {
   );
 
   /**
-   * GET /me
+   * @openapi
+   * /api/auth/me:
+   *   get:
+   *     summary: Get current user profile
+   *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: User profile retrieved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   $ref: '#/components/schemas/User'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *
    * Get current user's profile.
    * Requires authentication.
    */

@@ -154,8 +154,52 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
   const projectService = createProjectService(dbAdapter);
 
   // -------------------------------------------------------------------------
-  // GET /api/projects - List user's projects
-  // -------------------------------------------------------------------------
+  /**
+   * @openapi
+   * /api/projects:
+   *   get:
+   *     summary: List user's projects
+   *     description: Get paginated list of projects for authenticated user
+   *     tags: [Projects]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [DRAFT, ONBOARDING, IN_PROGRESS, REVIEW, COMPLETED, ON_HOLD, CANCELLED]
+   *       - in: query
+   *         name: tier
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *     responses:
+   *       200:
+   *         description: List of projects
+   *         content:
+   *           application/json:
+   *             schema:
+   *               allOf:
+   *                 - $ref: '#/components/schemas/SuccessResponse'
+   *                 - type: object
+   *                   properties:
+   *                     data:
+   *                       type: array
+   *                       items:
+   *                         $ref: '#/components/schemas/Project'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   */
   router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const query = req.query as ListProjectsQuery;
@@ -281,8 +325,50 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
   });
 
   // -------------------------------------------------------------------------
-  // GET /api/projects/:id - Get single project with full details
-  // -------------------------------------------------------------------------
+  /**
+   * @openapi
+   * /api/projects/{id}:
+   *   get:
+   *     summary: Get project details
+   *     description: Get full project details including milestones, deliverables, and payments
+   *     tags: [Projects]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Project ID
+   *     responses:
+   *       200:
+   *         description: Project details
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   allOf:
+   *                     - $ref: '#/components/schemas/Project'
+   *                     - type: object
+   *                       properties:
+   *                         milestones:
+   *                           type: array
+   *                           items:
+   *                             $ref: '#/components/schemas/Milestone'
+   *                         deliverables:
+   *                           type: array
+   *                           items:
+   *                             $ref: '#/components/schemas/Deliverable'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   */
   router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
@@ -488,8 +574,41 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
   });
 
   // -------------------------------------------------------------------------
-  // PATCH /api/projects/:id - Update project status (admin only)
-  // -------------------------------------------------------------------------
+  /**
+   * @openapi
+   * /api/projects/{id}:
+   *   patch:
+   *     summary: Update project
+   *     description: Update project status (admin only)
+   *     tags: [Projects]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               status:
+   *                 type: string
+   *                 enum: [DRAFT, ONBOARDING, IN_PROGRESS, REVIEW, COMPLETED, ON_HOLD, CANCELLED]
+   *     responses:
+   *       200:
+   *         description: Project updated
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       403:
+   *         $ref: '#/components/responses/ForbiddenError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   */
   router.patch('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;

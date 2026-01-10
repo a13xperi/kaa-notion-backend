@@ -152,8 +152,47 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
   const router = Router();
 
   // ============================================================================
-  // POST /api/leads - Create lead from intake form
-  // ============================================================================
+  /**
+   * @openapi
+   * /api/leads:
+   *   post:
+   *     summary: Create a new lead
+   *     description: Submit intake form data and receive tier recommendation
+   *     tags: [Leads]
+   *     security: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateLeadRequest'
+   *     responses:
+   *       201:
+   *         description: Lead created with tier recommendation
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     lead:
+   *                       $ref: '#/components/schemas/Lead'
+   *                     tierRecommendation:
+   *                       type: object
+   *                       properties:
+   *                         tier:
+   *                           type: integer
+   *                         reason:
+   *                           type: string
+   *                         confidence:
+   *                           type: string
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   */
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validation = createLeadSchema.safeParse(req.body);
@@ -228,8 +267,58 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
   });
 
   // ============================================================================
-  // GET /api/leads - List leads with pagination (admin only)
-  // ============================================================================
+  /**
+   * @openapi
+   * /api/leads:
+   *   get:
+   *     summary: List leads with filtering
+   *     description: Admin only - get paginated list of leads
+   *     tags: [Leads]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 20
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [NEW, QUALIFIED, NEEDS_REVIEW, CLOSED]
+   *       - in: query
+   *         name: tier
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Paginated list of leads
+   *         content:
+   *           application/json:
+   *             schema:
+   *               allOf:
+   *                 - $ref: '#/components/schemas/SuccessResponse'
+   *                 - type: object
+   *                   properties:
+   *                     data:
+   *                       type: array
+   *                       items:
+   *                         $ref: '#/components/schemas/Lead'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       403:
+   *         $ref: '#/components/responses/ForbiddenError'
+   */
   router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthenticatedRequest;
