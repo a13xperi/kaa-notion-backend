@@ -1,19 +1,25 @@
-# Figma MCP Server
+# SAGE Platform - Backend API Server
 
-This is a Message Control Protocol (MCP) server for Figma integration. It provides real-time communication between your application and Figma through WebSocket connections and REST API endpoints.
+The SAGE Platform backend provides a comprehensive API server for project management, client collaboration, and workspace integration. It connects to Notion for data synchronization, supports Stripe for payments, and provides real-time updates via WebSocket.
 
 ## Features
 
-- Real-time Figma file updates via WebSocket
-- REST API endpoints for Figma file operations
-- Webhook support for Figma events
-- Secure authentication with Figma API
+- **Project Management**: Full CRUD operations for projects, milestones, and deliverables
+- **Client Portal**: Secure client authentication and workspace access
+- **Team Dashboard**: Administrative controls and analytics
+- **Notion Integration**: Bi-directional sync with Notion databases
+- **Payment Processing**: Stripe integration for subscriptions and checkout
+- **Real-time Updates**: WebSocket support for live collaboration
+- **Push Notifications**: Web push notification support
+- **Email Services**: Transactional email via Resend/Postmark
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
-- Figma account with API access
+- PostgreSQL database (via Supabase)
+- Notion integration token
+- Stripe account (for payments)
 
 ## Setup
 
@@ -22,22 +28,20 @@ This is a Message Control Protocol (MCP) server for Figma integration. It provid
    npm install
    ```
 
-2. Create a `.env` file in the server directory with the following variables:
-   ```
-   PORT=3001
-   FIGMA_ACCESS_TOKEN=your_figma_access_token_here
-   FIGMA_WEBHOOK_PASSCODE=your_webhook_passcode_here
-   ```
-
-3. Get your Figma access token:
-   - Go to your Figma account settings
-   - Navigate to Personal access tokens
-   - Create a new access token
-   - Copy the token and paste it in your `.env` file
-
-4. Build the project:
+2. Copy the environment template and configure:
    ```bash
-   npm run build
+   cp ../env.example .env
+   ```
+
+3. Configure your environment variables (see `env.example` for full list):
+   - Database: `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+   - Notion: `NOTION_API_KEY`, `NOTION_PARENT_PAGE_ID`
+   - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+   - Email: `RESEND_API_KEY` or `POSTMARK_API_KEY`
+
+4. Run database migrations:
+   ```bash
+   npm run db:migrate
    ```
 
 5. Start the server:
@@ -47,56 +51,55 @@ This is a Message Control Protocol (MCP) server for Figma integration. It provid
 
 ## API Endpoints
 
-### REST API
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/verify` - Token verification
 
-- `GET /file/:fileKey` - Get Figma file data
-- `GET /file/:fileKey/nodes` - Get specific nodes from a Figma file
-- `POST /webhook` - Handle Figma webhook events
+### Projects
+- `GET /api/projects` - List all projects
+- `GET /api/projects/:id` - Get project details
+- `POST /api/projects` - Create project
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project
 
-### WebSocket Events
+### Milestones & Deliverables
+- `GET /api/projects/:id/milestones` - List project milestones
+- `GET /api/projects/:id/deliverables` - List project deliverables
+- `POST /api/milestones` - Create milestone
+- `POST /api/deliverables` - Create deliverable
 
-- `getFile` - Request Figma file data
-- `getFileNodes` - Request specific nodes from a Figma file
+### Team & Admin
+- `GET /api/team` - List team members
+- `GET /api/admin/analytics` - Dashboard analytics
+
+### Payments
+- `POST /api/checkout/create-session` - Create Stripe checkout
+- `POST /api/webhooks/stripe` - Stripe webhook handler
+
+### Other
+- `GET /api/portfolio` - Public portfolio items
+- `POST /api/leads` - Lead capture
+- `POST /api/push/subscribe` - Push notification subscription
 
 ## WebSocket Connection
 
-Connect to the WebSocket server at `ws://localhost:3002`. The server supports the following message types:
-
-```typescript
-// Get file data
-{
-  type: 'getFile',
-  fileKey: 'your-figma-file-key'
-}
-
-// Get specific nodes
-{
-  type: 'getFileNodes',
-  fileKey: 'your-figma-file-key',
-  nodeIds: ['node-id-1', 'node-id-2']
-}
-```
-
-## Error Handling
-
-The server includes comprehensive error handling for:
-- Invalid Figma access tokens
-- Missing or invalid file keys
-- WebSocket connection issues
-- Webhook verification failures
-
-## Security
-
-- All API requests require a valid Figma access token
-- Webhook endpoints are protected with a passcode
-- CORS is enabled for cross-origin requests
-- WebSocket connections are authenticated
+Connect to the WebSocket server at `ws://localhost:3002` for real-time updates.
 
 ## Development
 
 For development with hot-reloading:
 ```bash
 npm run dev
+```
+
+## Database Management
+
+```bash
+npm run db:migrate    # Run migrations
+npm run db:push       # Push schema changes
+npm run db:seed       # Seed database
+npm run db:studio     # Open Prisma Studio
 ```
 
 ## Testing

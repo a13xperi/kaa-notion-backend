@@ -1,7 +1,7 @@
 {
-  "name": "kaa-notion-integration",
+  "name": "sage-platform",
   "version": "1.0.0",
-  "description": "KAA Notion workspace integration with Cursor",
+  "description": "SAGE Platform - Project Management & Client Collaboration",
   "scripts": {
     "start": "node notion-api-server-enhanced.js",
     "build": "echo 'No build required for API server'",
@@ -11,7 +11,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "types:copy": "cp -r shared/types kaa-app/src/shared-types",
+    "types:check": "cd server && npx tsc --noEmit"
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0",
