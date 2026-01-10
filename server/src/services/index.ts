@@ -143,3 +143,65 @@ export {
   type ComponentHealth,
   type HealthCheckResult,
 } from './healthService';
+
+// Slack Service - Team notifications
+export {
+  initSlackService,
+  isSlackEnabled,
+  sendSlackMessage,
+  notifyNewLead,
+  notifyPaymentReceived,
+  notifyProjectStatusChange,
+  notifyMilestoneCompleted,
+  notifyDocumentUploaded,
+  notifyAlert,
+  type SlackConfig,
+  type SlackMessage,
+} from './slackService';
+
+// Webhook Service - External event notifications
+export {
+  initWebhookService,
+  generateSignature,
+  verifySignature,
+  registerWebhook,
+  updateWebhook,
+  deleteWebhook,
+  getWebhook,
+  listWebhooks,
+  triggerWebhook,
+  triggerLeadCreated,
+  triggerPaymentSucceeded,
+  triggerProjectStatusChanged,
+  triggerMilestoneCompleted,
+  triggerDeliverableUploaded,
+  type WebhookEventType,
+  type WebhookEndpoint,
+  type WebhookPayload,
+  type WebhookConfig,
+} from './webhookService';
+
+// Calendar Service - Appointment scheduling
+export {
+  initCalendarService,
+  setWorkingHours,
+  getWorkingHours,
+  getAvailableSlots,
+  isSlotAvailable,
+  createAppointment,
+  getAppointment,
+  updateAppointment,
+  cancelAppointment,
+  listAppointments,
+  getUpcomingAppointments,
+  generateICS,
+  type CalendarConfig,
+  type TimeSlot,
+  type Appointment,
+  type AppointmentAttendee,
+  type AppointmentStatus,
+  type AppointmentType,
+  type CreateAppointmentInput,
+  type AvailabilityQuery,
+  type WorkingHours,
+} from './calendarService';
