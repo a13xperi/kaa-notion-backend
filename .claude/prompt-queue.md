@@ -250,11 +250,11 @@
 - [x] `responsive`: Mobile optimization - Safe area insets, touch targets, reduced motion, skeleton loading
 - [x] `new-component`: NotificationSettings - Push notification management UI with toggle and test
 
-### Priority 8: Documentation & Onboarding
-- [ ] `docs`: API documentation - OpenAPI/Swagger spec for all endpoints
-- [ ] `docs`: Developer setup guide - README with local development instructions
-- [ ] `docs`: Deployment guide - Production deployment checklist
-- [ ] `docs`: User guide - Client portal documentation for end users
+### Priority 8: Documentation & Onboarding ✅
+- [x] `docs`: API documentation - OpenAPI/Swagger spec (docs/openapi.yaml) with all endpoints
+- [x] `docs`: Developer setup guide - Comprehensive README with quick start, Docker, manual setup
+- [x] `docs`: Deployment guide - Production checklist, Docker, PM2, Vercel, nginx, SSL, monitoring
+- [x] `docs`: User guide - Client portal documentation with all features and FAQ
 
 ### Priority 9: Performance Optimization
 - [ ] `perf`: Database query optimization - Add indexes, optimize N+1 queries
@@ -383,6 +383,10 @@
 - [x] `new-hook`: usePushNotifications - Browser push notification management
 - [x] `new-component`: NotificationSettings - Push notification preferences UI
 - [x] `responsive`: Mobile CSS utilities, safe area insets, touch targets, reduced motion
+- [x] `docs`: OpenAPI specification (docs/openapi.yaml) - Complete API documentation
+- [x] `docs`: README.md - Comprehensive developer setup and quick start guide
+- [x] `docs`: DEPLOYMENT.md - Production deployment with Docker, PM2, nginx, SSL
+- [x] `docs`: USER_GUIDE.md - Client portal documentation with features and FAQ
 
 ---
 
