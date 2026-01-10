@@ -127,6 +127,8 @@ model Lead {
   hasDrawings     Boolean     @default(false) @map("has_drawings")
   recommendedTier Int         @map("recommended_tier") // 1, 2, 3, or 4
   routingReason   String?     @map("routing_reason") // Why this tier was recommended
+  tierOverride    Int?        @map("tier_override") // Admin override of recommended tier
+  overrideReason  String?     @map("override_reason") // Reason for tier override
   status          LeadStatus  @default(NEW)
   clientId        String?     @map("client_id") // Set when lead converts to client
   notionPageId    String?     @map("notion_page_id") // Link to Notion CRM page
@@ -262,11 +264,12 @@ model Deliverable {
 model AuditLog {
   id           String   @id @default(uuid())
   userId       String?  @map("user_id")
-  action       String // "login", "upload", "payment", etc.
-  resourceType String?  @map("resource_type") // "project", "deliverable", "payment", etc.
+  action       String // Action enum value (e.g. "LEAD_CREATE", "LOGIN")
+  resourceType String?  @map("resource_type") // "USER", "LEAD", "PROJECT", etc.
   resourceId   String?  @map("resource_id") // UUID of the resource
-  details      Json? // Additional context
-  ipAddress    String?  @map("ip_address")
+  details      String?  // JSON string with additional context
+  ip           String?  // Client IP address
+  userAgent    String?  @map("user_agent") // Client user agent
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -274,6 +277,7 @@ model AuditLog {
 
   @@index([userId])
   @@index([action])
+  @@index([resourceType, resourceId])
   @@index([createdAt])
   @@map("audit_log")
 }

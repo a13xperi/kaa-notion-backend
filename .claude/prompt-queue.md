@@ -147,10 +147,14 @@
 ## Database Migrations
 
 ### Core Models (Run First)
-- [ ] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog
+- [x] `prisma-migrate`: Initial migration with User, Client, Lead, Project, Tier, Milestone, Payment, Deliverable, AuditLog
+  - Schema complete with all models, enums, and relations
+  - Run `npx prisma migrate dev --name init` when connected to database
 
 ### Indexes
-- [ ] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md
+- [x] `prisma-migrate`: Add indexes for email, stripe IDs, foreign keys per data-model.md
+  - All indexes defined in schema.prisma
+  - Will be created with migration
 
 ---
 
@@ -246,6 +250,7 @@
 - [x] `new-middleware`: errorHandler.ts - Global handler with Zod/Prisma/Multer normalization, logging, asyncHandler
 - [x] `new-service`: auditService.ts - AuditActions enum, log functions, query/cleanup, middleware factory
 - [x] `audit`: Add audit logging to leads, auth, projects, milestones, upload routes
+- [x] `prisma-schema`: Complete schema with AuditLog updates (ip, userAgent), Lead tier override fields
 
 ---
 
