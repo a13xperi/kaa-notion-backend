@@ -286,6 +286,17 @@ export const passwordResetRateLimit = rateLimit({
 });
 
 /**
+ * Rate limiter for team invite validation/acceptance
+ * 10 requests per 15 minutes (prevents brute force token guessing)
+ */
+export const teamInviteRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 10,
+  message: 'Too many invite attempts, please try again later.',
+  keyGenerator: (req) => `teaminvite:${req.ip}`,
+});
+
+/**
  * Rate limiter for file uploads
  * 20 uploads per hour
  */
@@ -412,5 +423,6 @@ export default {
   apiRateLimit,
   publicRateLimit,
   passwordResetRateLimit,
+  teamInviteRateLimit,
   uploadRateLimit,
 };

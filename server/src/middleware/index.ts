@@ -62,6 +62,7 @@ export {
 
 // Rate Limiting
 export {
+  rateLimit,
   createRateLimiter,
   apiRateLimiter,
   authRateLimiter,
@@ -69,6 +70,13 @@ export {
   checkoutRateLimiter,
   uploadRateLimiter,
   adminRateLimiter,
+  // Redis-backed rate limiters
+  authRateLimit,
+  apiRateLimit,
+  publicRateLimit,
+  passwordResetRateLimit,
+  teamInviteRateLimit,
+  uploadRateLimit,
 } from './rateLimit';
 
 // Login protection

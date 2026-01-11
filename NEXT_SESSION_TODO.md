@@ -67,6 +67,16 @@ This document outlines the work to be done in the next Claude Code session after
   - Fixed `setFeatured(id, featured)` → `toggleFeatured(id)`
   - Fixed published check to use service's `publishedOnly` parameter
 
+### Batch 4 (Session 3 - continued):
+- [x] Added `teamInviteRateLimit` to rateLimit.ts (10 requests per 15 minutes)
+- [x] Applied rate limiting to team invite public endpoints (validate, accept)
+- [x] Updated middleware/index.ts to export all rate limiters
+- [x] Added missing service exports to services/index.ts:
+  - PasswordResetService, initPasswordResetService, getPasswordResetService
+  - TeamInviteService
+  - Portfolio service exports (createPortfolio, updatePortfolio, etc.)
+  - Push notification service exports (saveSubscription, sendToUser, etc.)
+
 **Build Status:**
 - Build still has errors due to Prisma client not being generated (network blocked)
 - Remaining errors are all Prisma-related (implicit `any` types from query results)
@@ -178,9 +188,9 @@ This document outlines the work to be done in the next Claude Code session after
 ## Priority 5: Security Hardening
 
 ### 5.1 Rate Limiting
-- [ ] Add rate limiting to password reset endpoint (prevent abuse)
-- [ ] Add rate limiting to team invite endpoint
-- [ ] Consider Redis backing for distributed rate limiting
+- [x] Add rate limiting to password reset endpoint (prevent abuse) - `passwordResetRateLimit` (3 req/hour)
+- [x] Add rate limiting to team invite endpoint - `teamInviteRateLimit` (10 req/15min)
+- [x] Redis backing already implemented (with in-memory fallback)
 
 ### 5.2 Audit Logging Review
 - [x] Password reset logging implemented
@@ -242,5 +252,5 @@ fce4a2b docs: Add comprehensive TODO list for next session
 
 ---
 
-*Last updated: 2026-01-11 (Session 2 - continued)*
+*Last updated: 2026-01-11 (Session 3)*
 *Branch: claude/review-merge-issues-34jvV*

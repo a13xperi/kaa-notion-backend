@@ -18,6 +18,7 @@ import { TeamInviteService } from '../services/teamInviteService';
 import { validationError, notFound, forbidden } from '../utils/AppError';
 import { logger } from '../logger';
 import { requireAuth, requireAdmin, validateBody } from '../middleware';
+import { teamInviteRateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
 import { getEmailService } from '../services/emailService';
 
@@ -127,6 +128,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/invite/:token',
+    teamInviteRateLimit,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { token } = req.params;
@@ -166,6 +168,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.post(
     '/invite/:token/accept',
+    teamInviteRateLimit,
     validateBody(acceptInviteSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
