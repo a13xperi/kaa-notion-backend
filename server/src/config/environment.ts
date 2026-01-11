@@ -22,6 +22,7 @@ const requiredEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
   // JWT Authentication (required)
+  // NOTE: Production requires a strong secret (see validation below) to prevent token forgery.
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 });
@@ -31,6 +32,7 @@ const requiredEnvSchema = z.object({
  */
 const optionalEnvSchema = z.object({
   // Stripe (optional but recommended)
+  // NOTE: If Stripe is enabled in production, webhook signing must be configured.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
@@ -58,6 +60,7 @@ const optionalEnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().default('support@sage.design'),
 
   // Frontend & CORS
+  // NOTE: Production requires explicit allowed origins to prevent permissive CORS.
   FRONTEND_URL: z.string().url().optional(),
   CORS_ORIGINS: z.string().optional(),
 
@@ -98,6 +101,7 @@ export interface ValidationResult {
  */
 export function validateEnvironment(): ValidationResult {
   const warnings: string[] = [];
+  const productionErrors: string[] = [];
   
   // Parse and validate
   const result = envSchema.safeParse(process.env);
@@ -118,6 +122,18 @@ export function validateEnvironment(): ValidationResult {
 
   // Production-specific warnings
   if (config.NODE_ENV === 'production') {
+    // Require a strong JWT secret to prevent token forgery in production.
+    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
+      productionErrors.push('JWT_SECRET must be a strong random secret (64+ chars) in production');
+    }
+    // Require explicit CORS/Frontend allowlist in production to avoid permissive CORS.
+    if (!config.CORS_ORIGINS && !config.FRONTEND_URL) {
+      productionErrors.push('CORS_ORIGINS or FRONTEND_URL must be set in production');
+    }
+    // If Stripe is enabled, webhook verification must be configured in production.
+    if (config.STRIPE_SECRET_KEY && !config.STRIPE_WEBHOOK_SECRET) {
+      productionErrors.push('STRIPE_WEBHOOK_SECRET must be set when Stripe is enabled in production');
+    }
     if (!config.STRIPE_SECRET_KEY) {
       warnings.push('STRIPE_SECRET_KEY not set - payments will not work');
     }
@@ -126,9 +142,6 @@ export function validateEnvironment(): ValidationResult {
     }
     if (!config.RESEND_API_KEY && !config.SMTP_HOST) {
       warnings.push('No email provider configured - emails will be logged to console');
-    }
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
-      warnings.push('JWT_SECRET appears to be weak - use a strong random secret in production');
     }
     if (!config.FRONTEND_URL) {
       warnings.push('FRONTEND_URL not set - email links may not work correctly');
@@ -140,6 +153,13 @@ export function validateEnvironment(): ValidationResult {
     if (!config.DATABASE_URL.includes('localhost') && !config.DATABASE_URL.includes('127.0.0.1')) {
       warnings.push('DATABASE_URL points to non-local database in development mode');
     }
+  }
+
+  if (productionErrors.length > 0) {
+    return {
+      valid: false,
+      errors: productionErrors,
+    };
   }
 
   return {
