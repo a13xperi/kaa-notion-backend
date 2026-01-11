@@ -756,8 +756,8 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
         });
 
         // Check if all requested deliverables were found
-        const foundIds = new Set(deliverables.map(d => d.id));
-        const missingIds = deliverableIds.filter(id => !foundIds.has(id));
+        const foundIds = new Set(deliverables.map((d: { id: string }) => d.id));
+        const missingIds = deliverableIds.filter((id: string) => !foundIds.has(id));
 
         if (missingIds.length > 0) {
           return res.status(404).json({
@@ -774,7 +774,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
 
-        const downloads = deliverables.map(d => {
+        const downloads = deliverables.map((d: { id: string; name: string; fileUrl: string; fileType: string; fileSize: number }) => {
           const { url } = generateSignedUrl(d.fileUrl, expiresInMinutes);
           return {
             id: d.id,
@@ -800,13 +800,14 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
           },
         });
 
+        const totalSize = deliverables.reduce((sum: number, d: { fileSize: number }) => sum + d.fileSize, 0);
         res.json({
           success: true,
           data: {
             projectId,
             expiresAt,
-            totalSize: deliverables.reduce((sum, d) => sum + d.fileSize, 0),
-            totalSizeFormatted: formatFileSize(deliverables.reduce((sum, d) => sum + d.fileSize, 0)),
+            totalSize,
+            totalSizeFormatted: formatFileSize(totalSize),
             downloads,
           },
         });
