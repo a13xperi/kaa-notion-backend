@@ -112,3 +112,8 @@ export {
   requireNotionService,
   requireStorageService,
 } from './featureFlagGuard';
+
+// Figma Access
+export {
+  createFigmaAccessMiddleware,
+} from './figmaAccess';

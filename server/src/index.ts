@@ -40,6 +40,7 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  createFigmaAccessMiddleware,
 } from './middleware';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
@@ -221,7 +222,9 @@ app.get('/test', (req, res) => {
 });
 
 // REST API endpoints
-app.get('/file/:fileKey', async (req, res, next) => {
+const figmaAuth = [requireAuth(prisma), createFigmaAccessMiddleware(prisma)];
+
+const getFigmaFileHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     logger.debug('Fetching file:', req.params.fileKey);
     const fileData = await figmaClient.getFile(req.params.fileKey);
@@ -230,9 +233,9 @@ app.get('/file/:fileKey', async (req, res, next) => {
   } catch (error) {
     next(internalError('Failed to fetch Figma file', error as Error));
   }
-});
+};
 
-app.get('/file/:fileKey/nodes', async (req, res, next) => {
+const getFigmaNodesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const { nodeIds } = req.query;
     if (!nodeIds || typeof nodeIds !== 'string') {
@@ -243,7 +246,12 @@ app.get('/file/:fileKey/nodes', async (req, res, next) => {
   } catch (error) {
     next(internalError('Failed to fetch Figma nodes', error as Error));
   }
-});
+};
+
+app.get('/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
+app.get('/api/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/api/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
 
 app.post('/webhook', handleFigmaWebhook);
 
