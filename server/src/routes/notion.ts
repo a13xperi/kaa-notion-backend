@@ -8,6 +8,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getNotionSyncService, NotionSyncService } from '../services';
 import { internalError } from '../utils/AppError';
+import { requireAdmin, requireAuth } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -35,55 +36,18 @@ declare global {
 }
 
 // ============================================================================
-// MIDDLEWARE
-// ============================================================================
-
-/**
- * Require admin or team access
- */
-function requireAdmin(req: Request, res: Response, next: Function): void {
-  // In production, this would verify JWT and check user type
-  // For now, check for admin header (development only)
-  const userId = req.headers['x-user-id'] as string;
-  const userType = req.headers['x-user-type'] as string;
-
-  if (!userId) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-    });
-    return;
-  }
-
-  const validAdminTypes = ['ADMIN', 'TEAM'];
-  if (!validAdminTypes.includes(userType)) {
-    res.status(403).json({
-      success: false,
-      error: { code: 'FORBIDDEN', message: 'Admin access required' },
-    });
-    return;
-  }
-
-  req.user = {
-    id: userId,
-    email: req.headers['x-user-email'] as string || '',
-    userType: userType as 'ADMIN' | 'TEAM',
-  };
-
-  next();
-}
-
-// ============================================================================
 // ROUTER
 // ============================================================================
 
 export function createNotionRouter({ prisma }: NotionRouterDependencies): Router {
   const router = Router();
+  const authMiddleware = requireAuth(prisma);
+  const adminMiddleware = requireAdmin();
 
   // ============================================================================
   // GET /api/notion/status - Get sync status and statistics
   // ============================================================================
-  router.get('/status', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/status', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -123,7 +87,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // POST /api/notion/sync - Trigger sync for pending entities
   // ============================================================================
-  router.post('/sync', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/sync', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -154,7 +118,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // POST /api/notion/retry - Retry failed syncs
   // ============================================================================
-  router.post('/retry', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/retry', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -185,7 +149,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // POST /api/notion/sync/project/:id - Manually sync a specific project
   // ============================================================================
-  router.post('/sync/project/:id', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/sync/project/:id', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
     try {
@@ -246,7 +210,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // GET /api/notion/failed - Get list of failed syncs
   // ============================================================================
-  router.get('/failed', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/failed', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const [projects, milestones, deliverables] = await Promise.all([
         prisma.project.findMany({
