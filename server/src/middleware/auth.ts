@@ -160,12 +160,24 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
 
       // No token provided
       if (!token) {
-        // For development, check x-user-id header (remove in production)
-        if (process.env.NODE_ENV === 'development') {
+        // Development auth bypass - REQUIRES explicit opt-in via environment variable
+        // WARNING: Never enable this in production environments
+        if (
+          process.env.NODE_ENV === 'development' &&
+          process.env.ALLOW_DEV_AUTH_BYPASS === 'true'
+        ) {
           const devUserId = req.headers['x-user-id'] as string;
           const devUserType = req.headers['x-user-type'] as string;
 
           if (devUserId && devUserType) {
+            logger.warn('DEV AUTH BYPASS ACTIVE - Using header-based authentication', {
+              devUserId,
+              devUserType,
+              ip: req.ip,
+              path: req.path,
+              warning: 'This should NEVER appear in production logs',
+            });
+
             (req as any).user = {
               id: devUserId,
               userId: devUserId,
@@ -351,7 +363,7 @@ export async function authenticate(
 
     next();
   } catch (error) {
-    console.error('[Auth] Error fetching user:', error);
+    logger.error('Authentication error while fetching user', { error, path: req.path });
     return res.status(500).json({
       success: false,
       error: {
@@ -413,7 +425,7 @@ export async function optionalAuthenticate(
       };
     }
   } catch (error) {
-    console.error('[Auth] Error in optional auth:', error);
+    logger.error('Error in optional authentication', { error, path: req.path });
   }
 
   next();
@@ -590,7 +602,7 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string
 
       next();
     } catch (error) {
-      console.error('[Auth] Error checking ownership:', error);
+      logger.error('Error checking resource ownership', { error, resourceId, resourceType });
       return res.status(500).json({
         success: false,
         error: {
@@ -681,7 +693,7 @@ export function requireProjectAccess(getProjectId: (req: Request) => string | nu
 
       next();
     } catch (error) {
-      console.error('[Auth] Error checking project access:', error);
+      logger.error('Error checking project access', { error, projectId: req.query.projectId, path: req.path });
       return res.status(500).json({
         success: false,
         error: {

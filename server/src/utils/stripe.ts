@@ -2,15 +2,42 @@ import Stripe from 'stripe';
 
 // Initialize Stripe with API key from environment
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeOptional = process.env.STRIPE_OPTIONAL === 'true';
 
+// Track if Stripe is properly configured
+export const isStripeEnabled = Boolean(stripeSecretKey);
+
+// Validate Stripe configuration at startup
 if (!stripeSecretKey) {
-  console.warn('Warning: STRIPE_SECRET_KEY not set. Stripe functionality will not work.');
+  if (stripeOptional) {
+    // Stripe is optional - log warning but don't fail
+    console.warn('[Stripe] STRIPE_SECRET_KEY not set. Payment features disabled. Set STRIPE_OPTIONAL=false to require.');
+  } else if (process.env.NODE_ENV === 'production') {
+    // In production without optional flag, throw error
+    throw new Error(
+      'STRIPE_SECRET_KEY is required in production. ' +
+      'Set STRIPE_OPTIONAL=true to disable payment features.'
+    );
+  } else {
+    // In development, warn but continue
+    console.warn('[Stripe] STRIPE_SECRET_KEY not set. Payment features will not work.');
+  }
 }
 
-export const stripe = new Stripe(stripeSecretKey || '', {
+export const stripe = new Stripe(stripeSecretKey || 'sk_test_placeholder', {
   apiVersion: '2024-12-18.acacia',
   typescript: true,
 });
+
+/**
+ * Guard function to check if Stripe is enabled before making API calls
+ * @throws Error if Stripe is not configured
+ */
+export function requireStripe(): void {
+  if (!isStripeEnabled) {
+    throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY to enable payments.');
+  }
+}
 
 // Tier pricing configuration
 // These should match your Stripe product/price IDs

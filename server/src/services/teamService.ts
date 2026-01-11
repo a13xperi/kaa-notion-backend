@@ -3,10 +3,9 @@
  * Handles team collaboration, roles, and permissions
  */
 
-import { PrismaClient, TeamRole, TeamMember, User } from '@prisma/client';
+import { TeamRole, TeamMember, User } from '@prisma/client';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // ============================================
 // TYPES

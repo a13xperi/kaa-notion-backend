@@ -3,15 +3,9 @@
  * Handles Stripe subscription management, recurring billing, and tier upgrades
  */
 
-import { PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
-import Stripe from 'stripe';
-
-const prisma = new PrismaClient();
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
-});
+import { Subscription, SubscriptionStatus } from '@prisma/client';
+import { prisma } from '../utils/prisma';
+import { stripe, isStripeEnabled, requireStripe } from '../utils/stripe';
 
 // ============================================
 // TYPES

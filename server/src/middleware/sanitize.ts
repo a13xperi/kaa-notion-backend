@@ -5,6 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../logger';
 
 // Characters that could be used for XSS attacks
 const XSS_PATTERNS = [
@@ -178,7 +179,9 @@ export function sanitizeInput(
 
     // Log potential attacks
     if (allXSS.length > 0) {
-      console.warn(`[SECURITY] Potential XSS detected in ${req.method} ${req.path}:`, {
+      logger.warn('Potential XSS detected', {
+        method: req.method,
+        path: req.path,
         fields: allXSS,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
@@ -186,7 +189,9 @@ export function sanitizeInput(
     }
 
     if (allSQL.length > 0) {
-      console.warn(`[SECURITY] Potential SQL injection patterns in ${req.method} ${req.path}:`, {
+      logger.warn('Potential SQL injection patterns detected', {
+        method: req.method,
+        path: req.path,
         fields: allSQL,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
@@ -208,7 +213,7 @@ export function sanitizeInput(
 
     next();
   } catch (error) {
-    console.error('[SECURITY] Sanitization error:', error);
+    logger.error('Sanitization error', { error, path: req.path, method: req.method });
     next(); // Continue even if sanitization fails
   }
 }
@@ -227,7 +232,9 @@ export function strictSanitize(
   const allXSS = [...bodyIssues.xss, ...queryIssues.xss];
 
   if (allXSS.length > 0) {
-    console.error(`[SECURITY] Blocked request with XSS in ${req.method} ${req.path}:`, {
+    logger.warn('Blocked request with XSS patterns', {
+      method: req.method,
+      path: req.path,
       fields: allXSS,
       ip: req.ip,
     });

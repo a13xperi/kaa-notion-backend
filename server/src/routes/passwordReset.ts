@@ -7,15 +7,14 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { prisma } from '../utils/prisma';
 import { sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../config/logger';
 import { passwordResetRateLimit } from '../middleware/rateLimit';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Token expiry time (1 hour)
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
