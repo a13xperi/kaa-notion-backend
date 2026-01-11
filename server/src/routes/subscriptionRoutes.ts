@@ -4,16 +4,57 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as subscriptionService from '../services/subscriptionService';
 import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
 });
+
+router.use(sanitizeInput);
+
+const createSubscriptionSchema = z.object({
+  tier: z.coerce.number().int().min(1).max(4),
+  paymentMethodId: z.string().min(1).optional(),
+});
+
+const updateTierSchema = z.object({
+  tier: z.coerce.number().int().min(1).max(4),
+});
+
+const cancelSubscriptionSchema = z
+  .object({
+    cancelImmediately: z.boolean().optional(),
+  })
+  .optional();
+
+const emptyBodySchema = z.object({}).optional();
+
+const billingPortalSchema = z.object({
+  returnUrl: z.string().url('Valid returnUrl is required'),
+});
+
+const checkoutSchema = z.object({
+  tier: z.coerce.number().int().min(1).max(4),
+  successUrl: z.string().url('Valid successUrl is required'),
+  cancelUrl: z.string().url('Valid cancelUrl is required'),
+});
+
+const paymentMethodSchema = z.object({
+  paymentMethodId: z.string().min(1, 'Payment method ID is required'),
+});
+
+const paymentMethodParamsSchema = z.object({
+  id: z.string().min(1, 'Payment method ID is required'),
+});
+
+const stripeWebhookSchema = z.any();
 
 // ============================================
 // SUBSCRIPTION ROUTES
@@ -48,7 +89,11 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
  * POST /api/subscriptions
  * Create a new subscription
  */
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/',
+  requireAuth,
+  validateBody(createSubscriptionSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -61,11 +106,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { tier, paymentMethodId } = req.body;
-
-    if (!tier) {
-      return res.status(400).json({ error: 'Tier is required' });
-    }
+    const { tier, paymentMethodId } = (req as any)
+      .validatedBody as z.infer<typeof createSubscriptionSchema>;
 
     const subscription = await subscriptionService.createSubscription({
       clientId: client.id,
@@ -78,13 +120,18 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     console.error('Error creating subscription:', error);
     res.status(400).json({ error: error.message || 'Failed to create subscription' });
   }
-});
+  }
+);
 
 /**
  * PUT /api/subscriptions/tier
  * Update subscription tier (upgrade/downgrade)
  */
-router.put('/tier', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/tier',
+  requireAuth,
+  validateBody(updateTierSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -97,11 +144,7 @@ router.put('/tier', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { tier } = req.body;
-
-    if (!tier) {
-      return res.status(400).json({ error: 'Tier is required' });
-    }
+    const { tier } = (req as any).validatedBody as z.infer<typeof updateTierSchema>;
 
     const subscription = await subscriptionService.updateSubscriptionTier(
       client.id,
@@ -113,13 +156,18 @@ router.put('/tier', requireAuth, async (req: Request, res: Response) => {
     console.error('Error updating subscription tier:', error);
     res.status(400).json({ error: error.message || 'Failed to update tier' });
   }
-});
+  }
+);
 
 /**
  * POST /api/subscriptions/cancel
  * Cancel subscription
  */
-router.post('/cancel', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/cancel',
+  requireAuth,
+  validateBody(cancelSubscriptionSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -132,7 +180,8 @@ router.post('/cancel', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { cancelImmediately } = req.body;
+    const { cancelImmediately } = ((req as any)
+      .validatedBody as z.infer<typeof cancelSubscriptionSchema>) || {};
 
     const subscription = await subscriptionService.cancelSubscription(
       client.id,
@@ -144,13 +193,18 @@ router.post('/cancel', requireAuth, async (req: Request, res: Response) => {
     console.error('Error canceling subscription:', error);
     res.status(400).json({ error: error.message || 'Failed to cancel subscription' });
   }
-});
+  }
+);
 
 /**
  * POST /api/subscriptions/resume
  * Resume a canceled subscription
  */
-router.post('/resume', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/resume',
+  requireAuth,
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -169,7 +223,8 @@ router.post('/resume', requireAuth, async (req: Request, res: Response) => {
     console.error('Error resuming subscription:', error);
     res.status(400).json({ error: error.message || 'Failed to resume subscription' });
   }
-});
+  }
+);
 
 // ============================================
 // BILLING PORTAL
@@ -179,7 +234,11 @@ router.post('/resume', requireAuth, async (req: Request, res: Response) => {
  * POST /api/subscriptions/billing-portal
  * Create a Stripe billing portal session
  */
-router.post('/billing-portal', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/billing-portal',
+  requireAuth,
+  validateBody(billingPortalSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -192,11 +251,8 @@ router.post('/billing-portal', requireAuth, async (req: Request, res: Response) 
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { returnUrl } = req.body;
-
-    if (!returnUrl) {
-      return res.status(400).json({ error: 'Return URL is required' });
-    }
+    const { returnUrl } = (req as any)
+      .validatedBody as z.infer<typeof billingPortalSchema>;
 
     const url = await subscriptionService.createBillingPortalSession(
       client.id,
@@ -208,13 +264,18 @@ router.post('/billing-portal', requireAuth, async (req: Request, res: Response) 
     console.error('Error creating billing portal:', error);
     res.status(400).json({ error: error.message || 'Failed to create billing portal' });
   }
-});
+  }
+);
 
 /**
  * POST /api/subscriptions/checkout
  * Create a Stripe checkout session
  */
-router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/checkout',
+  requireAuth,
+  validateBody(checkoutSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -227,13 +288,8 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { tier, successUrl, cancelUrl } = req.body;
-
-    if (!tier || !successUrl || !cancelUrl) {
-      return res.status(400).json({
-        error: 'Tier, successUrl, and cancelUrl are required',
-      });
-    }
+    const { tier, successUrl, cancelUrl } = (req as any)
+      .validatedBody as z.infer<typeof checkoutSchema>;
 
     const url = await subscriptionService.createCheckoutSession(
       client.id,
@@ -247,7 +303,8 @@ router.post('/checkout', requireAuth, async (req: Request, res: Response) => {
     console.error('Error creating checkout:', error);
     res.status(400).json({ error: error.message || 'Failed to create checkout session' });
   }
-});
+  }
+);
 
 // ============================================
 // PRICING
@@ -322,7 +379,11 @@ router.get('/payment-methods', requireAuth, async (req: Request, res: Response) 
  * POST /api/subscriptions/payment-methods
  * Add a payment method
  */
-router.post('/payment-methods', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/payment-methods',
+  requireAuth,
+  validateBody(paymentMethodSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -336,11 +397,8 @@ router.post('/payment-methods', requireAuth, async (req: Request, res: Response)
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { paymentMethodId } = req.body;
-
-    if (!paymentMethodId) {
-      return res.status(400).json({ error: 'Payment method ID is required' });
-    }
+    const { paymentMethodId } = (req as any)
+      .validatedBody as z.infer<typeof paymentMethodSchema>;
 
     const customerId = await subscriptionService.getOrCreateStripeCustomer(client.id);
     await subscriptionService.attachPaymentMethod(customerId, paymentMethodId);
@@ -350,13 +408,18 @@ router.post('/payment-methods', requireAuth, async (req: Request, res: Response)
     console.error('Error adding payment method:', error);
     res.status(400).json({ error: error.message || 'Failed to add payment method' });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/subscriptions/payment-methods/:id
  * Remove a payment method
  */
-router.delete('/payment-methods/:id', requireAuth, async (req: Request, res: Response) => {
+router.delete(
+  '/payment-methods/:id',
+  requireAuth,
+  validateParams(paymentMethodParamsSchema),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -366,7 +429,8 @@ router.delete('/payment-methods/:id', requireAuth, async (req: Request, res: Res
     console.error('Error removing payment method:', error);
     res.status(400).json({ error: error.message || 'Failed to remove payment method' });
   }
-});
+  }
+);
 
 // ============================================
 // INVOICES
@@ -423,6 +487,7 @@ router.post(
   '/webhook',
   // Use raw body for webhook signature verification
   require('express').raw({ type: 'application/json' }),
+  validateBody(stripeWebhookSchema),
   async (req: Request, res: Response) => {
     const sig = req.headers['stripe-signature'];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

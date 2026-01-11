@@ -14,8 +14,10 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import metricsService from '../services/metricsService';
 import { logger } from '../config/logger';
+import { sanitizeInput } from '../middleware';
 
 const router = Router();
+router.use(sanitizeInput);
 
 // ========================================
 // Validation Schemas

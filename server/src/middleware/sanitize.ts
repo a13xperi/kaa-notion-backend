@@ -163,7 +163,7 @@ export function sanitizeInput(
     }
 
     // Sanitize all inputs
-    if (req.body && typeof req.body === 'object') {
+    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
       req.body = sanitizeValue(req.body);
     }
 

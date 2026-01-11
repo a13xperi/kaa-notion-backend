@@ -12,9 +12,11 @@ import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { logger } from '../config/logger';
 import { notifyRevisionRequested, notifyRevisionCompleted } from '../services/notificationService';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router({ mergeParams: true });
 const prisma = new PrismaClient();
+router.use(sanitizeInput);
 
 // ========================================
 // Validation Schemas
@@ -31,6 +33,14 @@ const updateRevisionSchema = z.object({
   response: z.string().max(2000).optional(),
 });
 
+const milestoneIdParamsSchema = z.object({
+  milestoneId: z.string().uuid('Invalid milestone ID format'),
+});
+
+const revisionIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid revision ID format'),
+});
+
 // ========================================
 // Milestone Revision Routes
 // ========================================
@@ -40,7 +50,11 @@ const updateRevisionSchema = z.object({
  *
  * Request a revision for a milestone.
  */
-router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Response) => {
+router.post(
+  '/milestones/:milestoneId/revisions',
+  validateParams(milestoneIdParamsSchema),
+  validateBody(createRevisionSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -82,19 +96,8 @@ router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Resp
       });
     }
 
-    // Validate request body
-    const validation = createRevisionSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-        },
-      });
-    }
-
-    const { description, priority, attachments } = validation.data;
+    const { description, priority, attachments } = (req as any)
+      .validatedBody as z.infer<typeof createRevisionSchema>;
 
     // Create revision request
     const revision = await prisma.revisionRequest.create({
@@ -167,14 +170,18 @@ router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Resp
       error: { code: 'SERVER_ERROR', message: 'Failed to create revision request' },
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/milestones/:milestoneId/revisions
  *
  * Get all revisions for a milestone.
  */
-router.get('/milestones/:milestoneId/revisions', async (req: Request, res: Response) => {
+router.get(
+  '/milestones/:milestoneId/revisions',
+  validateParams(milestoneIdParamsSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -238,7 +245,7 @@ router.get('/milestones/:milestoneId/revisions', async (req: Request, res: Respo
       error: { code: 'SERVER_ERROR', message: 'Failed to fetch revisions' },
     });
   }
-});
+);
 
 // ========================================
 // Individual Revision Routes
@@ -249,130 +256,125 @@ router.get('/milestones/:milestoneId/revisions', async (req: Request, res: Respo
  *
  * Update revision status (team only).
  */
-router.patch('/revisions/:id', async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
-      });
-    }
+router.patch(
+  '/revisions/:id',
+  validateParams(revisionIdParamsSchema),
+  validateBody(updateRevisionSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        });
+      }
 
-    // Only team/admin can update revision status
-    if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
-      return res.status(403).json({
-        success: false,
-        error: { code: 'FORBIDDEN', message: 'Only team members can update revision status' },
-      });
-    }
+      // Only team/admin can update revision status
+      if (user.role !== 'ADMIN' && user.role !== 'TEAM') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only team members can update revision status' },
+        });
+      }
 
-    const { id } = req.params;
+      const { id } = req.params;
 
-    const revision = await prisma.revisionRequest.findUnique({
-      where: { id },
-      include: {
-        milestone: {
-          include: {
-            project: {
-              include: { client: true },
+      const revision = await prisma.revisionRequest.findUnique({
+        where: { id },
+        include: {
+          milestone: {
+            include: {
+              project: {
+                include: { client: true },
+              },
             },
           },
-        },
-        requestedBy: true,
-      },
-    });
-
-    if (!revision) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Revision request not found' },
-      });
-    }
-
-    const validation = updateRevisionSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          requestedBy: true,
         },
       });
-    }
 
-    const { status, response } = validation.data;
+      if (!revision) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Revision request not found' },
+        });
+      }
 
-    // Update revision
-    const updatedRevision = await prisma.revisionRequest.update({
-      where: { id },
-      data: {
-        status,
-        response,
-        resolvedAt: status === 'COMPLETED' || status === 'REJECTED' ? new Date() : null,
-      },
-      include: {
-        requestedBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+      const { status, response } = (req as any)
+        .validatedBody as z.infer<typeof updateRevisionSchema>;
+
+      // Update revision
+      const updatedRevision = await prisma.revisionRequest.update({
+        where: { id },
+        data: {
+          status,
+          response,
+          resolvedAt: status === 'COMPLETED' || status === 'REJECTED' ? new Date() : null,
+        },
+        include: {
+          requestedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
-        },
-        milestone: {
-          select: {
-            id: true,
-            name: true,
-            project: {
-              select: {
-                id: true,
-                name: true,
+          milestone: {
+            select: {
+              id: true,
+              name: true,
+              project: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    // Update milestone status based on revision outcome
-    if (status === 'COMPLETED') {
-      await prisma.milestone.update({
-        where: { id: revision.milestoneId },
-        data: { status: 'IN_PROGRESS' },
       });
 
-      // Notify client that revision is complete
-      await notifyRevisionCompleted(
-        revision.milestone.project.client.userId,
-        revision.milestone.project.id,
-        revision.milestone.project.name,
-        revision.milestone.name
-      );
-    } else if (status === 'IN_PROGRESS') {
-      await prisma.milestone.update({
-        where: { id: revision.milestoneId },
-        data: { status: 'IN_PROGRESS' },
+      // Update milestone status based on revision outcome
+      if (status === 'COMPLETED') {
+        await prisma.milestone.update({
+          where: { id: revision.milestoneId },
+          data: { status: 'IN_PROGRESS' },
+        });
+
+        // Notify client that revision is complete
+        await notifyRevisionCompleted(
+          revision.milestone.project.client.userId,
+          revision.milestone.project.id,
+          revision.milestone.project.name,
+          revision.milestone.name
+        );
+      } else if (status === 'IN_PROGRESS') {
+        await prisma.milestone.update({
+          where: { id: revision.milestoneId },
+          data: { status: 'IN_PROGRESS' },
+        });
+      }
+
+      logger.info('Revision updated', {
+        revisionId: id,
+        status,
+        updatedBy: user.id,
+      });
+
+      return res.json({
+        success: true,
+        data: updatedRevision,
+      });
+    } catch (error) {
+      logger.error('Failed to update revision', { id: req.params.id }, error as Error);
+      return res.status(500).json({
+        success: false,
+        error: { code: 'SERVER_ERROR', message: 'Failed to update revision' },
       });
     }
-
-    logger.info('Revision updated', {
-      revisionId: id,
-      status,
-      updatedBy: user.id,
-    });
-
-    return res.json({
-      success: true,
-      data: updatedRevision,
-    });
-  } catch (error) {
-    logger.error('Failed to update revision', { id: req.params.id }, error as Error);
-    return res.status(500).json({
-      success: false,
-      error: { code: 'SERVER_ERROR', message: 'Failed to update revision' },
-    });
   }
-});
+);
 
 /**
  * GET /api/projects/:projectId/revisions

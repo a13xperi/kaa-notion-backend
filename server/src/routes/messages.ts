@@ -10,9 +10,11 @@ import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { logger } from '../config/logger';
 import { notifyNewMessage } from '../services/notificationService';
+import { sanitizeInput, validateBody, validateParams, validateQuery } from '../middleware';
 
 const router = Router({ mergeParams: true });
 const prisma = new PrismaClient();
+router.use(sanitizeInput);
 
 // ========================================
 // Validation Schemas
@@ -30,6 +32,10 @@ const getMessagesSchema = z.object({
   includeInternal: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
 });
 
+const projectIdParamsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID format'),
+});
+
 // ========================================
 // Routes
 // ========================================
@@ -39,7 +45,11 @@ const getMessagesSchema = z.object({
  *
  * Get messages for a project.
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get(
+  '/',
+  validateParams(projectIdParamsSchema),
+  validateQuery(getMessagesSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -70,18 +80,9 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
-    const validation = getMessagesSchema.safeParse(req.query);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-        },
-      });
-    }
-
-    const { limit, before, includeInternal } = validation.data;
+    const { limit, before, includeInternal } = (req as any).validatedQuery as z.infer<
+      typeof getMessagesSchema
+    >;
 
     // Build query
     const where: any = { projectId };
@@ -135,14 +136,19 @@ router.get('/', async (req: Request, res: Response) => {
       error: { code: 'SERVER_ERROR', message: 'Failed to fetch messages' },
     });
   }
-});
+  }
+);
 
 /**
  * POST /api/projects/:projectId/messages
  *
  * Send a message on a project.
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post(
+  '/',
+  validateParams(projectIdParamsSchema),
+  validateBody(sendMessageSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -181,18 +187,8 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    const validation = sendMessageSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-        },
-      });
-    }
-
-    const { content, attachments, isInternal } = validation.data;
+    const { content, attachments, isInternal } = (req as any)
+      .validatedBody as z.infer<typeof sendMessageSchema>;
 
     // Only team/admin can send internal messages
     if (isInternal && !isTeamOrAdmin) {
@@ -269,7 +265,8 @@ router.post('/', async (req: Request, res: Response) => {
       error: { code: 'SERVER_ERROR', message: 'Failed to send message' },
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/projects/:projectId/messages/:messageId

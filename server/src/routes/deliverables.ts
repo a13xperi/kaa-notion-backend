@@ -11,11 +11,14 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from './projects';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
+import { requireAdmin, requireAuth } from '../middleware/authMiddleware';
 
 // ============================================================================
 // TYPES
@@ -205,6 +208,21 @@ function toDeliverableDetail(deliverable: {
  */
 export function createDeliverablesRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
+
+  const projectIdParamsSchema = z.object({
+    projectId: z.string().uuid('Invalid project ID format'),
+  });
+
+  const createDeliverableSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    category: z.string().min(1, 'Category is required'),
+    description: z.string().optional(),
+    filePath: z.string().min(1, 'filePath is required'),
+    fileUrl: z.string().url('Valid fileUrl is required'),
+    fileSize: z.coerce.number().int().positive('fileSize is required'),
+    fileType: z.string().min(1, 'fileType is required'),
+  });
 
   // -------------------------------------------------------------------------
   // GET /api/projects/:projectId/deliverables - Get all deliverables for a project
@@ -299,22 +317,13 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
     '/projects/:projectId/deliverables',
     requireAuth,
     requireAdmin,
+    validateParams(projectIdParamsSchema),
+    validateBody(createDeliverableSchema),
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
-        const body = req.body as CreateDeliverableBody;
+        const body = (req as any).validatedBody as CreateDeliverableBody;
         const user = req.user!;
-
-        // Validate required fields
-        if (!body.name || !body.category || !body.filePath || !body.fileUrl || !body.fileSize || !body.fileType) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Missing required fields: name, category, filePath, fileUrl, fileSize, fileType',
-            },
-          });
-        }
 
         // Validate file type
         if (!isAllowedFileType(body.fileType)) {

@@ -4,12 +4,15 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import multer from 'multer';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
+import { requireAdmin, strictSanitize, validateBody } from '../middleware';
+import { requireAuth } from '../middleware/authMiddleware';
 
 // ============================================================================
 // TYPES
@@ -109,6 +112,17 @@ function handleMulterError(err: any, req: Request, res: Response, next: Function
 export function createUploadRouter({ prisma }: UploadRouterDependencies): Router {
   const router = Router();
 
+  const uploadSingleSchema = z.object({
+    projectId: z.string().uuid('Invalid project ID format'),
+    category: z.string().min(1).optional(),
+    description: z.string().max(1000).optional(),
+  });
+
+  const uploadMultipleSchema = z.object({
+    projectId: z.string().uuid('Invalid project ID format'),
+    category: z.string().min(1).optional(),
+  });
+
   // ============================================================================
   // POST /api/upload - Upload a single file
   // ============================================================================
@@ -117,10 +131,12 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     requireAdmin(),
     upload.single('file'),
     handleMulterError,
+    strictSanitize,
+    validateBody(uploadSingleSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const file = req.file;
-        const { projectId, category, description } = req.body;
+        const { projectId, category, description } = req.body as z.infer<typeof uploadSingleSchema>;
 
         // Validate required fields
         if (!file) {
@@ -227,10 +243,12 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
     requireAdmin(),
     upload.array('files', 10),
     handleMulterError,
+    strictSanitize,
+    validateBody(uploadMultipleSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const files = req.files as Express.Multer.File[];
-        const { projectId, category } = req.body;
+        const { projectId, category } = req.body as z.infer<typeof uploadMultipleSchema>;
 
         if (!files || files.length === 0) {
           return res.status(400).json({

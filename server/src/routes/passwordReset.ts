@@ -13,9 +13,11 @@ import { z } from 'zod';
 import { sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../config/logger';
 import { passwordResetRateLimit } from '../middleware/rateLimit';
+import { strictSanitize, validateBody } from '../middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
+router.use(strictSanitize);
 
 // Token expiry time (1 hour)
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
@@ -82,21 +84,13 @@ function generateResetToken(): string {
  * Request a password reset email.
  * Always returns success to prevent email enumeration.
  */
-router.post('/forgot-password', passwordResetRateLimit, async (req: Request, res: Response) => {
+router.post(
+  '/forgot-password',
+  passwordResetRateLimit,
+  validateBody(forgotPasswordSchema),
+  async (req: Request, res: Response) => {
   try {
-    const validation = forgotPasswordSchema.safeParse(req.body);
-
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-        },
-      });
-    }
-
-    const { email } = validation.data;
+    const { email } = (req as any).validatedBody as z.infer<typeof forgotPasswordSchema>;
 
     // Find user by email
     const user = await prisma.user.findUnique({
@@ -152,29 +146,21 @@ router.post('/forgot-password', passwordResetRateLimit, async (req: Request, res
       },
     });
   }
-});
+  }
+);
 
 /**
  * POST /api/auth/reset-password
  *
  * Reset password using the token from the email.
  */
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post(
+  '/reset-password',
+  validateBody(resetPasswordSchema),
+  async (req: Request, res: Response) => {
   try {
-    const validation = resetPasswordSchema.safeParse(req.body);
-
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-          details: validation.error.errors,
-        },
-      });
-    }
-
-    const { token, password } = validation.data;
+    const { token, password } = (req as any)
+      .validatedBody as z.infer<typeof resetPasswordSchema>;
 
     // Find and validate token
     const tokenData = resetTokens.get(token);
@@ -238,7 +224,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       },
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/auth/verify-reset-token

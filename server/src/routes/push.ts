@@ -4,10 +4,27 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { pushService } from '../services/pushService';
+import { sanitizeInput, validateBody } from '../middleware';
 
 const router = Router();
+router.use(sanitizeInput);
+
+const subscribeSchema = z.object({
+  endpoint: z.string().url('Valid endpoint is required'),
+  keys: z.object({
+    p256dh: z.string().min(1, 'p256dh key is required'),
+    auth: z.string().min(1, 'auth key is required'),
+  }),
+});
+
+const unsubscribeSchema = z.object({
+  endpoint: z.string().url('Valid endpoint is required'),
+});
+
+const emptyBodySchema = z.object({}).optional();
 
 /**
  * GET /api/push/vapid-key
@@ -33,9 +50,13 @@ router.get('/vapid-key', (_req: Request, res: Response) => {
  * POST /api/push/subscribe
  * Subscribe to push notifications
  */
-router.post('/subscribe', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post(
+  '/subscribe',
+  requireAuth,
+  validateBody(subscribeSchema),
+  async (req: AuthRequest, res: Response) => {
   try {
-    const { endpoint, keys } = req.body;
+    const { endpoint, keys } = (req as any).validatedBody as z.infer<typeof subscribeSchema>;
     const userId = req.user!.id;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -64,15 +85,20 @@ router.post('/subscribe', requireAuth, async (req: AuthRequest, res: Response) =
       error: { message: 'Failed to subscribe to push notifications' },
     });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/push/unsubscribe
  * Unsubscribe from push notifications
  */
-router.delete('/unsubscribe', requireAuth, async (req: AuthRequest, res: Response) => {
+router.delete(
+  '/unsubscribe',
+  requireAuth,
+  validateBody(unsubscribeSchema),
+  async (req: AuthRequest, res: Response) => {
   try {
-    const { endpoint } = req.body;
+    const { endpoint } = (req as any).validatedBody as z.infer<typeof unsubscribeSchema>;
     const userId = req.user!.id;
 
     if (!endpoint) {
@@ -95,7 +121,8 @@ router.delete('/unsubscribe', requireAuth, async (req: AuthRequest, res: Respons
       error: { message: 'Failed to unsubscribe from push notifications' },
     });
   }
-});
+  }
+);
 
 /**
  * GET /api/push/status
@@ -126,7 +153,11 @@ router.get('/status', requireAuth, async (req: AuthRequest, res: Response) => {
  * POST /api/push/test
  * Send a test push notification (for debugging)
  */
-router.post('/test', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post(
+  '/test',
+  requireAuth,
+  validateBody(emptyBodySchema),
+  async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
 
@@ -151,6 +182,7 @@ router.post('/test', requireAuth, async (req: AuthRequest, res: Response) => {
       error: { message: 'Failed to send test notification' },
     });
   }
-});
+  }
+);
 
 export default router;

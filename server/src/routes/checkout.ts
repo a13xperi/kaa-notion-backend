@@ -14,7 +14,7 @@ import {
 import { validationError, notFound } from '../utils/AppError';
 import { logger } from '../logger';
 import { createCheckoutSchema, type CreateCheckoutInput } from '../utils';
-import { validateBody } from '../middleware';
+import { strictSanitize, validateBody } from '../middleware';
 
 // ============================================================================
 // ROUTER FACTORY
@@ -22,6 +22,7 @@ import { validateBody } from '../middleware';
 
 export function createCheckoutRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(strictSanitize);
 
   /**
    * @openapi

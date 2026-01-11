@@ -7,9 +7,11 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isRedisConnected, getRedisClient } from '../config/redis';
+import { sanitizeInput } from '../middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
+router.use(sanitizeInput);
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';

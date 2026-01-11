@@ -4,9 +4,11 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getNotionSyncService, NotionSyncService } from '../services';
 import { internalError } from '../utils/AppError';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -78,6 +80,12 @@ function requireAdmin(req: Request, res: Response, next: Function): void {
 
 export function createNotionRouter({ prisma }: NotionRouterDependencies): Router {
   const router = Router();
+  router.use(sanitizeInput);
+
+  const emptyBodySchema = z.object({}).optional();
+  const projectIdParamsSchema = z.object({
+    id: z.string().uuid('Invalid project ID format'),
+  });
 
   // ============================================================================
   // GET /api/notion/status - Get sync status and statistics
@@ -122,125 +130,141 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   // POST /api/notion/sync - Trigger sync for pending entities
   // ============================================================================
-  router.post('/sync', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
+  router.post(
+    '/sync',
+    requireAdmin,
+    validateBody(emptyBodySchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
-      const results = await syncService.syncAllPending();
+        const results = await syncService.syncAllPending();
 
-      // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          action: 'notion_sync_triggered',
-          resourceType: 'notion_sync',
-          details: results,
-        },
-      });
+        // Log audit
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: 'notion_sync_triggered',
+            resourceType: 'notion_sync',
+            details: results,
+          },
+        });
 
-      return res.json({
-        success: true,
-        data: {
-          message: 'Sync triggered for pending entities',
-          queued: results,
-        },
-      });
-    } catch (error) {
-      return next(internalError('Failed to trigger sync', error as Error));
+        return res.json({
+          success: true,
+          data: {
+            message: 'Sync triggered for pending entities',
+            queued: results,
+          },
+        });
+      } catch (error) {
+        return next(internalError('Failed to trigger sync', error as Error));
+      }
     }
-  });
+  );
 
   // ============================================================================
   // POST /api/notion/retry - Retry failed syncs
   // ============================================================================
-  router.post('/retry', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
+  router.post(
+    '/retry',
+    requireAdmin,
+    validateBody(emptyBodySchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
-      const count = await syncService.retryFailed();
+        const count = await syncService.retryFailed();
 
-      // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          action: 'notion_retry_triggered',
-          resourceType: 'notion_sync',
-          details: { retriedCount: count },
-        },
-      });
+        // Log audit
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: 'notion_retry_triggered',
+            resourceType: 'notion_sync',
+            details: { retriedCount: count },
+          },
+        });
 
-      return res.json({
-        success: true,
-        data: {
-          message: 'Retry triggered for failed syncs',
-          retriedCount: count,
-        },
-      });
-    } catch (error) {
-      return next(internalError('Failed to retry syncs', error as Error));
+        return res.json({
+          success: true,
+          data: {
+            message: 'Retry triggered for failed syncs',
+            retriedCount: count,
+          },
+        });
+      } catch (error) {
+        return next(internalError('Failed to retry syncs', error as Error));
+      }
     }
-  });
+  );
 
   // ============================================================================
   // POST /api/notion/sync/project/:id - Manually sync a specific project
   // ============================================================================
-  router.post('/sync/project/:id', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    
-    try {
-      const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
+  router.post(
+    '/sync/project/:id',
+    requireAdmin,
+    validateParams(projectIdParamsSchema),
+    validateBody(emptyBodySchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      const { id } = req.params;
 
-      // Get project with client info
-      const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-          client: {
-            include: { user: true },
+      try {
+        const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
+
+        // Get project with client info
+        const project = await prisma.project.findUnique({
+          where: { id },
+          include: {
+            client: {
+              include: { user: true },
+            },
           },
-        },
-      });
-
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'Project not found' },
         });
+
+        if (!project) {
+          return res.status(404).json({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Project not found' },
+          });
+        }
+
+        const taskId = await syncService.onProjectCreated({
+          id: project.id,
+          name: project.name,
+          tier: project.tier,
+          status: project.status,
+          notionPageId: project.notionPageId,
+          clientEmail: project.client.user.email,
+          projectAddress: project.client.projectAddress,
+          createdAt: project.createdAt,
+        });
+
+        // Log audit
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: 'notion_project_sync',
+            resourceType: 'project',
+            resourceId: id,
+            details: { taskId },
+          },
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            message: 'Project sync queued',
+            taskId,
+            projectId: id,
+          },
+        });
+      } catch (error) {
+        return next(internalError('Failed to sync project', error as Error));
       }
-
-      const taskId = await syncService.onProjectCreated({
-        id: project.id,
-        name: project.name,
-        tier: project.tier,
-        status: project.status,
-        notionPageId: project.notionPageId,
-        clientEmail: project.client.user.email,
-        projectAddress: project.client.projectAddress,
-        createdAt: project.createdAt,
-      });
-
-      // Log audit
-      await prisma.auditLog.create({
-        data: {
-          userId: req.user!.id,
-          action: 'notion_project_sync',
-          resourceType: 'project',
-          resourceId: id,
-          details: { taskId },
-        },
-      });
-
-      return res.json({
-        success: true,
-        data: {
-          message: 'Project sync queued',
-          taskId,
-          projectId: id,
-        },
-      });
-    } catch (error) {
-      return next(internalError('Failed to sync project', error as Error));
     }
-  });
+  );
 
   // ============================================================================
   // GET /api/notion/failed - Get list of failed syncs

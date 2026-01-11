@@ -4,12 +4,22 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as referralService from '../services/referralService';
 import { PrismaClient } from '@prisma/client';
+import { sanitizeInput, validateBody } from '../middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
+router.use(sanitizeInput);
+
+const createReferralSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  name: z.string().optional(),
+});
+
+const emptyBodySchema = z.object({}).optional();
 
 // ============================================
 // REFERRAL CODE ROUTES
@@ -71,7 +81,11 @@ router.get('/validate/:code', async (req: Request, res: Response) => {
  * POST /api/referrals
  * Create a new referral
  */
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/',
+  requireAuth,
+  validateBody(createReferralSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -84,11 +98,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const { email, name } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
+    const { email, name } = (req as any)
+      .validatedBody as z.infer<typeof createReferralSchema>;
 
     const referral = await referralService.createReferral({
       referrerClientId: client.id,
@@ -101,7 +112,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     console.error('Error creating referral:', error);
     res.status(400).json({ error: error.message || 'Failed to create referral' });
   }
-});
+  }
+);
 
 /**
  * GET /api/referrals
@@ -269,7 +281,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
  * POST /api/referrals/expire
  * Expire old pending referrals (admin only, can be called by cron)
  */
-router.post('/expire', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/expire',
+  requireAuth,
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -283,7 +299,8 @@ router.post('/expire', requireAuth, async (req: Request, res: Response) => {
     console.error('Error expiring referrals:', error);
     res.status(500).json({ error: 'Failed to expire referrals' });
   }
-});
+  }
+);
 
 /**
  * GET /api/referrals/config

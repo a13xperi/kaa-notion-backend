@@ -4,6 +4,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient, LeadStatus, Prisma, UserType } from '@prisma/client';
 import { AppError, notFound, validationError, forbidden, internalError } from '../utils/AppError';
 import { recordLeadCreated } from '../config/metrics';
@@ -15,7 +16,7 @@ import {
   type LeadFiltersInput,
   type UpdateLeadInput,
 } from '../utils';
-import { validateBody, validateQuery } from '../middleware';
+import { sanitizeInput, validateBody, validateParams, validateQuery } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -37,6 +38,12 @@ interface TierRecommendation {
   confidence: 'high' | 'medium' | 'low';
   needsManualReview: boolean;
 }
+
+const leadIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid lead ID format'),
+});
+
+const emptyBodySchema = z.object({}).optional();
 
 // ============================================================================
 // TIER ROUTER (Server-side implementation)
@@ -125,6 +132,7 @@ function calculateTierRecommendation(data: {
 
 export function createLeadsRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
 
   // ============================================================================
   /**
@@ -461,6 +469,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
   // ============================================================================
   router.patch(
     '/:id',
+    validateParams(leadIdParamsSchema),
     validateBody(updateLeadSchema),
     async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -528,7 +537,11 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
   // ============================================================================
   // POST /api/leads/:id/convert - Convert lead to client
   // ============================================================================
-  router.post('/:id/convert', async (req: Request, res: Response, next: NextFunction) => {
+  router.post(
+    '/:id/convert',
+    validateParams(leadIdParamsSchema),
+    validateBody(emptyBodySchema),
+    async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthenticatedRequest;
       // Check admin/team access

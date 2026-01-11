@@ -4,11 +4,49 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as teamService from '../services/teamService';
 import { TeamRole } from '@prisma/client';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router();
+router.use(sanitizeInput);
+
+const userIdParamsSchema = z.object({
+  userId: z.string().uuid('Invalid user ID format'),
+});
+
+const projectIdParamsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID format'),
+});
+
+const projectAssignmentParamsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID format'),
+  userId: z.string().uuid('Invalid user ID format'),
+});
+
+const inviteSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  name: z.string().optional(),
+  role: z.enum(['ADMIN', 'DESIGNER', 'VIEWER']),
+});
+
+const acceptInviteSchema = z.object({
+  userId: z.string().uuid('Invalid user ID format'),
+  password: z.string().min(8, 'Password is required'),
+});
+
+const updateRoleSchema = z.object({
+  role: z.enum(['ADMIN', 'DESIGNER', 'VIEWER']),
+});
+
+const reactivateSchema = z.object({}).optional();
+
+const assignProjectSchema = z.object({
+  userId: z.string().uuid('Invalid user ID format'),
+  role: z.string().optional(),
+});
 
 // ============================================
 // TEAM MEMBER ROUTES
@@ -81,7 +119,11 @@ router.get('/members/:userId', requireAuth, async (req: Request, res: Response) 
  * POST /api/team/invite
  * Invite a new team member
  */
-router.post('/invite', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/invite',
+  requireAuth,
+  validateBody(inviteSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -91,15 +133,7 @@ router.post('/invite', requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    const { email, name, role } = req.body;
-
-    if (!email || !role) {
-      return res.status(400).json({ error: 'Email and role are required' });
-    }
-
-    if (!['ADMIN', 'DESIGNER', 'VIEWER'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
+    const { email, name, role } = (req as any).validatedBody as z.infer<typeof inviteSchema>;
 
     const result = await teamService.inviteTeamMember({
       email,
@@ -117,19 +151,20 @@ router.post('/invite', requireAuth, async (req: Request, res: Response) => {
     console.error('Error inviting team member:', error);
     res.status(400).json({ error: error.message || 'Failed to invite team member' });
   }
-});
+  }
+);
 
 /**
  * POST /api/team/accept-invite
  * Accept a team invitation
  */
-router.post('/accept-invite', async (req: Request, res: Response) => {
+router.post(
+  '/accept-invite',
+  validateBody(acceptInviteSchema),
+  async (req: Request, res: Response) => {
   try {
-    const { userId, password } = req.body;
-
-    if (!userId || !password) {
-      return res.status(400).json({ error: 'User ID and password are required' });
-    }
+    const { userId, password } = (req as any)
+      .validatedBody as z.infer<typeof acceptInviteSchema>;
 
     const teamMember = await teamService.acceptInvite(userId, password);
     res.json(teamMember);
@@ -137,21 +172,23 @@ router.post('/accept-invite', async (req: Request, res: Response) => {
     console.error('Error accepting invite:', error);
     res.status(400).json({ error: error.message || 'Failed to accept invitation' });
   }
-});
+  }
+);
 
 /**
  * PUT /api/team/members/:userId/role
  * Update a team member's role
  */
-router.put('/members/:userId/role', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/members/:userId/role',
+  requireAuth,
+  validateParams(userIdParamsSchema),
+  validateBody(updateRoleSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { userId } = req.params;
-    const { role } = req.body;
-
-    if (!role || !['ADMIN', 'DESIGNER', 'VIEWER'].includes(role)) {
-      return res.status(400).json({ error: 'Valid role is required' });
-    }
+    const { role } = (req as any).validatedBody as z.infer<typeof updateRoleSchema>;
 
     const teamMember = await teamService.updateTeamMemberRole(
       userId,
@@ -164,7 +201,8 @@ router.put('/members/:userId/role', requireAuth, async (req: Request, res: Respo
     console.error('Error updating role:', error);
     res.status(400).json({ error: error.message || 'Failed to update role' });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/team/members/:userId
@@ -187,7 +225,12 @@ router.delete('/members/:userId', requireAuth, async (req: Request, res: Respons
  * POST /api/team/members/:userId/reactivate
  * Reactivate a removed team member
  */
-router.post('/members/:userId/reactivate', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/members/:userId/reactivate',
+  requireAuth,
+  validateParams(userIdParamsSchema),
+  validateBody(reactivateSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { userId } = req.params;
@@ -204,7 +247,8 @@ router.post('/members/:userId/reactivate', requireAuth, async (req: Request, res
     console.error('Error reactivating team member:', error);
     res.status(400).json({ error: error.message || 'Failed to reactivate team member' });
   }
-});
+  }
+);
 
 // ============================================
 // PROJECT ASSIGNMENT ROUTES
@@ -237,20 +281,22 @@ router.get('/projects/:projectId/team', requireAuth, async (req: Request, res: R
  * POST /api/team/projects/:projectId/assign
  * Assign a team member to a project
  */
-router.post('/projects/:projectId/assign', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/projects/:projectId/assign',
+  requireAuth,
+  validateParams(projectIdParamsSchema),
+  validateBody(assignProjectSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { projectId } = req.params;
-    const { userId, role } = req.body;
+    const { userId, role } = (req as any)
+      .validatedBody as z.infer<typeof assignProjectSchema>;
 
     // Check permission
     const admin = await teamService.getTeamMemberByUserId(user.id);
     if (!admin || !teamService.hasPermission(admin.role, 'assign_team')) {
       return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
     }
 
     await teamService.assignToProject({ projectId, userId, role });
@@ -259,13 +305,18 @@ router.post('/projects/:projectId/assign', requireAuth, async (req: Request, res
     console.error('Error assigning to project:', error);
     res.status(400).json({ error: error.message || 'Failed to assign to project' });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/team/projects/:projectId/assign/:userId
  * Unassign a team member from a project
  */
-router.delete('/projects/:projectId/assign/:userId', requireAuth, async (req: Request, res: Response) => {
+router.delete(
+  '/projects/:projectId/assign/:userId',
+  requireAuth,
+  validateParams(projectAssignmentParamsSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { projectId, userId } = req.params;
@@ -282,7 +333,8 @@ router.delete('/projects/:projectId/assign/:userId', requireAuth, async (req: Re
     console.error('Error unassigning from project:', error);
     res.status(400).json({ error: error.message || 'Failed to unassign from project' });
   }
-});
+  }
+);
 
 /**
  * GET /api/team/members/:userId/projects

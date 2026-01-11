@@ -12,8 +12,10 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import notificationService from '../services/notificationService';
 import { logger } from '../config/logger';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router();
+router.use(sanitizeInput);
 
 // ========================================
 // Validation Schemas
@@ -33,6 +35,12 @@ const getNotificationsSchema = z.object({
   limit: z.string().optional().transform((v) => v ? parseInt(v, 10) : 50),
   offset: z.string().optional().transform((v) => v ? parseInt(v, 10) : 0),
 });
+
+const notificationIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid notification ID format'),
+});
+
+const emptyBodySchema = z.object({}).optional();
 
 // ========================================
 // Routes
@@ -117,7 +125,11 @@ router.get('/count', async (req: Request, res: Response) => {
  *
  * Mark a notification as read.
  */
-router.patch('/:id/read', async (req: Request, res: Response) => {
+router.patch(
+  '/:id/read',
+  validateParams(notificationIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -141,14 +153,18 @@ router.patch('/:id/read', async (req: Request, res: Response) => {
       error: { code: 'SERVER_ERROR', message: 'Failed to update notification' },
     });
   }
-});
+  }
+);
 
 /**
  * POST /api/notifications/read-all
  *
  * Mark all notifications as read.
  */
-router.post('/read-all', async (req: Request, res: Response) => {
+router.post(
+  '/read-all',
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -172,14 +188,18 @@ router.post('/read-all', async (req: Request, res: Response) => {
       error: { code: 'SERVER_ERROR', message: 'Failed to update notifications' },
     });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/notifications/:id
  *
  * Delete a notification.
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete(
+  '/:id',
+  validateParams(notificationIdParamsSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) {
@@ -203,6 +223,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       error: { code: 'SERVER_ERROR', message: 'Failed to delete notification' },
     });
   }
-});
+  }
+);
 
 export default router;

@@ -4,12 +4,29 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as multiProjectService from '../services/multiProjectService';
 import { PrismaClient } from '@prisma/client';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
+router.use(sanitizeInput);
+
+const projectIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid project ID format'),
+});
+
+const clientIdParamsSchema = z.object({
+  clientId: z.string().uuid('Invalid client ID format'),
+});
+
+const emptyBodySchema = z.object({}).optional();
+
+const projectLimitSchema = z.object({
+  maxProjects: z.coerce.number().int().min(1, 'maxProjects must be at least 1'),
+});
 
 // ============================================
 // PROJECT LIMIT ROUTES
@@ -113,7 +130,12 @@ router.get('/archived', requireAuth, async (req: Request, res: Response) => {
  * POST /api/projects/:id/archive
  * Archive a project
  */
-router.post('/:id/archive', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/archive',
+  requireAuth,
+  validateParams(projectIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -124,13 +146,19 @@ router.post('/:id/archive', requireAuth, async (req: Request, res: Response) => 
     console.error('Error archiving project:', error);
     res.status(400).json({ error: error.message || 'Failed to archive project' });
   }
-});
+  }
+);
 
 /**
  * POST /api/projects/:id/restore
  * Restore an archived project
  */
-router.post('/:id/restore', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/restore',
+  requireAuth,
+  validateParams(projectIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { id } = req.params;
@@ -141,7 +169,8 @@ router.post('/:id/restore', requireAuth, async (req: Request, res: Response) => 
     console.error('Error restoring project:', error);
     res.status(400).json({ error: error.message || 'Failed to restore project' });
   }
-});
+  }
+);
 
 // ============================================
 // TIER LIMITS CONFIGURATION
@@ -168,7 +197,12 @@ router.get('/tier-limits', async (req: Request, res: Response) => {
  * PUT /api/projects/admin/:clientId/limit
  * Set project limit for a client (admin only)
  */
-router.put('/admin/:clientId/limit', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/admin/:clientId/limit',
+  requireAuth,
+  validateParams(clientIdParamsSchema),
+  validateBody(projectLimitSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -177,11 +211,7 @@ router.put('/admin/:clientId/limit', requireAuth, async (req: Request, res: Resp
     }
 
     const { clientId } = req.params;
-    const { maxProjects } = req.body;
-
-    if (typeof maxProjects !== 'number') {
-      return res.status(400).json({ error: 'maxProjects must be a number' });
-    }
+    const { maxProjects } = (req as any).validatedBody as z.infer<typeof projectLimitSchema>;
 
     await multiProjectService.setClientProjectLimit(clientId, maxProjects);
     res.json({ success: true });
@@ -189,13 +219,19 @@ router.put('/admin/:clientId/limit', requireAuth, async (req: Request, res: Resp
     console.error('Error setting project limit:', error);
     res.status(400).json({ error: error.message || 'Failed to set project limit' });
   }
-});
+  }
+);
 
 /**
  * POST /api/projects/admin/:id/force-archive
  * Force archive a project (admin only)
  */
-router.post('/admin/:id/force-archive', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/admin/:id/force-archive',
+  requireAuth,
+  validateParams(projectIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
@@ -210,7 +246,8 @@ router.post('/admin/:id/force-archive', requireAuth, async (req: Request, res: R
     console.error('Error force archiving project:', error);
     res.status(400).json({ error: error.message || 'Failed to force archive project' });
   }
-});
+  }
+);
 
 /**
  * GET /api/projects/admin/nearing-archive

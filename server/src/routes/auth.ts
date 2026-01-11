@@ -7,6 +7,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient, UserType } from '@prisma/client';
 import {
   registerUser,
@@ -16,9 +17,15 @@ import {
   extractToken,
   refreshAccessToken,
 } from '../services/authService';
-import { validationError, unauthorized, notFound } from '../utils/AppError';
+import { unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
-import { loginProtection, onLoginSuccess, onLoginFailure } from '../middleware';
+import {
+  loginProtection,
+  onLoginSuccess,
+  onLoginFailure,
+  strictSanitize,
+  validateBody,
+} from '../middleware';
 import { recordAuthAttempt } from '../config/metrics';
 
 // ============================================================================
@@ -46,6 +53,12 @@ const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+const logoutSchema = z.object({}).optional();
+
+const resetRequestSchema = z.object({
+  email: z.string().email('Valid email is required'),
+});
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
@@ -59,6 +72,7 @@ const refreshTokenSchema = z.object({
 
 export function createAuthRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(strictSanitize);
 
   /**
    * @openapi
@@ -362,6 +376,7 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/logout',
+    validateBody(logoutSchema),
     async (req: Request, res: Response, _next: NextFunction) => {
       const token = extractToken(req.headers.authorization);
       
@@ -388,13 +403,10 @@ export function createAuthRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/password/reset-request',
+    validateBody(resetRequestSchema),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { email } = req.body;
-        
-        if (!email || typeof email !== 'string') {
-          throw validationError('Email is required');
-        }
+        const { email } = req.body as z.infer<typeof resetRequestSchema>;
 
         const { initiatePasswordReset } = await import('../services/authService');
         const result = await initiatePasswordReset(prisma, email);

@@ -5,6 +5,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
 import { Client as NotionClient } from '@notionhq/client';
@@ -17,7 +18,7 @@ import {
 } from '../utils/stripeHelpers';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
-import { requireNotionService } from '../middleware';
+import { requireNotionService, sanitizeInput, validateBody } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -43,6 +44,21 @@ interface NotionWebhookPayload {
 
 export function createWebhooksRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
+
+  const stripeWebhookSchema = z.any();
+
+  const notionWebhookSchema = z.object({
+    type: z.enum(['webhook_challenge', 'page.updated', 'database.updated']),
+    challenge: z.string().optional(),
+    object: z
+      .object({
+        id: z.string().optional(),
+        last_edited_time: z.string().optional(),
+        properties: z.record(z.any()).optional(),
+      })
+      .optional(),
+  });
 
   /**
    * POST /stripe
@@ -53,6 +69,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
    */
   router.post(
     '/stripe',
+    validateBody(stripeWebhookSchema),
     async (req: StripeWebhookRequest, res: Response, next: NextFunction) => {
       try {
         const signature = req.headers['stripe-signature'];
@@ -196,6 +213,7 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
   router.post(
     '/notion',
     requireNotionService,
+    validateBody(notionWebhookSchema),
     async (req: Request<{}, {}, NotionWebhookPayload>, res: Response, next: NextFunction) => {
       const correlationId = req.correlationId || `notion-webhook-${Date.now()}`;
       

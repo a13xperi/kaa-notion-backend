@@ -112,3 +112,10 @@ export {
   requireNotionService,
   requireStorageService,
 } from './featureFlagGuard';
+
+// Sanitization
+export {
+  sanitizeInput,
+  strictSanitize,
+  trimStrings,
+} from './sanitize';

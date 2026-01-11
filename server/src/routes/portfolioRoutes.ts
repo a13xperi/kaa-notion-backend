@@ -4,10 +4,71 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth, optionalAuth } from '../middleware/authMiddleware';
 import * as portfolioService from '../services/portfolioService';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
 
 const router = Router();
+router.use(sanitizeInput);
+
+// ============================================
+// Validation Schemas
+// ============================================
+
+const portfolioIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid portfolio ID format'),
+});
+
+const portfolioImageParamsSchema = z.object({
+  id: z.string().uuid('Invalid portfolio ID format'),
+  imageId: z.string().uuid('Invalid image ID format'),
+});
+
+const projectIdParamsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID format'),
+});
+
+const createPortfolioSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID format').optional(),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().min(1, 'Description is required'),
+  shortDescription: z.string().optional(),
+  location: z.string().optional(),
+  projectType: z.string().min(1, 'Project type is required'),
+  completedAt: z.coerce.date().optional(),
+  tags: z.array(z.string()).optional(),
+  seoTitle: z.string().optional(),
+  seoDescription: z.string().optional(),
+  seoKeywords: z.array(z.string()).optional(),
+});
+
+const updatePortfolioSchema = createPortfolioSchema.partial();
+
+const featurePortfolioSchema = z
+  .object({
+    featured: z.boolean().optional(),
+  })
+  .optional();
+
+const addImageSchema = z.object({
+  url: z.string().url('Valid image URL is required'),
+  thumbnailUrl: z.string().url().optional(),
+  alt: z.string().optional(),
+  caption: z.string().optional(),
+  displayOrder: z.coerce.number().int().optional(),
+  isCover: z.boolean().optional(),
+  width: z.coerce.number().int().positive().optional(),
+  height: z.coerce.number().int().positive().optional(),
+});
+
+const updateImageSchema = addImageSchema.partial();
+
+const emptyBodySchema = z.object({}).optional();
+
+const reorderImagesSchema = z.object({
+  imageIds: z.array(z.string().uuid('Invalid image ID format')).min(1, 'imageIds are required'),
+});
 
 // ============================================
 // PUBLIC ROUTES
@@ -100,7 +161,11 @@ router.get('/:slug', optionalAuth, async (req: Request, res: Response) => {
  * POST /api/portfolio
  * Create a new portfolio project (admin only)
  */
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/',
+  requireAuth,
+  validateBody(createPortfolioSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -113,13 +178,19 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     console.error('Error creating portfolio:', error);
     res.status(400).json({ error: error.message || 'Failed to create portfolio' });
   }
-});
+  }
+);
 
 /**
  * POST /api/portfolio/from-project/:projectId
  * Create portfolio from an existing project (admin only)
  */
-router.post('/from-project/:projectId', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/from-project/:projectId',
+  requireAuth,
+  validateParams(projectIdParamsSchema),
+  validateBody(updatePortfolioSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -133,13 +204,19 @@ router.post('/from-project/:projectId', requireAuth, async (req: Request, res: R
     console.error('Error creating portfolio from project:', error);
     res.status(400).json({ error: error.message || 'Failed to create portfolio' });
   }
-});
+  }
+);
 
 /**
  * PUT /api/portfolio/:id
  * Update a portfolio project (admin only)
  */
-router.put('/:id', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/:id',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(updatePortfolioSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -153,7 +230,8 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     console.error('Error updating portfolio:', error);
     res.status(400).json({ error: error.message || 'Failed to update portfolio' });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/portfolio/:id
@@ -179,7 +257,12 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
  * POST /api/portfolio/:id/publish
  * Publish a portfolio project (admin only)
  */
-router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/publish',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -193,13 +276,19 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
     console.error('Error publishing portfolio:', error);
     res.status(400).json({ error: error.message || 'Failed to publish portfolio' });
   }
-});
+  }
+);
 
 /**
  * POST /api/portfolio/:id/unpublish
  * Unpublish a portfolio project (admin only)
  */
-router.post('/:id/unpublish', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/unpublish',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -213,13 +302,19 @@ router.post('/:id/unpublish', requireAuth, async (req: Request, res: Response) =
     console.error('Error unpublishing portfolio:', error);
     res.status(400).json({ error: error.message || 'Failed to unpublish portfolio' });
   }
-});
+  }
+);
 
 /**
  * POST /api/portfolio/:id/feature
  * Feature/unfeature a portfolio project (admin only)
  */
-router.post('/:id/feature', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/feature',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(featurePortfolioSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -234,7 +329,8 @@ router.post('/:id/feature', requireAuth, async (req: Request, res: Response) => 
     console.error('Error featuring portfolio:', error);
     res.status(400).json({ error: error.message || 'Failed to feature portfolio' });
   }
-});
+  }
+);
 
 // ============================================
 // IMAGE MANAGEMENT
@@ -244,7 +340,12 @@ router.post('/:id/feature', requireAuth, async (req: Request, res: Response) => 
  * POST /api/portfolio/:id/images
  * Add an image to a portfolio (admin only)
  */
-router.post('/:id/images', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/images',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(addImageSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -258,13 +359,19 @@ router.post('/:id/images', requireAuth, async (req: Request, res: Response) => {
     console.error('Error adding image:', error);
     res.status(400).json({ error: error.message || 'Failed to add image' });
   }
-});
+  }
+);
 
 /**
  * PUT /api/portfolio/:id/images/:imageId
  * Update an image (admin only)
  */
-router.put('/:id/images/:imageId', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/:id/images/:imageId',
+  requireAuth,
+  validateParams(portfolioImageParamsSchema),
+  validateBody(updateImageSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -278,7 +385,8 @@ router.put('/:id/images/:imageId', requireAuth, async (req: Request, res: Respon
     console.error('Error updating image:', error);
     res.status(400).json({ error: error.message || 'Failed to update image' });
   }
-});
+  }
+);
 
 /**
  * DELETE /api/portfolio/:id/images/:imageId
@@ -304,7 +412,12 @@ router.delete('/:id/images/:imageId', requireAuth, async (req: Request, res: Res
  * POST /api/portfolio/:id/images/:imageId/cover
  * Set an image as cover (admin only)
  */
-router.post('/:id/images/:imageId/cover', requireAuth, async (req: Request, res: Response) => {
+router.post(
+  '/:id/images/:imageId/cover',
+  requireAuth,
+  validateParams(portfolioImageParamsSchema),
+  validateBody(emptyBodySchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -318,13 +431,19 @@ router.post('/:id/images/:imageId/cover', requireAuth, async (req: Request, res:
     console.error('Error setting cover image:', error);
     res.status(400).json({ error: error.message || 'Failed to set cover image' });
   }
-});
+  }
+);
 
 /**
  * PUT /api/portfolio/:id/images/reorder
  * Reorder images (admin only)
  */
-router.put('/:id/images/reorder', requireAuth, async (req: Request, res: Response) => {
+router.put(
+  '/:id/images/reorder',
+  requireAuth,
+  validateParams(portfolioIdParamsSchema),
+  validateBody(reorderImagesSchema),
+  async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (user.role !== 'ADMIN') {
@@ -332,11 +451,7 @@ router.put('/:id/images/reorder', requireAuth, async (req: Request, res: Respons
     }
 
     const { id } = req.params;
-    const { imageIds } = req.body;
-
-    if (!Array.isArray(imageIds)) {
-      return res.status(400).json({ error: 'imageIds must be an array' });
-    }
+    const { imageIds } = req.body as z.infer<typeof reorderImagesSchema>;
 
     await portfolioService.reorderImages(id, imageIds);
     res.json({ success: true });
@@ -344,6 +459,7 @@ router.put('/:id/images/reorder', requireAuth, async (req: Request, res: Respons
     console.error('Error reordering images:', error);
     res.status(400).json({ error: error.message || 'Failed to reorder images' });
   }
-});
+  }
+);
 
 export default router;

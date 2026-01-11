@@ -9,11 +9,14 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
+import { requireAdmin, requireAuth } from '../middleware/authMiddleware';
 
 // ============================================================================
 // TYPES
@@ -84,6 +87,17 @@ interface ProjectSummary {
  */
 export function createProjectsRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
+
+  const projectIdParamsSchema = z.object({
+    id: z.string().uuid('Invalid project ID format'),
+  });
+
+  const updateProjectSchema = z.object({
+    status: z.nativeEnum(ProjectStatus).optional(),
+    paymentStatus: z.string().min(1).optional(),
+    notionPageId: z.string().nullable().optional(),
+  });
   const dbAdapter = createPrismaAdapter(prisma);
   const projectService = createProjectService(dbAdapter);
 
@@ -527,21 +541,17 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       404:
    *         $ref: '#/components/responses/NotFoundError'
    */
-  router.patch('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.patch(
+    '/:id',
+    requireAuth,
+    requireAdmin,
+    validateParams(projectIdParamsSchema),
+    validateBody(updateProjectSchema),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const { status, paymentStatus, notionPageId } = req.body;
-
-      // Validate status if provided
-      if (status && !Object.values(ProjectStatus).includes(status)) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_STATUS',
-            message: `Invalid status. Must be one of: ${Object.values(ProjectStatus).join(', ')}`,
-          },
-        });
-      }
+      const { status, paymentStatus, notionPageId } = (req as any)
+        .validatedBody as z.infer<typeof updateProjectSchema>;
 
       // Check project exists
       const existingProject = await prisma.project.findUnique({
@@ -622,7 +632,8 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
     } catch (error) {
       next(internalError('Failed to update project', error as Error));
     }
-  });
+  }
+  );
 
   return router;
 }

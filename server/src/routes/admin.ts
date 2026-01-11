@@ -10,12 +10,15 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { Client as NotionClient } from '@notionhq/client';
 import { AuthenticatedRequest } from './projects';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { sanitizeInput, validateQuery } from '../middleware';
+import { requireAdmin, requireAuth } from '../middleware/authMiddleware';
 
 // ============================================================================
 // TYPES
@@ -59,6 +62,34 @@ interface PaginationParams {
   sortOrder: 'asc' | 'desc';
 }
 
+const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  sortBy: z.enum(['createdAt', 'updatedAt', 'name', 'email', 'status', 'tier', 'paymentStatus']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
+const leadsQuerySchema = paginationQuerySchema.extend({
+  status: z.string().optional(),
+  tier: z.coerce.number().int().min(1).max(4).optional(),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+const projectsQuerySchema = paginationQuerySchema.extend({
+  status: z.string().optional(),
+  tier: z.coerce.number().int().min(1).max(4).optional(),
+  paymentStatus: z.string().optional(),
+  search: z.string().optional(),
+});
+
+const clientsQuerySchema = paginationQuerySchema.extend({
+  status: z.string().optional(),
+  tier: z.coerce.number().int().min(1).max(4).optional(),
+  search: z.string().optional(),
+});
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -83,6 +114,7 @@ function getStartOfMonth(): Date {
 
 export function createAdminRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
 
   // -------------------------------------------------------------------------
   // GET /api/admin/dashboard - Dashboard stats
@@ -239,10 +271,16 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/leads - All leads with filtering
   // -------------------------------------------------------------------------
-  router.get('/leads', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get(
+    '/leads',
+    requireAuth,
+    requireAdmin,
+    validateQuery(leadsQuerySchema),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
-      const { status, tier, search, startDate, endDate } = req.query;
+      const query = (req as any).validatedQuery || req.query;
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(query);
+      const { status, tier, search, startDate, endDate } = query as z.infer<typeof leadsQuerySchema>;
 
       // Build where clause
       const where: any = {};
@@ -252,7 +290,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       }
 
       if (tier) {
-        where.recommendedTier = parseInt(tier as string);
+        where.recommendedTier = Number(tier);
       }
 
       if (search) {
@@ -326,15 +364,22 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     } catch (error) {
       next(internalError('Failed to fetch leads', error as Error));
     }
-  });
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /api/admin/projects - All projects with filtering
   // -------------------------------------------------------------------------
-  router.get('/projects', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get(
+    '/projects',
+    requireAuth,
+    requireAdmin,
+    validateQuery(projectsQuerySchema),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
-      const { status, tier, paymentStatus, search } = req.query;
+      const query = (req as any).validatedQuery || req.query;
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(query);
+      const { status, tier, paymentStatus, search } = query as z.infer<typeof projectsQuerySchema>;
 
       // Build where clause
       const where: any = {};
@@ -344,7 +389,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       }
 
       if (tier) {
-        where.tier = parseInt(tier as string);
+        where.tier = Number(tier);
       }
 
       if (paymentStatus) {
@@ -440,15 +485,22 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     } catch (error) {
       next(internalError('Failed to fetch projects', error as Error));
     }
-  });
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /api/admin/clients - All clients with stats
   // -------------------------------------------------------------------------
-  router.get('/clients', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get(
+    '/clients',
+    requireAuth,
+    requireAdmin,
+    validateQuery(clientsQuerySchema),
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
-      const { status, tier, search } = req.query;
+      const query = (req as any).validatedQuery || req.query;
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(query);
+      const { status, tier, search } = query as z.infer<typeof clientsQuerySchema>;
 
       // Build where clause
       const where: any = {};
@@ -458,7 +510,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       }
 
       if (tier) {
-        where.tier = parseInt(tier as string);
+        where.tier = Number(tier);
       }
 
       if (search) {
@@ -559,7 +611,8 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     } catch (error) {
       next(internalError('Failed to fetch clients', error as Error));
     }
-  });
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /api/admin/sync/health - Notion-Postgres reconciliation health check

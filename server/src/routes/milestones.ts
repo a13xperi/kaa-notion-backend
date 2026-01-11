@@ -9,11 +9,14 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient, MilestoneStatus as PrismaMilestoneStatus } from '@prisma/client';
 import { AuthenticatedRequest } from './projects';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { sanitizeInput, validateBody, validateParams } from '../middleware';
+import { requireAdmin, requireAuth } from '../middleware/authMiddleware';
 
 // ============================================================================
 // TYPES
@@ -128,6 +131,17 @@ function toMilestoneDetail(milestone: {
  */
 export function createMilestonesRouter(prisma: PrismaClient): Router {
   const router = Router();
+  router.use(sanitizeInput);
+
+  const milestoneIdParamsSchema = z.object({
+    id: z.string().uuid('Invalid milestone ID format'),
+  });
+
+  const updateMilestoneSchema = z.object({
+    status: z.nativeEnum(MilestoneStatus).optional(),
+    dueDate: z.string().datetime().optional().nullable(),
+    completedAt: z.string().datetime().optional().nullable(),
+  });
 
   // -------------------------------------------------------------------------
   // GET /api/projects/:projectId/milestones - Get all milestones for a project
@@ -314,10 +328,12 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
     '/milestones/:id',
     requireAuth,
     requireAdmin,
+    validateParams(milestoneIdParamsSchema),
+    validateBody(updateMilestoneSchema),
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
-        const body = req.body as UpdateMilestoneBody;
+        const body = (req as any).validatedBody as UpdateMilestoneBody;
         const user = req.user!;
 
         // Validate status if provided
