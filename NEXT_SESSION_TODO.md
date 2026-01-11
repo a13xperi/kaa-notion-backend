@@ -30,6 +30,29 @@ This document outlines the work to be done in the next Claude Code session after
 
 ---
 
+## ✅ COMPLETED: TypeScript Fixes (Session 2)
+
+**Implemented in commit `cadcf02`**
+
+- [x] Installed `@types/bcryptjs` for team invite service
+- [x] Fixed admin.ts: Added requireAuth/requireAdmin imports, use authMiddleware pattern
+- [x] Fixed milestones.ts: Added requireAuth/requireAdmin imports, use authMiddleware pattern
+- [x] Fixed errorHandler.ts: Changed ZodError `.errors` to `.issues`
+- [x] Fixed messages.ts: Changed ZodError `.errors` to `.issues`
+- [x] Fixed notifications.ts: Changed ZodError `.errors` to `.issues`
+- [x] Fixed passwordReset.ts: Changed ZodError `.errors` to `.issues`, fixed sendPasswordResetEmail call
+- [x] Fixed sanitize.ts: Changed strictSanitize return type to `void | Response`
+- [x] Fixed validate.ts: Re-export getFirstError from validators
+- [x] Fixed projects.ts: Added NextFunction and AuthenticatedUser imports
+- [x] Fixed push.ts: Fixed imports for pushService and AuthenticatedRequest
+
+**Build Status:**
+- Build still has errors due to Prisma client not being generated (network blocked)
+- Most remaining errors are Prisma-related (missing types) or implicit any types
+- Build will succeed once `npx prisma generate` runs successfully
+
+---
+
 ## ✅ COMPLETED: PR #62 - Figma Endpoint Protection
 
 **Implemented in commit `d5fb777`**
@@ -181,6 +204,8 @@ When starting the next session:
 ## Recent Commits
 
 ```
+cadcf02 fix: Resolve TypeScript errors in routes and middleware
+b84b404 docs: Update TODO with completed implementations
 244097e feat: Implement team invite flow with secure token handling
 f6db03c feat: Implement password reset flow with secure token handling
 d5fb777 feat: Add Figma endpoint protection with project access check (PR #62)
@@ -194,5 +219,5 @@ fce4a2b docs: Add comprehensive TODO list for next session
 
 ---
 
-*Last updated: 2026-01-11*
+*Last updated: 2026-01-11 (Session 2)*
 *Branch: claude/review-merge-issues-34jvV*
