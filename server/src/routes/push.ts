@@ -4,6 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { authenticate } from '../middleware/auth';
 import { AuthenticatedRequest } from './projects';
 import pushService from '../services/pushService';
 
@@ -33,7 +34,7 @@ router.get('/vapid-key', (_req: Request, res: Response) => {
  * POST /api/push/subscribe
  * Subscribe to push notifications
  */
-router.post('/subscribe', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/subscribe', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { endpoint, keys } = req.body;
     const userId = req.user!.id;
@@ -70,7 +71,7 @@ router.post('/subscribe', requireAuth, async (req: AuthRequest, res: Response) =
  * DELETE /api/push/unsubscribe
  * Unsubscribe from push notifications
  */
-router.delete('/unsubscribe', requireAuth, async (req: AuthRequest, res: Response) => {
+router.delete('/unsubscribe', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { endpoint } = req.body;
     const userId = req.user!.id;
@@ -101,7 +102,7 @@ router.delete('/unsubscribe', requireAuth, async (req: AuthRequest, res: Respons
  * GET /api/push/status
  * Check if user has active push subscriptions
  */
-router.get('/status', requireAuth, async (req: AuthRequest, res: Response) => {
+router.get('/status', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const subscriptions = await pushService.getUserSubscriptions(userId);
@@ -126,7 +127,7 @@ router.get('/status', requireAuth, async (req: AuthRequest, res: Response) => {
  * POST /api/push/test
  * Send a test push notification (for debugging)
  */
-router.post('/test', requireAuth, async (req: AuthRequest, res: Response) => {
+router.post('/test', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
 
