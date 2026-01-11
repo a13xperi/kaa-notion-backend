@@ -16,42 +16,42 @@ This checklist tracks the integration of PRs from the a13xperi fork into the ait
 
 ---
 
-## Phase 1: Foundation (Low Risk)
+## Phase 1: Foundation (Low Risk) - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #16 | Prisma version alignment | Node >=18, prisma ^7.2.0, .nvmrc |
-| [ ] | #22 | Deployment readiness | Build scripts, .gitignore, railway.json |
-| [ ] | #47 | Database setup docs | ENVIRONMENT_REFERENCE.md, server imports |
+| [x] | #16 | Prisma version alignment | Node >=18, prisma ^7.2.0, .nvmrc |
+| [x] | #22 | Deployment readiness | Build scripts, .gitignore, railway.json |
+| [x] | #47 | Database setup docs | ENVIRONMENT_REFERENCE.md, server imports |
 
 **After Phase 1:**
-- [ ] Run `npm install` in both server/ and kaa-app/
-- [ ] Run `npx prisma generate`
-- [ ] Verify build passes: `npm run build`
+- [x] Run `npm install` in both server/ and kaa-app/
+- [x] Run `npx prisma generate`
+- [x] Verify build passes: `npm run build`
 
 ---
 
-## Phase 2: Core Auth (Review Carefully)
+## Phase 2: Core Auth (Review Carefully) - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #67 | JWT unification with jsonwebtoken | Large PR (131 files), foundation for auth PRs |
-| [ ] | #68 | Production env security | Strong JWT, CORS allowlist, Stripe webhook checks |
+| [x] | #67 | JWT unification with jsonwebtoken | Already in codebase |
+| [x] | #68 | Production env security | Strong JWT, CORS allowlist, Stripe webhook checks |
 
 **After Phase 2:**
-- [ ] Verify JWT_SECRET validation works in production mode
-- [ ] Test login/register flows
-- [ ] Check CORS configuration loads correctly
+- [x] Verify JWT_SECRET validation works in production mode
+- [x] Test login/register flows
+- [x] Check CORS configuration loads correctly
 
 ---
 
-## Phase 3: Auth Extensions
+## Phase 3: Auth Extensions - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #65 | Notion admin shared auth middleware | Clean integration |
-| [ ] | #64 | Portal API JWT Authorization | Import fix applied |
-| [ ] | #62 | Figma file endpoint protection | **IMPORTANT: Add unassignedAt: null check** |
+| [x] | #65 | Notion admin shared auth middleware | Clean integration |
+| [x] | #64 | Portal API JWT Authorization | Import fix applied |
+| [~] | #62 | Figma file endpoint protection | Deferred - needs new middleware |
 
 **PR #62 Required Fix:**
 ```typescript
@@ -64,18 +64,18 @@ where: {
 ```
 
 **After Phase 3:**
-- [ ] Test Notion admin endpoints require auth
-- [ ] Test Portal API uses JWT headers
-- [ ] Verify former project members can't access Figma files
+- [x] Test Notion admin endpoints require auth
+- [x] Test Portal API uses JWT headers
+- [ ] Verify former project members can't access Figma files (pending #62)
 
 ---
 
-## Phase 4: Schema Migrations
+## Phase 4: Schema Migrations - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #66 | Password reset tokens | New PasswordResetToken model |
-| [ ] | #61 | Secure team invites | inviteToken fields on TeamMember |
+| [x] | #66 | Password reset tokens | New PasswordResetToken model |
+| [x] | #61 | Secure team invites | inviteToken fields on TeamMember |
 
 **After Phase 4:**
 - [ ] Run `npx prisma migrate dev` to apply schema changes
@@ -85,32 +85,32 @@ where: {
 
 ---
 
-## Phase 5: Route Hardening
+## Phase 5: Route Hardening - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #63 | Route validation and sanitization | Password fix already applied |
+| [x] | #63 | Route validation and sanitization | Password fix already applied |
 
 **After Phase 5:**
-- [ ] Test login with passwords containing special chars: `P@ss<>word!`
-- [ ] Verify XSS patterns blocked on non-password fields
+- [x] Test login with passwords containing special chars: `P@ss<>word!`
+- [x] Verify XSS patterns blocked on non-password fields
 - [ ] Run validation regression tests
 
 ---
 
-## Phase 6: Features
+## Phase 6: Features - COMPLETED
 
 | Status | PR | Title | Notes |
 |--------|-----|-------|-------|
-| [ ] | #60 | Delete deliverable files from storage | Import fix applied, retry logic |
-| [ ] | #59 | Batch deliverable download | Import fix applied, Download All UI |
-| [ ] | #9 | Tier config module | Foundation for #11 |
-| [ ] | #11 | Sage intake flow with tier routing | Depends on #9 |
+| [x] | #60 | Delete deliverable files from storage | Retry logic with exponential backoff |
+| [x] | #59 | Batch deliverable download | batch-download endpoint with signed URLs |
+| [x] | #9 | Tier config module | Already in codebase (tierRouter.ts) |
+| [x] | #11 | Sage intake flow with tier routing | Already in leads.ts |
 
 **After Phase 6:**
-- [ ] Test deliverable deletion removes files from storage
-- [ ] Test batch download generates signed URLs
-- [ ] Verify tier routing works for intake form
+- [x] Test deliverable deletion removes files from storage
+- [x] Test batch download generates signed URLs
+- [x] Verify tier routing works for intake form
 
 ---
 
@@ -120,7 +120,7 @@ where: {
 - [ ] Run E2E tests: `npm run test:e2e`
 - [ ] Build production bundle: `npm run build`
 - [ ] Review all TypeScript errors resolved
-- [ ] Create PR from a13xperi fork to aitkenassociates master
+- [ ] Create PR from claude/review-merge-issues-34jvV to aitkenassociates master
 - [ ] Merge to aitkenassociates/kaa-notion-backend master
 
 ---
@@ -143,12 +143,30 @@ If issues arise after merging a phase:
 - #1 - Dependency audit report (docs only)
 - #4 - Prisma client wrapper (superseded by #16)
 
-### Key Files Modified by Fixes
+### Key Files Modified
+
+**Pre-existing blocker fixes:**
 - `server/src/middleware/sanitize.ts` - Password field exclusions
-- `server/src/routes/deliverables.ts` - Added middleware imports
+- `server/src/routes/deliverables.ts` - Added middleware imports + storage cleanup + batch download
 - `server/src/routes/projects.ts` - Added middleware imports
 - `server/src/config/cors.ts` - FRONTEND_URL fallback
-- `server/src/config/environment.ts` - CORS warning
+- `server/src/config/environment.ts` - Production fatal errors
+
+**New additions:**
+- `.nvmrc` - Node 20
+- `DEPLOYMENT_CHECKLIST.md` - Deployment guide
+- `prisma/schema.prisma` - PasswordResetToken model, TeamMember invite fields
+- `server/src/routes/notion.ts` - Shared JWT middleware
+
+---
+
+## Commits in Integration Branch
+
+1. `feat: Integrate Phase 1 foundation PRs (#16, #22, #47)`
+2. `feat: Enforce production security checks (PR #68)`
+3. `feat: Use shared JWT middleware for Notion admin routes (PR #65)`
+4. `feat: Add password reset tokens and team invite tokens (PRs #66, #61)`
+5. `feat: Add storage cleanup and batch download for deliverables (PRs #60, #59)`
 
 ---
 
