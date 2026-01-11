@@ -3,10 +3,13 @@
  * Handles team collaboration, roles, and permissions
  */
 
-import { PrismaClient, TeamRole, TeamMember, User } from '@prisma/client';
+import { TeamRole, TeamMember, User } from '@prisma/client';
 import crypto from 'crypto';
+import { prisma } from '../utils/prisma';
+import { hashPassword } from './authService';
+import { sendEmail } from './emailService';
 
-const prisma = new PrismaClient();
+const INVITE_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
 // ============================================
 // TYPES
@@ -150,6 +153,7 @@ export async function inviteTeamMember(
   } else {
     // Create new user with temporary password
     const tempPassword = crypto.randomBytes(16).toString('hex');
+    const passwordHash = await hashPassword(tempPassword);
 
     user = await prisma.user.create({
       data: {
@@ -157,10 +161,14 @@ export async function inviteTeamMember(
         name: input.name,
         role: 'TEAM',
         userType: 'TEAM',
-        passwordHash: tempPassword, // Will be reset on first login
+        passwordHash, // Will be reset on first login
       },
     });
   }
+
+  // Generate invite token
+  const inviteToken = crypto.randomBytes(32).toString('hex');
+  const inviteTokenExpiresAt = new Date(Date.now() + INVITE_TOKEN_TTL_MS);
 
   // Create team member record
   const teamMember = await prisma.teamMember.create({
@@ -168,13 +176,24 @@ export async function inviteTeamMember(
       userId: user.id,
       role: input.role,
       invitedById: input.invitedById,
+      inviteToken,
+      inviteTokenExpiresAt,
     },
   });
 
-  // Generate invite token
-  const inviteToken = crypto.randomBytes(32).toString('hex');
-
-  // TODO: Store invite token and send email
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  const inviteUrl = `${baseUrl}/team/accept-invite?token=${inviteToken}&userId=${user.id}`;
+  await sendEmail({
+    to: user.email || input.email,
+    subject: 'You have been invited to join the team',
+    html: `
+      <p>Hello ${user.name || input.name || ''},</p>
+      <p>You have been invited to join the team. Use the link below to accept the invitation:</p>
+      <p><a href="${inviteUrl}">Accept invitation</a></p>
+      <p>This invite link expires on ${inviteTokenExpiresAt.toLocaleString()}.</p>
+    `,
+    text: `You have been invited to join the team. Accept here: ${inviteUrl}\nThis invite link expires on ${inviteTokenExpiresAt.toLocaleString()}.`,
+  });
 
   return { user, teamMember, inviteToken };
 }
@@ -184,7 +203,8 @@ export async function inviteTeamMember(
  */
 export async function acceptInvite(
   userId: string,
-  password: string
+  password: string,
+  inviteToken: string
 ): Promise<TeamMember> {
   const teamMember = await prisma.teamMember.findUnique({
     where: { userId },
@@ -198,12 +218,20 @@ export async function acceptInvite(
     throw new Error('Invitation already accepted');
   }
 
+  if (!inviteToken || !teamMember.inviteToken || teamMember.inviteToken !== inviteToken) {
+    throw new Error('Invalid invite token');
+  }
+
+  if (teamMember.inviteTokenExpiresAt && teamMember.inviteTokenExpiresAt < new Date()) {
+    throw new Error('Invite token has expired');
+  }
+
   // Update user password
-  // Note: In production, hash the password properly
+  const passwordHash = await hashPassword(password);
   await prisma.user.update({
     where: { id: userId },
     data: {
-      passwordHash: password, // Should be hashed
+      passwordHash,
     },
   });
 
@@ -212,6 +240,8 @@ export async function acceptInvite(
     where: { userId },
     data: {
       acceptedAt: new Date(),
+      inviteToken: null,
+      inviteTokenExpiresAt: null,
     },
   });
 }

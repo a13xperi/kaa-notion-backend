@@ -505,6 +505,8 @@ model TeamMember {
   role       TeamRole  @default(DESIGNER)
   invitedById String?  @map("invited_by_id")
   invitedAt  DateTime  @default(now()) @map("invited_at")
+  inviteToken String?  @map("invite_token")
+  inviteTokenExpiresAt DateTime? @map("invite_token_expires_at")
   acceptedAt DateTime? @map("accepted_at")
   isActive   Boolean   @default(true) @map("is_active")
   createdAt  DateTime  @default(now()) @map("created_at")
