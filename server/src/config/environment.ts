@@ -99,6 +99,7 @@ export interface ValidationResult {
  */
 export function validateEnvironment(): ValidationResult {
   const warnings: string[] = [];
+  const errors: string[] = [];
   
   // Parse and validate
   const result = envSchema.safeParse(process.env);
@@ -119,6 +120,13 @@ export function validateEnvironment(): ValidationResult {
 
   // Production-specific warnings
   if (config.NODE_ENV === 'production') {
+    const disallowedSecrets = new Set([
+      'development-secret-key',
+      'development-secret-change-in-production',
+    ]);
+    if (disallowedSecrets.has(config.JWT_SECRET)) {
+      errors.push('JWT_SECRET must be set to a secure, non-default value in production');
+    }
     if (!config.STRIPE_SECRET_KEY) {
       warnings.push('STRIPE_SECRET_KEY not set - payments will not work');
     }
@@ -128,7 +136,7 @@ export function validateEnvironment(): ValidationResult {
     if (!config.RESEND_API_KEY && !config.SMTP_HOST) {
       warnings.push('No email provider configured - emails will be logged to console');
     }
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
+    if (config.JWT_SECRET.length < 64) {
       warnings.push('JWT_SECRET appears to be weak - use a strong random secret in production');
     }
     if (!config.FRONTEND_URL) {
@@ -141,6 +149,13 @@ export function validateEnvironment(): ValidationResult {
     if (!config.DATABASE_URL.includes('localhost') && !config.DATABASE_URL.includes('127.0.0.1')) {
       warnings.push('DATABASE_URL points to non-local database in development mode');
     }
+  }
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      errors,
+    };
   }
 
   return {

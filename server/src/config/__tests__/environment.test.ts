@@ -97,6 +97,17 @@ describe('Environment Configuration', () => {
       expect(result.warnings?.some(w => w.includes('JWT_SECRET') && w.includes('weak'))).toBe(true);
     });
 
+    it('should fail when JWT_SECRET uses a development default in production', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.DATABASE_URL = 'postgresql://localhost/test';
+      process.env.JWT_SECRET = 'development-secret-key';
+
+      const result = validateEnvironment();
+
+      expect(result.valid).toBe(false);
+      expect(result.errors?.some(e => e.includes('JWT_SECRET'))).toBe(true);
+    });
+
     it('should parse PORT as number', () => {
       process.env.DATABASE_URL = 'postgresql://localhost/test';
       process.env.JWT_SECRET = 'a'.repeat(32);
