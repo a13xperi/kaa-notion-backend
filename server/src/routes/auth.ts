@@ -393,13 +393,115 @@ export function createAuthRouter(prisma: PrismaClient): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { email } = req.body;
-        
+
         if (!email || typeof email !== 'string') {
           throw validationError('Email is required');
         }
 
         const { initiatePasswordReset } = await import('../services/authService');
         const result = await initiatePasswordReset(prisma, email);
+
+        // In development, include token for testing
+        const response: { success: boolean; message: string; token?: string } = {
+          success: true,
+          message: result.message,
+        };
+
+        if (process.env.NODE_ENV === 'development' && result.token) {
+          response.token = result.token;
+        }
+
+        res.json(response);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /password/validate-token
+   * Validate a password reset token before showing reset form.
+   */
+  router.post(
+    '/password/validate-token',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { token } = req.body;
+
+        if (!token || typeof token !== 'string') {
+          throw validationError('Token is required');
+        }
+
+        const { validatePasswordResetToken } = await import('../services/authService');
+        const result = await validatePasswordResetToken(prisma, token);
+
+        if (!result.valid) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_TOKEN',
+              message: result.error || 'Invalid or expired token',
+            },
+          });
+        }
+
+        res.json({
+          success: true,
+          message: 'Token is valid',
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /password/reset
+   * Complete password reset with new password.
+   */
+  router.post(
+    '/password/reset',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { token, password } = req.body;
+
+        if (!token || typeof token !== 'string') {
+          throw validationError('Token is required');
+        }
+
+        if (!password || typeof password !== 'string') {
+          throw validationError('Password is required');
+        }
+
+        // Validate password strength
+        if (password.length < 8) {
+          throw validationError('Password must be at least 8 characters');
+        }
+
+        if (!/[A-Z]/.test(password)) {
+          throw validationError('Password must contain at least one uppercase letter');
+        }
+
+        if (!/[a-z]/.test(password)) {
+          throw validationError('Password must contain at least one lowercase letter');
+        }
+
+        if (!/[0-9]/.test(password)) {
+          throw validationError('Password must contain at least one number');
+        }
+
+        const { completePasswordReset } = await import('../services/authService');
+        const result = await completePasswordReset(prisma, token, password);
+
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'RESET_FAILED',
+              message: result.message,
+            },
+          });
+        }
 
         res.json({
           success: true,

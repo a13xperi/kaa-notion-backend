@@ -381,29 +381,62 @@ export async function refreshAccessToken(
 }
 
 // ============================================================================
-// PASSWORD RESET (Placeholder for future implementation)
+// PASSWORD RESET
 // ============================================================================
 
+import { PasswordResetService } from './passwordResetService';
+import { getEmailService } from './emailService';
+
 /**
- * Initiate password reset - generates a reset token.
- * Note: In production, this should send an email with a reset link.
+ * Initiate password reset - generates a reset token and sends email.
  */
 export async function initiatePasswordReset(
   prisma: PrismaClient,
   email: string
-): Promise<{ message: string }> {
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-  });
+): Promise<{ message: string; token?: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.createResetToken(email.toLowerCase());
 
   // Always return success message to prevent email enumeration
-  if (!user) {
-    return { message: 'If an account exists, a reset link will be sent' };
+  const message = 'If an account exists, a reset link will be sent';
+
+  if (result.success && result.token) {
+    // Send password reset email
+    try {
+      const emailService = getEmailService();
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${result.token}`;
+
+      await emailService.sendPasswordResetEmail(email, resetUrl, result.expiresAt!);
+      logger.info('Password reset email sent', { email });
+    } catch (error) {
+      // Log error but don't fail the request
+      logger.error('Failed to send password reset email', { email, error });
+    }
+
+    // In development, also return the token for testing
+    if (process.env.NODE_ENV === 'development') {
+      return { message, token: result.token };
+    }
   }
 
-  // TODO: Generate reset token, store it, and send email
-  // For now, just return the message
-  return { message: 'If an account exists, a reset link will be sent' };
+  return { message };
+}
+
+/**
+ * Validate a password reset token.
+ */
+export async function validatePasswordResetToken(
+  prisma: PrismaClient,
+  token: string
+): Promise<{ valid: boolean; userId?: string; error?: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.validateToken(token);
+
+  return {
+    valid: result.success,
+    userId: result.userId,
+    error: result.error,
+  };
 }
 
 /**
@@ -411,9 +444,21 @@ export async function initiatePasswordReset(
  */
 export async function completePasswordReset(
   prisma: PrismaClient,
-  _resetToken: string,
-  _newPassword: string
-): Promise<{ message: string }> {
-  // TODO: Verify reset token, update password
-  return { message: 'Password reset functionality not yet implemented' };
+  resetToken: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.resetPassword(resetToken, newPassword);
+
+  if (result.success) {
+    return {
+      success: true,
+      message: 'Password has been reset successfully',
+    };
+  }
+
+  return {
+    success: false,
+    message: result.error || 'Failed to reset password',
+  };
 }
