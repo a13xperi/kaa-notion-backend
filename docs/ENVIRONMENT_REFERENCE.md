@@ -2,9 +2,48 @@
 
 This document lists every environment variable used across the repo and which app consumes it. The canonical list lives in [`env.example`](../env.example); copy it to `.env` and adjust values for your environment.
 
+## Quick Setup
+
 ```bash
+# 1. Copy environment files
 cp env.example .env
+cp server/.env.example server/.env
+
+# 2. Install dependencies
+npm install
+
+# 3. Generate Prisma client (requires DATABASE_URL)
+npx prisma generate
+
+# 4. Push schema to database (for quick setup)
+npx prisma db push
+
+# 5. Seed with demo data (optional)
+npx prisma db seed
+
+# 6. Start server
+cd server && npm run dev
 ```
+
+## Required Environment Variables
+
+These variables **must** be configured for the application to work:
+
+| Variable | Description | Example |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/sage` |
+| `JWT_SECRET` | Secret for signing JWT tokens (min 32 chars) | `your-secure-random-secret-key-min-32-characters` |
+
+## Recommended Environment Variables
+
+These are needed for full functionality:
+
+| Variable | Description | Service |
+| --- | --- | --- |
+| `SUPABASE_URL` | Supabase project URL | Storage |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | Storage |
+| `STRIPE_SECRET_KEY` | Stripe API secret key | Payments |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | Payments |
 
 ## Variable Catalog
 
@@ -86,7 +125,32 @@ cp env.example .env
 | `POSTGRES_DB` | Docker/Postgres | Database name for local containers. |
 | `OPENAI_API_KEY` | Notion API server, `transcribe-audio.js` | OpenAI API key for chat/transcription utilities. |
 
+## Push Notifications (PWA)
+
+| Variable | Description |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | VAPID public key for web push |
+| `VAPID_PRIVATE_KEY` | VAPID private key for web push |
+| `VAPID_SUBJECT` | Contact email for push service |
+
+Generate VAPID keys:
+```bash
+npx web-push generate-vapid-keys
+```
+
+## Subscription Billing
+
+| Variable | Description |
+| --- | --- |
+| `STRIPE_SPROUT_MONTHLY_PRICE_ID` | Stripe Price ID for Sprout monthly plan |
+| `STRIPE_SPROUT_YEARLY_PRICE_ID` | Stripe Price ID for Sprout yearly plan |
+| `STRIPE_CANOPY_MONTHLY_PRICE_ID` | Stripe Price ID for Canopy monthly plan |
+| `STRIPE_CANOPY_YEARLY_PRICE_ID` | Stripe Price ID for Canopy yearly plan |
+
 ## Related Files
 
 - Canonical template: [`env.example`](../env.example)
+- Server template: [`server/.env.example`](../server/.env.example)
 - Docker walkthrough: [`docs/DOCKER_SETUP.md`](./DOCKER_SETUP.md)
+- Environment setup: [`docs/ENVIRONMENT_SETUP.md`](./ENVIRONMENT_SETUP.md)
+- Database setup: [`docs/DATABASE_SETUP_REQUIRED.md`](./DATABASE_SETUP_REQUIRED.md)

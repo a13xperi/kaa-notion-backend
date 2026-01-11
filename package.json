@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "SAGE MVP Platform - Tiered landscape architecture services",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0 <23.0.0"
+  },
   "workspaces": [
     "kaa-app",
     "server",
@@ -60,7 +63,7 @@
     "@types/bcrypt": "^5.0.2",
     "concurrently": "^8.2.2",
     "openapi-typescript": "^7.10.1",
-    "prisma": "^5.22.0",
+    "prisma": "^7.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },

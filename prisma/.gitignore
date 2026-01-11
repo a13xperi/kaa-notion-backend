@@ -1,4 +1,4 @@
-# Prisma migrations and generated files
-migrations/
+# Prisma generated files (migrations should be tracked)
+# migrations/ # REMOVED - migrations must be in version control
 *.db
 *.db-journal
