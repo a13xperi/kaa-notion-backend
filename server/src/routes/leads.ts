@@ -15,21 +15,7 @@ import {
   type LeadFiltersInput,
   type UpdateLeadInput,
 } from '../utils';
-import { validateBody, validateQuery } from '../middleware';
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-// Use the AuthenticatedRequest from projects.ts pattern
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    userType: UserType;
-    tier?: number;
-  };
-}
+import { validateBody, validateQuery, AuthenticatedRequest } from '../middleware';
 
 interface TierRecommendation {
   tier: 1 | 2 | 3 | 4;

@@ -10,8 +10,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient, MilestoneStatus as PrismaMilestoneStatus } from '@prisma/client';
-import { AuthenticatedRequest } from './projects';
-import { requireAuth, requireAdmin } from '../middleware/auth';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';

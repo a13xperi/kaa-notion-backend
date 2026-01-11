@@ -17,7 +17,12 @@ import { PrismaClient, TeamRole } from '@prisma/client';
 import { TeamInviteService } from '../services/teamInviteService';
 import { validationError, notFound, forbidden } from '../utils/AppError';
 import { logger } from '../logger';
-import { requireAuth, requireAdmin, validateBody } from '../middleware';
+import {
+  requireAuth,
+  requireAdmin,
+  validateBody,
+  AuthenticatedRequest,
+} from '../middleware';
 import { teamInviteRateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
 import { getEmailService } from '../services/emailService';
@@ -40,18 +45,6 @@ const acceptInviteSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
 });
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    userType: string;
-  };
-}
 
 // ============================================================================
 // ROUTER FACTORY

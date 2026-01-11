@@ -14,18 +14,15 @@ import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
-import { requireAuth, requireAdmin, AuthenticatedUser } from '../middleware';
+import {
+  requireAuth,
+  requireAdmin,
+  AuthenticatedUser,
+  AuthenticatedRequest,
+} from '../middleware';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Extended request with authenticated user info
- */
-export interface AuthenticatedRequest extends Request {
-  user?: AuthenticatedUser;
-}
+// Re-export for backwards compatibility (prefer importing from middleware)
+export type { AuthenticatedRequest };
 
 /**
  * Query parameters for listing projects

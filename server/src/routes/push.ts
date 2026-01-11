@@ -4,8 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
-import { AuthenticatedRequest } from './projects';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import pushService from '../services/pushService';
 
 const router = Router();

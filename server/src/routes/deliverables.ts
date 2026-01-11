@@ -13,11 +13,10 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthenticatedRequest } from './projects';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
-import { requireAuth, requireAdmin } from '../middleware';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware';
 import { getStorageService } from '../services/storageService';
 
 // ============================================================================

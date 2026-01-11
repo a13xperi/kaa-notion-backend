@@ -8,13 +8,12 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '../utils/prisma';
 import { logger } from '../config/logger';
 import { notifyRevisionRequested, notifyRevisionCompleted } from '../services/notificationService';
 
 const router = Router({ mergeParams: true });
-const prisma = new PrismaClient();
 
 // ========================================
 // Validation Schemas

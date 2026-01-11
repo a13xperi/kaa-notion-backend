@@ -5,11 +5,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import { isRedisConnected, getRedisClient } from '../config/redis';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';

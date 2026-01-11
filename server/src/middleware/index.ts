@@ -14,6 +14,7 @@ export {
   requireProjectAccess,
   type JwtPayload,
   type AuthenticatedUser,
+  type AuthenticatedRequest,
   type AuthMiddlewareOptions,
 } from './auth';
 
