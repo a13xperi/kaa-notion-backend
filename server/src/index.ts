@@ -19,6 +19,7 @@ import {
   createCheckoutRouter,
   createWebhooksRouter,
   createAuthRouter,
+  createTeamRouter,
 } from './routes';
 import {
   initNotionSyncService,
@@ -204,6 +205,7 @@ app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Ha
 app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
 app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
+app.use('/api/team', apiRateLimiter, createTeamRouter(prisma)); // Handles /api/team/* endpoints
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());
