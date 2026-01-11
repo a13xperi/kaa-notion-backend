@@ -9,7 +9,9 @@ import cors, { CorsOptions, CorsOptionsDelegate } from 'cors';
 import { Request } from 'express';
 
 // Allowed origins from environment or defaults
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
+// Use CORS_ORIGINS if set, otherwise fall back to FRONTEND_URL
+const corsEnvValue = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '';
+const allowedOrigins = corsEnvValue
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);

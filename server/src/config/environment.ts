@@ -115,20 +115,41 @@ export function validateEnvironment(): ValidationResult {
   }
 
   const config = result.data;
+  const productionErrors: string[] = [];
 
-  // Production-specific warnings
+  // Production-specific FATAL errors (block startup)
+  if (config.NODE_ENV === 'production') {
+    // JWT_SECRET must be strong in production
+    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
+      productionErrors.push('JWT_SECRET must be at least 64 characters in production');
+    }
+
+    // CORS must be configured in production
+    if (!config.CORS_ORIGINS && !config.FRONTEND_URL) {
+      productionErrors.push('Either CORS_ORIGINS or FRONTEND_URL must be set in production');
+    }
+
+    // Stripe webhook secret required if Stripe is enabled
+    if (config.STRIPE_SECRET_KEY && !config.STRIPE_WEBHOOK_SECRET) {
+      productionErrors.push('STRIPE_WEBHOOK_SECRET required when STRIPE_SECRET_KEY is set');
+    }
+  }
+
+  // Return early if production errors exist
+  if (productionErrors.length > 0) {
+    return {
+      valid: false,
+      errors: productionErrors,
+    };
+  }
+
+  // Production-specific warnings (non-fatal)
   if (config.NODE_ENV === 'production') {
     if (!config.STRIPE_SECRET_KEY) {
       warnings.push('STRIPE_SECRET_KEY not set - payments will not work');
     }
-    if (!config.STRIPE_WEBHOOK_SECRET) {
-      warnings.push('STRIPE_WEBHOOK_SECRET not set - webhooks will not be verified');
-    }
     if (!config.RESEND_API_KEY && !config.SMTP_HOST) {
       warnings.push('No email provider configured - emails will be logged to console');
-    }
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
-      warnings.push('JWT_SECRET appears to be weak - use a strong random secret in production');
     }
     if (!config.FRONTEND_URL) {
       warnings.push('FRONTEND_URL not set - email links may not work correctly');

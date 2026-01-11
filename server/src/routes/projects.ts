@@ -14,6 +14,7 @@ import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { requireAuth, requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
