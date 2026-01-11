@@ -3,6 +3,12 @@
 ## Description
 <!-- Describe what this PR does and why it's needed -->
 
+## Multi-Agent Context (if applicable)
+<!-- Fill this out if you're working in a multi-agent session -->
+- **Agent #:** <!-- 1-5, or "N/A" for solo work -->
+- **Scope:** <!-- e.g., /server/src/routes/*, or "Full codebase" -->
+- **Coordination:** <!-- Any cross-agent dependencies or requests -->
+
 ## Type of Change
 - [ ] 🐛 Bug fix
 - [ ] ✨ New feature
