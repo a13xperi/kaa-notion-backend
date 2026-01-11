@@ -220,7 +220,7 @@ export function strictSanitize(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): void | Response {
   const bodyIssues = checkForMaliciousInput(req.body, 'body');
   const queryIssues = checkForMaliciousInput(req.query, 'query');
 

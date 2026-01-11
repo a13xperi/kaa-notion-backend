@@ -7,7 +7,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodSchema, ZodError } from 'zod';
 import { validationError } from '../utils/AppError';
-import { formatZodErrors, getFirstError } from '../utils/validators';
+import { formatZodErrors, getFirstError as getFirstErrorUtil } from '../utils/validators';
+
+// Re-export getFirstError from validators
+export { getFirstError } from '../utils/validators';
 
 // ============================================================================
 // TYPES
@@ -134,7 +137,7 @@ export function validateBody<T extends z.ZodSchema>(
 
       try {
         formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstError(result.error);
+        firstError = getFirstErrorUtil(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
         firstError = getFirstErrorLocal(result.error);
@@ -178,7 +181,7 @@ export function validateQuery<T extends z.ZodSchema>(
 
       try {
         formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstError(result.error);
+        firstError = getFirstErrorUtil(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
         firstError = getFirstErrorLocal(result.error);
@@ -222,7 +225,7 @@ export function validateParams<T extends z.ZodSchema>(
 
       try {
         formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstError(result.error);
+        firstError = getFirstErrorUtil(result.error);
       } catch {
         formattedErrors = formatZodErrorsLocal(result.error);
         firstError = getFirstErrorLocal(result.error);
