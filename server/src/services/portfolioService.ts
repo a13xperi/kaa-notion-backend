@@ -3,9 +3,8 @@
  * Handles public portfolio gallery management
  */
 
-import { PrismaClient, PortfolioProject, PortfolioImage } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PortfolioProject, PortfolioImage } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
 // ============================================
 // TYPES

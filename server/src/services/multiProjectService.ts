@@ -3,9 +3,8 @@
  * Handles project limits, archiving, and multi-project management
  */
 
-import { PrismaClient, Project, ProjectStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Project, ProjectStatus } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
 // ============================================
 // TIER PROJECT LIMITS

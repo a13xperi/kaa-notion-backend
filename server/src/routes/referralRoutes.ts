@@ -6,10 +6,9 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import * as referralService from '../services/referralService';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ============================================
 // REFERRAL CODE ROUTES
