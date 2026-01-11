@@ -5,8 +5,12 @@
  */
 
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, User, UserType } from '@prisma/client';
+import { logger } from '../config/logger';
+import { AuditActions, ResourceTypes, logAudit } from './auditService';
+import { sendPasswordResetEmail } from './emailService';
 
 // ============================================================================
 // TYPES
@@ -57,6 +61,8 @@ let authConfig: AuthConfig = {
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d', // Long-lived refresh token
   saltRounds: 12,
 };
+
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export function initAuthService(config: Partial<AuthConfig>): void {
   authConfig = { ...authConfig, ...config };
@@ -149,6 +155,18 @@ export function extractToken(authHeader: string | undefined): string | null {
   if (type.toLowerCase() !== 'bearer' || !token) return null;
   
   return token;
+}
+
+// ============================================================================
+// PASSWORD RESET HELPERS
+// ============================================================================
+
+function generatePasswordResetToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function hashPasswordResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 // ============================================================================
@@ -397,6 +415,7 @@ export async function initiatePasswordReset(
 ): Promise<{ message: string }> {
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
+    select: { id: true, email: true, name: true },
   });
 
   // Always return success message to prevent email enumeration
@@ -404,8 +423,57 @@ export async function initiatePasswordReset(
     return { message: 'If an account exists, a reset link will be sent' };
   }
 
-  // TODO: Generate reset token, store it, and send email
-  // For now, just return the message
+  const resetToken = generatePasswordResetToken();
+  const resetTokenHash = hashPasswordResetToken(resetToken);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: resetTokenHash,
+        expiresAt,
+      },
+    });
+  });
+
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const resetUrl = `${frontendBaseUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
+
+  try {
+    const emailResult = await sendPasswordResetEmail({
+      to: user.email!,
+      name: user.name || user.email!,
+      resetUrl,
+      expiresIn: '1 hour',
+    });
+
+    if (!emailResult.success) {
+      logger.error('Failed to send password reset email', {
+        email: user.email,
+        error: emailResult.error,
+      });
+    } else {
+      logger.info('Password reset email sent', { userId: user.id, email: user.email });
+    }
+  } catch (error) {
+    logger.error('Password reset email dispatch failed', { email: user.email }, error as Error);
+  }
+
+  void logAudit({
+    action: AuditActions.PASSWORD_RESET,
+    resourceType: ResourceTypes.USER,
+    resourceId: user.id,
+    userId: user.id,
+    details: {
+      initiated: true,
+    },
+  });
+
   return { message: 'If an account exists, a reset link will be sent' };
 }
 
@@ -414,9 +482,61 @@ export async function initiatePasswordReset(
  */
 export async function completePasswordReset(
   prisma: PrismaClient,
-  _resetToken: string,
-  _newPassword: string
+  resetToken: string,
+  newPassword: string
 ): Promise<{ message: string }> {
-  // TODO: Verify reset token, update password
-  return { message: 'Password reset functionality not yet implemented' };
+  const tokenHash = hashPasswordResetToken(resetToken);
+  const tokenRecord = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+  });
+
+  if (!tokenRecord) {
+    throw new Error('This password reset link is invalid or has expired.');
+  }
+
+  if (tokenRecord.usedAt) {
+    throw new Error('This password reset link has already been used.');
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    await prisma.passwordResetToken.delete({
+      where: { id: tokenRecord.id },
+    });
+    throw new Error('This password reset link has expired. Please request a new one.');
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    const updatedToken = await tx.passwordResetToken.updateMany({
+      where: { id: tokenRecord.id, usedAt: null },
+      data: { usedAt: now },
+    });
+
+    if (updatedToken.count === 0) {
+      throw new Error('This password reset link has already been used.');
+    }
+
+    await tx.user.update({
+      where: { id: tokenRecord.userId },
+      data: { passwordHash },
+    });
+
+    await tx.passwordResetToken.deleteMany({
+      where: { userId: tokenRecord.userId, id: { not: tokenRecord.id } },
+    });
+  });
+
+  void logAudit({
+    action: AuditActions.PASSWORD_RESET,
+    resourceType: ResourceTypes.USER,
+    resourceId: tokenRecord.userId,
+    userId: tokenRecord.userId,
+    details: {
+      completed: true,
+    },
+  });
+
+  return { message: 'Your password has been reset successfully.' };
 }
