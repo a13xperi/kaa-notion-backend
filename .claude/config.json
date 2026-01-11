@@ -65,7 +65,8 @@
     "backendServices": "server/services",
     "prisma": "prisma",
     "docs": "docs",
-    "tests": "tests"
+    "tests": "tests",
+    "coordination": "coordination"
   },
   "commands": {
     "dev": "npm run dev",
@@ -96,6 +97,26 @@
     "architecture": "docs/hybrid-data-architecture.md",
     "syncStrategy": "docs/sync-strategy.md",
     "tierRules": "docs/tier-router-rules.md",
-    "contributing": "CONTRIBUTING.md"
+    "contributing": "CONTRIBUTING.md",
+    "multiAgent": "CLAUDE-CODE-MULTI-AGENT.md",
+    "claudeInstructions": "CLAUDE.md"
+  },
+  "multiAgent": {
+    "enabled": true,
+    "integrationBranch": "integration",
+    "agentScopes": {
+      "1": ["server/src/routes", "server/src/middleware"],
+      "2": ["server/src/services", "server/src/utils", "server/src/config"],
+      "3": ["kaa-app/src/components", "kaa-app/src/pages"],
+      "4": ["kaa-app/src/api", "kaa-app/src/contexts", "kaa-app/src/hooks", "kaa-app/src/utils"],
+      "5": ["shared", "prisma", "e2e", "kaa-app/e2e", "scripts"]
+    },
+    "coordinationFiles": {
+      "status": "coordination/status.md",
+      "requests": "coordination/requests.md",
+      "locks": "coordination/locks.md",
+      "contracts": "coordination/contracts.md",
+      "backlog": "coordination/backlog.md"
+    }
   }
 }
