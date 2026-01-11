@@ -41,9 +41,11 @@ import {
   uploadRateLimiter,
   adminRateLimiter,
   requireAuth,
+  requireProjectAccess,
   requireNotionService,
   requireStorageService,
 } from './middleware';
+import { authenticate } from './middleware/auth';
 import { logger, requestLogger } from './logger';
 import { setupSwagger } from './config/swagger';
 import { initEnvironment, getFeatureFlags } from './config/environment';
@@ -223,10 +225,27 @@ app.get('/test', (req, res) => {
   });
 });
 
-// REST API endpoints
-app.get('/file/:fileKey', async (req, res, next) => {
+// REST API endpoints for Figma
+// Protected with authentication and project access check
+// Requires projectId query parameter to verify user has access to the project
+const figmaProjectAccess = requireProjectAccess((req) => {
+  const projectId = req.query.projectId;
+  return typeof projectId === 'string' ? projectId : null;
+});
+
+app.get('/file/:fileKey', authenticate, figmaProjectAccess, async (req, res, next) => {
   try {
-    logger.debug('Fetching file:', req.params.fileKey);
+    const { projectId } = req.query;
+    if (!projectId || typeof projectId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'projectId query parameter is required',
+        }
+      });
+    }
+    logger.debug('Fetching file:', req.params.fileKey, 'for project:', projectId);
     const fileData = await figmaClient.getFile(req.params.fileKey);
     logger.debug('File data received successfully');
     res.json(fileData);
@@ -235,11 +254,26 @@ app.get('/file/:fileKey', async (req, res, next) => {
   }
 });
 
-app.get('/file/:fileKey/nodes', async (req, res, next) => {
+app.get('/file/:fileKey/nodes', authenticate, figmaProjectAccess, async (req, res, next) => {
   try {
-    const { nodeIds } = req.query;
+    const { nodeIds, projectId } = req.query;
+    if (!projectId || typeof projectId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'projectId query parameter is required',
+        }
+      });
+    }
     if (!nodeIds || typeof nodeIds !== 'string') {
-      return res.status(400).json({ error: 'nodeIds parameter is required' });
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'nodeIds query parameter is required',
+        }
+      });
     }
     const nodesData = await figmaClient.getFileNodes(req.params.fileKey, nodeIds.split(','));
     res.json(nodesData);

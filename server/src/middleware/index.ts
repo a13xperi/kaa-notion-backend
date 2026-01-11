@@ -11,6 +11,7 @@ export {
   generateToken,
   verifyToken,
   shouldRefreshToken,
+  requireProjectAccess,
   type JwtPayload,
   type AuthenticatedUser,
   type AuthMiddlewareOptions,
