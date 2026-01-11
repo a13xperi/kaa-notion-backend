@@ -7,17 +7,53 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../logger';
 
-// Characters that could be used for XSS attacks
+// XSS attack patterns - comprehensive detection
 const XSS_PATTERNS = [
+  // Script tags (including variations)
   /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+  /<script[^>]*>/gi,
+
+  // Event handlers (on* attributes)
   /<[^>]+on\w+\s*=/gi,
-  /javascript:/gi,
-  /data:text\/html/gi,
-  /vbscript:/gi,
-  /<iframe/gi,
-  /<object/gi,
-  /<embed/gi,
-  /<form/gi,
+
+  // JavaScript/VBScript protocols
+  /javascript\s*:/gi,
+  /vbscript\s*:/gi,
+  /livescript\s*:/gi,
+
+  // Data URIs that could execute scripts
+  /data\s*:\s*text\/html/gi,
+  /data\s*:\s*application\/x-javascript/gi,
+  /data\s*:\s*application\/javascript/gi,
+
+  // Dangerous HTML elements
+  /<iframe[^>]*>/gi,
+  /<object[^>]*>/gi,
+  /<embed[^>]*>/gi,
+  /<form[^>]*>/gi,
+  /<svg[^>]*>/gi,
+  /<math[^>]*>/gi,
+  /<link[^>]*>/gi,
+  /<style[^>]*>/gi,
+  /<base[^>]*>/gi,
+  /<meta[^>]*>/gi,
+
+  // Expression-based XSS (IE)
+  /expression\s*\(/gi,
+  /behavior\s*:/gi,
+  /-moz-binding\s*:/gi,
+
+  // HTML entities that could bypass filters
+  /&#x?[0-9a-f]+;?/gi,
+
+  // Template injection patterns
+  /\{\{.*\}\}/gi,
+  /\$\{.*\}/gi,
+
+  // URL-encoded XSS attempts
+  /%3Cscript/gi,
+  /%3Csvg/gi,
+  /%3Ciframe/gi,
 ];
 
 // SQL injection patterns (for logging, not blocking)

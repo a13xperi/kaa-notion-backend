@@ -6,6 +6,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { FigmaClient } from '../figma-client';
 import { logger } from '../logger';
+import { verifyToken } from './authService';
 
 // ============================================================================
 // TYPES
@@ -165,10 +166,33 @@ function handleConnection(socket: WebSocket, request: { url?: string }): void {
     return;
   }
 
-  // TODO: In production, verify the token here
+  // Verify the JWT token
   if (!token) {
     logger.warn('WebSocket connection rejected - missing token', { userId });
     socket.close(4001, 'Invalid token');
+    return;
+  }
+
+  try {
+    const payload = verifyToken(token, 'access');
+
+    // Verify the token belongs to the claimed user
+    if (payload.userId !== userId) {
+      logger.warn('WebSocket connection rejected - token/userId mismatch', {
+        claimedUserId: userId,
+        tokenUserId: payload.userId,
+      });
+      socket.close(4001, 'Invalid token');
+      return;
+    }
+
+    logger.debug('WebSocket token verified', { userId, userType });
+  } catch (error) {
+    logger.warn('WebSocket connection rejected - invalid token', {
+      userId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    socket.close(4001, 'Invalid or expired token');
     return;
   }
 
