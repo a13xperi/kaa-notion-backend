@@ -83,6 +83,45 @@ function getFirstErrorLocal(error: ZodError): string {
   return path ? `${path}: ${firstIssue.message}` : firstIssue.message;
 }
 
+/**
+ * Format validation error and generate response JSON
+ */
+function formatValidationResponse(
+  error: ZodError,
+  options: {
+    errorPrefix?: string;
+    defaultPrefix?: string;
+    includeFieldErrors?: boolean;
+    errorCode?: string;
+  }
+): { code: string; message: string; fields?: Record<string, string[]> } {
+  const { errorPrefix, defaultPrefix, includeFieldErrors = true, errorCode = 'VALIDATION_ERROR' } = options;
+
+  // Format errors - use imported formatters directly, fall back to local only if needed
+  let formattedErrors: Record<string, string[]>;
+  let firstError: string;
+
+  try {
+    formattedErrors = formatZodErrors(error);
+    firstError = getFirstErrorUtil(error);
+  } catch {
+    formattedErrors = formatZodErrorsLocal(error);
+    firstError = getFirstErrorLocal(error);
+  }
+
+  const message = errorPrefix
+    ? `${errorPrefix}: ${firstError}`
+    : defaultPrefix
+      ? `${defaultPrefix}: ${firstError}`
+      : firstError;
+
+  return {
+    code: errorCode,
+    message,
+    ...(includeFieldErrors && { fields: formattedErrors }),
+  };
+}
+
 // ============================================================================
 // VALIDATION MIDDLEWARE
 // ============================================================================
@@ -124,37 +163,17 @@ export function validateBody<T extends z.ZodSchema>(
   schema: T,
   options: ValidationOptions = {}
 ) {
-  const { stripUnknown = true, errorPrefix, includeFieldErrors = true } = options;
+  const { errorPrefix, includeFieldErrors = true } = options;
 
   return (req: Request, res: Response, next: NextFunction): void | Response => {
-    const parseSchema = stripUnknown ? schema : schema;
-    const result = parseSchema.safeParse(req.body);
+    const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      // Try to use imported formatters, fall back to local ones
-      let formattedErrors: Record<string, string[]>;
-      let firstError: string;
-
-      try {
-        formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstErrorUtil(result.error);
-      } catch {
-        formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
-      }
-
-      const message = errorPrefix
-        ? `${errorPrefix}: ${firstError}`
-        : firstError;
-
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message,
-          ...(includeFieldErrors && { fields: formattedErrors }),
-        },
+      const error = formatValidationResponse(result.error, {
+        errorPrefix,
+        includeFieldErrors,
       });
+      return res.status(400).json({ success: false, error });
     }
 
     (req as ValidatedRequest<z.infer<T>>).validatedBody = result.data;
@@ -169,36 +188,19 @@ export function validateQuery<T extends z.ZodSchema>(
   schema: T,
   options: ValidationOptions = {}
 ) {
-  const { stripUnknown = true, errorPrefix, includeFieldErrors = true } = options;
+  const { errorPrefix, includeFieldErrors = true } = options;
 
   return (req: Request, res: Response, next: NextFunction): void | Response => {
-    const parseSchema = stripUnknown ? schema : schema;
-    const result = parseSchema.safeParse(req.query);
+    const result = schema.safeParse(req.query);
 
     if (!result.success) {
-      let formattedErrors: Record<string, string[]>;
-      let firstError: string;
-
-      try {
-        formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstErrorUtil(result.error);
-      } catch {
-        formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
-      }
-
-      const message = errorPrefix
-        ? `${errorPrefix}: ${firstError}`
-        : `Invalid query parameters: ${firstError}`;
-
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_QUERY',
-          message,
-          ...(includeFieldErrors && { fields: formattedErrors }),
-        },
+      const error = formatValidationResponse(result.error, {
+        errorPrefix,
+        defaultPrefix: 'Invalid query parameters',
+        includeFieldErrors,
+        errorCode: 'INVALID_QUERY',
       });
+      return res.status(400).json({ success: false, error });
     }
 
     (req as ValidatedRequest<unknown, z.infer<T>>).validatedQuery = result.data;
@@ -213,36 +215,19 @@ export function validateParams<T extends z.ZodSchema>(
   schema: T,
   options: ValidationOptions = {}
 ) {
-  const { stripUnknown = true, errorPrefix, includeFieldErrors = true } = options;
+  const { errorPrefix, includeFieldErrors = true } = options;
 
   return (req: Request, res: Response, next: NextFunction): void | Response => {
-    const parseSchema = stripUnknown ? schema : schema;
-    const result = parseSchema.safeParse(req.params);
+    const result = schema.safeParse(req.params);
 
     if (!result.success) {
-      let formattedErrors: Record<string, string[]>;
-      let firstError: string;
-
-      try {
-        formattedErrors = formatZodErrors(result.error);
-        firstError = getFirstErrorUtil(result.error);
-      } catch {
-        formattedErrors = formatZodErrorsLocal(result.error);
-        firstError = getFirstErrorLocal(result.error);
-      }
-
-      const message = errorPrefix
-        ? `${errorPrefix}: ${firstError}`
-        : `Invalid URL parameters: ${firstError}`;
-
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_PARAMS',
-          message,
-          ...(includeFieldErrors && { fields: formattedErrors }),
-        },
+      const error = formatValidationResponse(result.error, {
+        errorPrefix,
+        defaultPrefix: 'Invalid URL parameters',
+        includeFieldErrors,
+        errorCode: 'INVALID_PARAMS',
       });
+      return res.status(400).json({ success: false, error });
     }
 
     (req as ValidatedRequest<unknown, unknown, z.infer<T>>).validatedParams = result.data;
