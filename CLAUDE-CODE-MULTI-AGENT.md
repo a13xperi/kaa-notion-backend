@@ -2,6 +2,21 @@
 
 > **Add this file to your repository root. Each Claude Code instance reads this at session start.**
 
+## Prerequisites (One-Time Setup)
+
+Before using multi-agent coordination, ensure the `integration` branch exists:
+
+```bash
+# Create integration branch from your default branch
+git fetch origin portal-auth-upload
+git checkout -b integration origin/portal-auth-upload
+git push -u origin integration
+```
+
+Or via GitHub UI: Create branch `integration` from `portal-auth-upload`.
+
+---
+
 ## Agent Identity
 
 When starting a session, the human operator assigns you an agent number:
