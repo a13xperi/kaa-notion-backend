@@ -48,19 +48,40 @@ function sanitizeString(value: string): string {
 }
 
 /**
- * Sanitize value recursively
+ * Fields that should be excluded from HTML encoding
+ * These fields contain sensitive data that should not be modified
  */
-function sanitizeValue(value: unknown): unknown {
+const EXCLUDED_FIELDS = new Set([
+  'password',
+  'currentPassword',
+  'newPassword',
+  'confirmPassword',
+  'passwordConfirm',
+  'oldPassword',
+]);
+
+/**
+ * Sanitize value recursively
+ * @param value - The value to sanitize
+ * @param fieldName - Optional field name to check for exclusions
+ */
+function sanitizeValue(value: unknown, fieldName?: string): unknown {
   if (value === null || value === undefined) {
     return value;
   }
 
   if (typeof value === 'string') {
+    // Skip HTML encoding for password fields to preserve special characters
+    // These fields are validated separately and never rendered as HTML
+    if (fieldName && EXCLUDED_FIELDS.has(fieldName)) {
+      // Still remove null bytes for security
+      return value.replace(/\0/g, '');
+    }
     return sanitizeString(value);
   }
 
   if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
+    return value.map((item) => sanitizeValue(item));
   }
 
   if (typeof value === 'object') {
@@ -68,7 +89,8 @@ function sanitizeValue(value: unknown): unknown {
     for (const [key, val] of Object.entries(value)) {
       // Sanitize keys too
       const sanitizedKey = sanitizeString(key);
-      sanitized[sanitizedKey] = sanitizeValue(val);
+      // Pass the field name to check for exclusions
+      sanitized[sanitizedKey] = sanitizeValue(val, key);
     }
     return sanitized;
   }
@@ -95,9 +117,18 @@ function hasSQLPatterns(value: string): boolean {
  */
 function checkForMaliciousInput(
   obj: unknown,
-  path: string = ''
+  path: string = '',
+  skipFields: Set<string> = EXCLUDED_FIELDS
 ): { xss: string[]; sql: string[] } {
   const issues = { xss: [] as string[], sql: [] as string[] };
+
+  // Extract field name from path (e.g., "body.password" -> "password")
+  const fieldName = path.split('.').pop() || '';
+
+  // Skip password fields - they may contain special characters that look like XSS
+  if (skipFields.has(fieldName)) {
+    return issues;
+  }
 
   if (typeof obj === 'string') {
     if (hasXSSPatterns(obj)) {
@@ -108,14 +139,14 @@ function checkForMaliciousInput(
     }
   } else if (Array.isArray(obj)) {
     obj.forEach((item, index) => {
-      const childIssues = checkForMaliciousInput(item, `${path}[${index}]`);
+      const childIssues = checkForMaliciousInput(item, `${path}[${index}]`, skipFields);
       issues.xss.push(...childIssues.xss);
       issues.sql.push(...childIssues.sql);
     });
   } else if (obj && typeof obj === 'object') {
     for (const [key, value] of Object.entries(obj)) {
       const childPath = path ? `${path}.${key}` : key;
-      const childIssues = checkForMaliciousInput(value, childPath);
+      const childIssues = checkForMaliciousInput(value, childPath, skipFields);
       issues.xss.push(...childIssues.xss);
       issues.sql.push(...childIssues.sql);
     }

@@ -133,6 +133,9 @@ export function validateEnvironment(): ValidationResult {
     if (!config.FRONTEND_URL) {
       warnings.push('FRONTEND_URL not set - email links may not work correctly');
     }
+    if (!config.CORS_ORIGINS && !config.FRONTEND_URL) {
+      warnings.push('Neither CORS_ORIGINS nor FRONTEND_URL set - CORS may block legitimate requests');
+    }
   }
 
   // Development warnings

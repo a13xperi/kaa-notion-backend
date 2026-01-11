@@ -16,6 +16,7 @@ import { AuthenticatedRequest } from './projects';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
+import { requireAuth, requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
