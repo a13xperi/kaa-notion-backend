@@ -5,8 +5,7 @@
  * Whitelists production domains and handles preflight requests.
  */
 
-import cors, { CorsOptions, CorsOptionsDelegate } from 'cors';
-import { Request } from 'express';
+import cors, { CorsOptions, CorsOptionsDelegate, CorsRequest } from 'cors';
 
 // Allowed origins from environment or defaults
 // Use CORS_ORIGINS if set, otherwise fall back to FRONTEND_URL
@@ -66,10 +65,10 @@ function isOriginAllowed(origin: string | undefined): boolean {
  * Dynamic CORS options based on request origin
  */
 const corsOptionsDelegate: CorsOptionsDelegate = (
-  req: Request,
+  req: CorsRequest,
   callback: (err: Error | null, options?: CorsOptions) => void
 ) => {
-  const origin = req.header('Origin');
+  const origin = req.headers?.origin as string | undefined;
   const allowed = isOriginAllowed(origin);
 
   const corsOptions: CorsOptions = {

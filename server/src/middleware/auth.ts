@@ -602,7 +602,7 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string
 
       next();
     } catch (error) {
-      logger.error('Error checking resource ownership', { error, resourceId, resourceType });
+      logger.error('Error checking resource ownership', { error });
       return res.status(500).json({
         success: false,
         error: {

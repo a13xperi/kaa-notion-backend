@@ -59,6 +59,7 @@ export {
   errorHandler,
   notFoundHandler,
   asyncHandler,
+  authHandler,
 } from './errorHandler';
 
 // Rate Limiting
