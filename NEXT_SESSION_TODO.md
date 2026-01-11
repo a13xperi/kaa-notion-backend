@@ -54,9 +54,22 @@ This document outlines the work to be done in the next Claude Code session after
 - [x] Fixed push.ts: Use authenticate middleware instead of requireAuth
 - [x] Fixed revisions.ts: Changed ZodError `.errors` to `.issues`
 
+### Batch 3 (Session 3):
+- [x] Fixed referralRoutes.ts: Completely rewrote to match referralService API
+  - Changed imports from `authMiddleware` to `../middleware/auth`
+  - Mapped old function calls to correct service methods
+  - Removed non-existent functions (getAvailableCredits, getCreditHistory, etc.)
+- [x] Fixed portfolioRoutes.ts: Updated to match portfolioService API
+  - Fixed import from `authMiddleware` to `../middleware`
+  - Changed query params: `category/style` → `tag/projectType`
+  - Changed `/categories` route to `/tags` using `getPortfolioTags()`
+  - Added `/project-types` route using `getProjectTypes()`
+  - Fixed `setFeatured(id, featured)` → `toggleFeatured(id)`
+  - Fixed published check to use service's `publishedOnly` parameter
+
 **Build Status:**
 - Build still has errors due to Prisma client not being generated (network blocked)
-- Remaining errors are mostly Prisma-related types or API mismatches in referralRoutes/portfolioRoutes
+- Remaining errors are all Prisma-related (implicit `any` types from query results)
 - Build will succeed once `npx prisma generate` runs successfully
 
 ---

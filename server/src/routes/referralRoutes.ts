@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth } from '../middleware/authMiddleware';
+import { authenticate } from '../middleware/auth';
 import * as referralService from '../services/referralService';
 import { PrismaClient } from '@prisma/client';
 
@@ -19,21 +19,19 @@ const prisma = new PrismaClient();
  * GET /api/referrals/code
  * Get or generate referral code for current user
  */
-router.get('/code', requireAuth, async (req: Request, res: Response) => {
+router.get('/code', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
+    // Try to get existing code first
+    let codeRecord = await referralService.getUserReferralCode(user.id);
 
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+    // If no code exists, create one
+    if (!codeRecord) {
+      codeRecord = await referralService.createReferralCode(user.id);
     }
 
-    const code = await referralService.generateReferralCode(client.id);
-    res.json({ code });
+    res.json({ code: codeRecord?.code || null });
   } catch (error: any) {
     console.error('Error getting referral code:', error);
     res.status(400).json({ error: error.message || 'Failed to get referral code' });
@@ -47,15 +45,21 @@ router.get('/code', requireAuth, async (req: Request, res: Response) => {
 router.get('/validate/:code', async (req: Request, res: Response) => {
   try {
     const { code } = req.params;
-    const client = await referralService.getClientByReferralCode(code);
+    const codeRecord = await referralService.getReferralCode(code);
 
-    if (!client) {
+    if (!codeRecord || !codeRecord.isActive) {
       return res.status(404).json({ error: 'Invalid referral code' });
     }
 
+    // Get the user who owns this code
+    const user = await prisma.user.findUnique({
+      where: { id: codeRecord.userId },
+      select: { name: true },
+    });
+
     res.json({
       valid: true,
-      referrerName: client.user.name || 'A KAA client',
+      referrerName: user?.name || 'A KAA client',
     });
   } catch (error) {
     console.error('Error validating referral code:', error);
@@ -69,31 +73,22 @@ router.get('/validate/:code', async (req: Request, res: Response) => {
 
 /**
  * POST /api/referrals
- * Create a new referral
+ * Create a new referral (apply a referral code)
  */
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const { referralCode, email, name } = req.body;
 
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
+    if (!referralCode || !email) {
+      return res.status(400).json({ error: 'Referral code and email are required' });
     }
 
-    const { email, name } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    const referral = await referralService.createReferral({
-      referrerClientId: client.id,
+    const referral = await referralService.applyReferral({
+      referralCode,
       referredEmail: email,
       referredName: name,
+      referredUserId: user.id,
     });
 
     res.status(201).json(referral);
@@ -105,24 +100,14 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/referrals
- * Get all referrals for current user
+ * Get all referrals for current user (as referrer)
  */
-router.get('/', requireAuth, async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-
     const { status, page, limit } = req.query;
 
-    const referrals = await referralService.getClientReferrals(client.id, {
+    const referrals = await referralService.getReferralsByReferrer(user.id, {
       status: status as any,
       page: page ? parseInt(page as string, 10) : undefined,
       limit: limit ? parseInt(limit as string, 10) : undefined,
@@ -139,10 +124,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
  * GET /api/referrals/:id
  * Get a specific referral
  */
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const referral = await referralService.getReferralById(id);
+    const referral = await referralService.getReferral(id);
 
     if (!referral) {
       return res.status(404).json({ error: 'Referral not found' });
@@ -156,62 +141,27 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // ============================================
-// REFERRAL CREDITS
+// REFERRAL REWARDS
 // ============================================
 
 /**
- * GET /api/referrals/credits/balance
- * Get available credit balance
+ * GET /api/referrals/rewards
+ * Get rewards for current user
  */
-router.get('/credits/balance', requireAuth, async (req: Request, res: Response) => {
+router.get('/rewards', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const { status } = req.query;
 
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
+    const rewards = await referralService.getRewardsByUser(
+      user.id,
+      status as any
+    );
 
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-
-    const balance = await referralService.getAvailableCredits(client.id);
-    res.json({ balance });
+    res.json(rewards);
   } catch (error) {
-    console.error('Error fetching credit balance:', error);
-    res.status(500).json({ error: 'Failed to fetch credit balance' });
-  }
-});
-
-/**
- * GET /api/referrals/credits/history
- * Get credit history
- */
-router.get('/credits/history', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-
-    const { page, limit } = req.query;
-
-    const history = await referralService.getCreditHistory(client.id, {
-      page: page ? parseInt(page as string, 10) : undefined,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-    });
-
-    res.json(history);
-  } catch (error) {
-    console.error('Error fetching credit history:', error);
-    res.status(500).json({ error: 'Failed to fetch credit history' });
+    console.error('Error fetching rewards:', error);
+    res.status(500).json({ error: 'Failed to fetch rewards' });
   }
 });
 
@@ -223,20 +173,10 @@ router.get('/credits/history', requireAuth, async (req: Request, res: Response) 
  * GET /api/referrals/stats
  * Get referral statistics for current user
  */
-router.get('/stats', requireAuth, async (req: Request, res: Response) => {
+router.get('/stats', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-
-    // Get client
-    const client = await prisma.client.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-
-    const stats = await referralService.getReferralStats(client.id);
+    const stats = await referralService.getUserReferralStats(user.id);
     res.json(stats);
   } catch (error) {
     console.error('Error fetching referral stats:', error);
@@ -245,19 +185,22 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/referrals/leaderboard
- * Get referral leaderboard (public)
+ * GET /api/referrals/stats/global
+ * Get global referral statistics (admin only)
  */
-router.get('/leaderboard', async (req: Request, res: Response) => {
+router.get('/stats/global', authenticate, async (req: Request, res: Response) => {
   try {
-    const { limit } = req.query;
-    const leaderboard = await referralService.getReferralLeaderboard(
-      limit ? parseInt(limit as string, 10) : 10
-    );
-    res.json(leaderboard);
+    const user = (req as any).user;
+
+    if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const stats = referralService.getReferralStats();
+    res.json(stats);
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
-    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    console.error('Error fetching global stats:', error);
+    res.status(500).json({ error: 'Failed to fetch global statistics' });
   }
 });
 
@@ -266,40 +209,87 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
 // ============================================
 
 /**
- * POST /api/referrals/expire
- * Expire old pending referrals (admin only, can be called by cron)
+ * POST /api/referrals/:id/approve
+ * Approve a referral reward (admin only)
  */
-router.post('/expire', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/approve', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
-    if (user.role !== 'ADMIN') {
+    if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const expiredCount = await referralService.expireReferrals();
-    res.json({ expiredCount });
+    const { id } = req.params;
+    const reward = await referralService.approveReward(id);
+
+    if (!reward) {
+      return res.status(404).json({ error: 'Reward not found' });
+    }
+
+    res.json(reward);
   } catch (error) {
-    console.error('Error expiring referrals:', error);
-    res.status(500).json({ error: 'Failed to expire referrals' });
+    console.error('Error approving reward:', error);
+    res.status(500).json({ error: 'Failed to approve reward' });
   }
 });
 
 /**
- * GET /api/referrals/config
- * Get referral program configuration
+ * POST /api/referrals/:id/mark-paid
+ * Mark a reward as paid (admin only)
  */
-router.get('/config', async (req: Request, res: Response) => {
+router.post('/:id/mark-paid', authenticate, async (req: Request, res: Response) => {
   try {
-    res.json({
-      referrerReward: referralService.REFERRAL_CONFIG.REFERRER_CREDIT_AMOUNT,
-      referredReward: referralService.REFERRAL_CONFIG.REFERRED_CREDIT_AMOUNT,
-      minProjectValue: referralService.REFERRAL_CONFIG.MIN_PROJECT_VALUE,
-      expiryDays: referralService.REFERRAL_CONFIG.REFERRAL_EXPIRY_DAYS,
+    const user = (req as any).user;
+
+    if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { id } = req.params;
+    const { paymentMethod, paymentReference } = req.body;
+
+    const reward = await referralService.markRewardPaid(id, {
+      paymentMethod,
+      paymentReference,
     });
+
+    if (!reward) {
+      return res.status(404).json({ error: 'Reward not found' });
+    }
+
+    res.json(reward);
   } catch (error) {
-    console.error('Error fetching config:', error);
-    res.status(500).json({ error: 'Failed to fetch configuration' });
+    console.error('Error marking reward paid:', error);
+    res.status(500).json({ error: 'Failed to mark reward as paid' });
+  }
+});
+
+/**
+ * POST /api/referrals/:id/cancel
+ * Cancel a reward (admin only)
+ */
+router.post('/:id/cancel', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+
+    if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const reward = await referralService.cancelReward(id, reason);
+
+    if (!reward) {
+      return res.status(404).json({ error: 'Reward not found' });
+    }
+
+    res.json(reward);
+  } catch (error) {
+    console.error('Error cancelling reward:', error);
+    res.status(500).json({ error: 'Failed to cancel reward' });
   }
 });
 
