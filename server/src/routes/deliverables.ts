@@ -6,6 +6,7 @@
  * Routes:
  * - GET /api/projects/:projectId/deliverables - Get all deliverables for a project
  * - POST /api/projects/:projectId/deliverables - Upload a new deliverable (admin only)
+ * - POST /api/projects/:projectId/deliverables/batch-download - Get signed download URLs for multiple deliverables
  * - GET /api/deliverables/:id - Get single deliverable details
  * - GET /api/deliverables/:id/download - Get signed download URL
  * - DELETE /api/deliverables/:id - Delete deliverable (admin only)
@@ -97,6 +98,19 @@ interface SignedUrlResponse {
     expiresAt: Date;
     fileType: string;
     fileSize: number;
+  };
+}
+
+interface BatchDownloadRequest {
+  deliverableIds?: string[];
+}
+
+interface BatchDownloadResponse {
+  success: boolean;
+  data: {
+    projectId: string;
+    downloadCount: number;
+    deliverables: SignedUrlResponse['data'][];
   };
 }
 
@@ -394,6 +408,112 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
         });
       } catch (error) {
         next(internalError('Failed to upload deliverable', error as Error));
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/projects/:projectId/deliverables/batch-download - Get signed download URLs
+  // -------------------------------------------------------------------------
+  router.post(
+    '/projects/:projectId/deliverables/batch-download',
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { projectId } = req.params;
+        const user = req.user!;
+        const body = req.body as BatchDownloadRequest;
+        const deliverableIds = body?.deliverableIds?.filter(Boolean) ?? [];
+
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          include: {
+            deliverables: {
+              where: deliverableIds.length ? { id: { in: deliverableIds } } : undefined,
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+
+        if (!project) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Project not found',
+            },
+          });
+        }
+
+        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+          if (project.clientId !== user.clientId) {
+            return res.status(403).json({
+              success: false,
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Access denied to this project',
+              },
+            });
+          }
+        }
+
+        if (deliverableIds.length && project.deliverables.length !== deliverableIds.length) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'One or more deliverables were not found for this project',
+            },
+          });
+        }
+
+        if (project.deliverables.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'NO_DELIVERABLES',
+              message: 'No deliverables available for batch download',
+            },
+          });
+        }
+
+        const deliverables = project.deliverables.map((deliverable) => {
+          const { url, expiresAt } = generateSignedUrl(deliverable.fileUrl, 60);
+          return {
+            id: deliverable.id,
+            name: deliverable.name,
+            downloadUrl: url,
+            expiresAt,
+            fileType: deliverable.fileType,
+            fileSize: deliverable.fileSize,
+          };
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'deliverable_batch_download',
+            resourceType: 'project',
+            resourceId: projectId,
+            details: JSON.stringify({
+              deliverableIds: deliverables.map((item) => item.id),
+              downloadCount: deliverables.length,
+            }),
+          },
+        });
+
+        const response: BatchDownloadResponse = {
+          success: true,
+          data: {
+            projectId,
+            downloadCount: deliverables.length,
+            deliverables,
+          },
+        };
+
+        res.json(response);
+      } catch (error) {
+        next(internalError('Failed to generate batch download URLs', error as Error));
       }
     }
   );
