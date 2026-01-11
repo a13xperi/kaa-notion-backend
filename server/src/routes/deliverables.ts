@@ -18,6 +18,12 @@ import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
 import { requireAuth, requireAdmin } from '../middleware';
+import { requireStorageService } from '../middleware/featureFlagGuard';
+import { StorageService } from '../services/storageService';
+
+interface StorageServiceRequest extends AuthenticatedRequest {
+  storageService?: StorageService;
+}
 
 // ============================================================================
 // TYPES
@@ -196,6 +202,38 @@ function toDeliverableDetail(deliverable: {
       email: deliverable.uploadedBy.email,
     },
   };
+}
+
+async function deleteStorageFileWithRetry(
+  storageService: StorageService,
+  filePath: string,
+  correlationId?: string,
+  maxAttempts: number = 2
+): Promise<{ success: boolean; error?: string }> {
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = await storageService.deleteFile(filePath);
+
+    if (result.success) {
+      return result;
+    }
+
+    lastError = result.error ?? 'Unknown storage delete error';
+    logger.warn('Storage delete attempt failed', {
+      attempt,
+      maxAttempts,
+      filePath,
+      correlationId,
+      error: lastError,
+    });
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+
+  return { success: false, error: lastError ?? 'Unknown storage delete error' };
 }
 
 // ============================================================================
@@ -560,6 +598,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
     '/deliverables/:id',
     requireAuth,
     requireAdmin,
+    requireStorageService,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
@@ -586,13 +625,34 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
           });
         }
 
+        // Delete from storage first to avoid orphaned files
+        const storageService = (req as StorageServiceRequest).storageService as StorageService;
+        const deleteResult = await deleteStorageFileWithRetry(
+          storageService,
+          deliverable.filePath,
+          req.correlationId
+        );
+
+        if (!deleteResult.success) {
+          logger.error('Storage delete failed', {
+            error: deleteResult.error,
+            correlationId: req.correlationId,
+            filePath: deliverable.filePath,
+            deliverableId: id,
+          });
+          return res.status(502).json({
+            success: false,
+            error: {
+              code: 'STORAGE_DELETE_FAILED',
+              message: 'Failed to delete deliverable file from storage',
+            },
+          });
+        }
+
         // Delete from database
         await prisma.deliverable.delete({
           where: { id },
         });
-
-        // TODO: Delete file from Supabase Storage
-        // await supabase.storage.from('deliverables').remove([deliverable.filePath]);
 
         // Log the deletion
         await prisma.auditLog.create({
