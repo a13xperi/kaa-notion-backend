@@ -6,6 +6,15 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, User, UserType } from '@prisma/client';
+import { logger } from '../config/logger';
+import {
+  invalidToken,
+  tokenExpired,
+  conflict,
+  unauthorized,
+  notFound,
+  ErrorCodes,
+} from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -118,21 +127,21 @@ export function generateRefreshToken(payload: Omit<TokenPayload, 'type'>): strin
 export function verifyToken(token: string, expectedType: 'access' | 'refresh' = 'access'): TokenPayload {
   try {
     const payload = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
-    
+
     // Backward compatibility: tokens without type are treated as access tokens
     const tokenType = payload.type || 'access';
-    
+
     if (tokenType !== expectedType) {
-      throw new Error(`Invalid token type: expected ${expectedType}`);
+      throw invalidToken(`Invalid token type: expected ${expectedType}`);
     }
-    
+
     return payload;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Token has expired');
+      throw tokenExpired();
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token');
+      throw invalidToken();
     }
     throw error;
   }
@@ -167,7 +176,7 @@ export async function registerUser(
   });
 
   if (existingUser) {
-    throw new Error('User with this email already exists');
+    throw conflict('User with this email already exists', ErrorCodes.DUPLICATE_EMAIL);
   }
 
   // Hash password
@@ -224,13 +233,13 @@ export async function loginUser(
   });
 
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw unauthorized('Invalid email or password', ErrorCodes.INVALID_CREDENTIALS);
   }
 
   // Verify password
   const isValid = await comparePassword(input.password, user.passwordHash);
   if (!isValid) {
-    throw new Error('Invalid email or password');
+    throw unauthorized('Invalid email or password', ErrorCodes.INVALID_CREDENTIALS);
   }
 
   // Generate tokens - user found by email so it exists
@@ -315,7 +324,7 @@ export async function getUserProfile(
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw notFound('User');
   }
 
   return {
@@ -359,7 +368,7 @@ export async function refreshAccessToken(
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw notFound('User');
   }
 
   // Generate new tokens

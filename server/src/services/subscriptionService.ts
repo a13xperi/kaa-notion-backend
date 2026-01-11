@@ -6,6 +6,13 @@
 import { Subscription, SubscriptionStatus } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { stripe, isStripeEnabled, requireStripe } from '../utils/stripe';
+import { logger } from '../config/logger';
+import {
+  notFound,
+  badRequest,
+  conflict,
+  ErrorCodes,
+} from '../utils/AppError';
 
 // ============================================
 // TYPES
@@ -88,7 +95,7 @@ export async function getOrCreateStripeCustomer(clientId: string): Promise<strin
   });
 
   if (!client) {
-    throw new Error('Client not found');
+    throw notFound('Client');
   }
 
   // Return existing customer ID if available
@@ -143,7 +150,7 @@ export async function createSubscription(
   // Check tier is valid
   const tierConfig = TIER_PRICING[tier as keyof typeof TIER_PRICING];
   if (!tierConfig) {
-    throw new Error('Invalid tier');
+    throw badRequest('Invalid subscription tier', ErrorCodes.INVALID_INPUT, { tier });
   }
 
   // Get or create Stripe customer
@@ -160,7 +167,7 @@ export async function createSubscription(
   });
 
   if (existingSub && existingSub.status === 'ACTIVE') {
-    throw new Error('Client already has an active subscription');
+    throw conflict('Client already has an active subscription', ErrorCodes.ALREADY_EXISTS);
   }
 
   // Free tier - create without Stripe subscription
@@ -268,12 +275,12 @@ export async function updateSubscriptionTier(
   });
 
   if (!subscription) {
-    throw new Error('Subscription not found');
+    throw notFound('Subscription');
   }
 
   const tierConfig = TIER_PRICING[newTier as keyof typeof TIER_PRICING];
   if (!tierConfig) {
-    throw new Error('Invalid tier');
+    throw badRequest('Invalid subscription tier', ErrorCodes.INVALID_INPUT, { tier: newTier });
   }
 
   // If downgrading to free tier
@@ -343,7 +350,7 @@ export async function cancelSubscription(
   });
 
   if (!subscription) {
-    throw new Error('Subscription not found');
+    throw notFound('Subscription');
   }
 
   if (subscription.stripeSubscriptionId) {
@@ -375,11 +382,11 @@ export async function resumeSubscription(clientId: string): Promise<Subscription
   });
 
   if (!subscription) {
-    throw new Error('Subscription not found');
+    throw notFound('Subscription');
   }
 
   if (!subscription.cancelAtPeriodEnd) {
-    throw new Error('Subscription is not scheduled for cancellation');
+    throw badRequest('Subscription is not scheduled for cancellation', ErrorCodes.INVALID_STATE);
   }
 
   if (subscription.stripeSubscriptionId) {
@@ -412,7 +419,7 @@ export async function createBillingPortalSession(
   });
 
   if (!subscription?.stripeCustomerId) {
-    throw new Error('No Stripe customer found');
+    throw notFound('Stripe customer');
   }
 
   const session = await stripe.billingPortal.sessions.create({
@@ -434,7 +441,7 @@ export async function createCheckoutSession(
 ): Promise<string> {
   const tierConfig = TIER_PRICING[tier as keyof typeof TIER_PRICING];
   if (!tierConfig || !tierConfig.stripePriceIdMonthly) {
-    throw new Error('Invalid tier or tier does not support checkout');
+    throw badRequest('Invalid tier or tier does not support checkout', ErrorCodes.INVALID_INPUT, { tier });
   }
 
   const stripeCustomerId = await getOrCreateStripeCustomer(clientId);
@@ -488,7 +495,7 @@ export async function handleStripeWebhook(
       break;
 
     default:
-      console.log(`Unhandled Stripe event type: ${event.type}`);
+      logger.debug('Unhandled Stripe event type', { eventType: event.type });
   }
 }
 

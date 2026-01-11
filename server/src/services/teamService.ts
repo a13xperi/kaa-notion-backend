@@ -6,6 +6,7 @@
 import { TeamRole, TeamMember, User } from '@prisma/client';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
+import { notFound, conflict, forbidden, badRequest, ErrorCodes } from '../utils/AppError';
 
 // ============================================
 // TYPES
@@ -144,7 +145,7 @@ export async function inviteTeamMember(
     });
 
     if (existingMember) {
-      throw new Error('User is already a team member');
+      throw conflict('User is already a team member', ErrorCodes.ALREADY_EXISTS);
     }
   } else {
     // Create new user with temporary password
@@ -190,11 +191,11 @@ export async function acceptInvite(
   });
 
   if (!teamMember) {
-    throw new Error('Team member not found');
+    throw notFound('Team member');
   }
 
   if (teamMember.acceptedAt) {
-    throw new Error('Invitation already accepted');
+    throw conflict('Invitation has already been accepted', ErrorCodes.ALREADY_EXISTS);
   }
 
   // Update user password
@@ -226,7 +227,7 @@ export async function updateTeamMemberRole(
   // Check if updater has permission
   const updater = await getTeamMemberByUserId(updatedById);
   if (!updater || !hasPermission(updater.role, 'manage_team')) {
-    throw new Error('Insufficient permissions to update team roles');
+    throw forbidden('Insufficient permissions to update team roles');
   }
 
   // Cannot change owner role
@@ -235,7 +236,7 @@ export async function updateTeamMemberRole(
   });
 
   if (member?.role === 'OWNER') {
-    throw new Error('Cannot change the role of the owner');
+    throw forbidden('Cannot change the role of the owner');
   }
 
   return prisma.teamMember.update({
@@ -254,7 +255,7 @@ export async function removeTeamMember(
   // Check if remover has permission
   const remover = await getTeamMemberByUserId(removedById);
   if (!remover || !hasPermission(remover.role, 'manage_team')) {
-    throw new Error('Insufficient permissions to remove team members');
+    throw forbidden('Insufficient permissions to remove team members');
   }
 
   const member = await prisma.teamMember.findUnique({
@@ -262,11 +263,11 @@ export async function removeTeamMember(
   });
 
   if (!member) {
-    throw new Error('Team member not found');
+    throw notFound('Team member');
   }
 
   if (member.role === 'OWNER') {
-    throw new Error('Cannot remove the owner');
+    throw forbidden('Cannot remove the owner');
   }
 
   // Soft delete - mark as inactive
@@ -308,7 +309,7 @@ export async function assignToProject(
   });
 
   if (!teamMember || !teamMember.isActive) {
-    throw new Error('User is not an active team member');
+    throw badRequest('User is not an active team member', ErrorCodes.INVALID_STATE);
   }
 
   await prisma.projectAssignment.upsert({
