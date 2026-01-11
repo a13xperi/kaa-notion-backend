@@ -762,6 +762,31 @@ interface QueryMetrics {
 const queryMetrics = new Map<string, QueryMetrics>();
 const SLOW_QUERY_THRESHOLD_MS = 1000;
 
+// Maximum number of unique query names to track to prevent unbounded growth
+const MAX_QUERY_METRICS_ENTRIES = 1000;
+
+/**
+ * Evict least frequently used metrics when at capacity
+ */
+function evictLeastUsedMetrics(): void {
+  if (queryMetrics.size <= MAX_QUERY_METRICS_ENTRIES) return;
+
+  // Find the entry with lowest count (least used)
+  let minCount = Infinity;
+  let minKey: string | null = null;
+
+  for (const [key, metrics] of queryMetrics) {
+    if (metrics.count < minCount) {
+      minCount = metrics.count;
+      minKey = key;
+    }
+  }
+
+  if (minKey) {
+    queryMetrics.delete(minKey);
+  }
+}
+
 /**
  * Track query performance
  */
@@ -779,6 +804,11 @@ export function trackQuery(queryName: string, durationMs: number): void {
   if (durationMs > SLOW_QUERY_THRESHOLD_MS) {
     existing.slowQueries++;
     logger.warn('Slow query detected', { queryName, durationMs });
+  }
+
+  // Evict if adding new entry and at capacity
+  if (!queryMetrics.has(queryName)) {
+    evictLeastUsedMetrics();
   }
 
   queryMetrics.set(queryName, existing);

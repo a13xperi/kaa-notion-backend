@@ -31,8 +31,11 @@ interface RateLimitStore {
 }
 
 // ============================================================================
-// IN-MEMORY STORES
+// IN-MEMORY STORES (with bounded size)
 // ============================================================================
+
+// Maximum entries per store to prevent memory leaks
+const MAX_STORE_ENTRIES = parseInt(process.env.RATE_LIMIT_MAX_STORE_ENTRIES || '10000');
 
 // Global memory store for fallback
 const memoryStore = new Map<string, { count: number; resetAt: number }>();
@@ -46,6 +49,47 @@ function getStore(name: string): Map<string, RateLimitStore> {
   }
   return stores.get(name)!;
 }
+
+/**
+ * Cleanup expired entries from a store
+ */
+function cleanupStore(store: Map<string, { count: number; resetAt: number } | RateLimitStore>): void {
+  const now = Date.now();
+  for (const [key, entry] of store) {
+    if (entry.resetAt <= now) {
+      store.delete(key);
+    }
+  }
+}
+
+/**
+ * Evict oldest entries when store exceeds max size
+ */
+function evictOldestIfNeeded(store: Map<string, { count: number; resetAt: number } | RateLimitStore>): void {
+  if (store.size <= MAX_STORE_ENTRIES) return;
+
+  // First try to cleanup expired entries
+  cleanupStore(store);
+
+  // If still over limit, evict oldest entries (Map maintains insertion order)
+  if (store.size > MAX_STORE_ENTRIES) {
+    const entriesToRemove = store.size - MAX_STORE_ENTRIES;
+    const iterator = store.keys();
+    for (let i = 0; i < entriesToRemove; i++) {
+      const key = iterator.next().value;
+      if (key) store.delete(key);
+    }
+  }
+}
+
+// Periodic cleanup every 5 minutes
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+setInterval(() => {
+  cleanupStore(memoryStore);
+  for (const store of stores.values()) {
+    cleanupStore(store);
+  }
+}, CLEANUP_INTERVAL_MS);
 
 // ============================================================================
 // DEFAULT OPTIONS
@@ -97,6 +141,8 @@ function memoryRateLimit(
   const current = memoryStore.get(key);
 
   if (!current) {
+    // Evict old entries if store is at capacity before adding new entry
+    evictOldestIfNeeded(memoryStore);
     memoryStore.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
   }
