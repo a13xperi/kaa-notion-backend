@@ -32,8 +32,9 @@ This document outlines the work to be done in the next Claude Code session after
 
 ## ✅ COMPLETED: TypeScript Fixes (Session 2)
 
-**Implemented in commit `cadcf02`**
+**Commits: `cadcf02`, `5923bc6`**
 
+### Batch 1 (cadcf02):
 - [x] Installed `@types/bcryptjs` for team invite service
 - [x] Fixed admin.ts: Added requireAuth/requireAdmin imports, use authMiddleware pattern
 - [x] Fixed milestones.ts: Added requireAuth/requireAdmin imports, use authMiddleware pattern
@@ -46,9 +47,16 @@ This document outlines the work to be done in the next Claude Code session after
 - [x] Fixed projects.ts: Added NextFunction and AuthenticatedUser imports
 - [x] Fixed push.ts: Fixed imports for pushService and AuthenticatedRequest
 
+### Batch 2 (5923bc6):
+- [x] Fixed sentry.ts: Added addBreadcrumb export function
+- [x] Fixed performance.ts: Fixed addBreadcrumb calls signature, fixed MetricSummary type
+- [x] Fixed notifications.ts: Fixed deleteNotification -> delete method call
+- [x] Fixed push.ts: Use authenticate middleware instead of requireAuth
+- [x] Fixed revisions.ts: Changed ZodError `.errors` to `.issues`
+
 **Build Status:**
 - Build still has errors due to Prisma client not being generated (network blocked)
-- Most remaining errors are Prisma-related (missing types) or implicit any types
+- Remaining errors are mostly Prisma-related types or API mismatches in referralRoutes/portfolioRoutes
 - Build will succeed once `npx prisma generate` runs successfully
 
 ---
@@ -204,6 +212,8 @@ When starting the next session:
 ## Recent Commits
 
 ```
+5923bc6 fix: Additional TypeScript fixes for routes and config
+f6a4b55 docs: Update TODO with TypeScript fixes progress
 cadcf02 fix: Resolve TypeScript errors in routes and middleware
 b84b404 docs: Update TODO with completed implementations
 244097e feat: Implement team invite flow with secure token handling
@@ -219,5 +229,5 @@ fce4a2b docs: Add comprehensive TODO list for next session
 
 ---
 
-*Last updated: 2026-01-11 (Session 2)*
+*Last updated: 2026-01-11 (Session 2 - continued)*
 *Branch: claude/review-merge-issues-34jvV*
