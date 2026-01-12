@@ -50,6 +50,7 @@ import { Milestone, MilestoneSummary } from './types/portal.types';
 // Admin Pages
 import {
   AdminDashboardPage,
+  UsersPage,
   LeadQueuePage,
   ProjectsTablePage,
   ClientsTablePage,
@@ -650,7 +651,19 @@ function App() {
                   </AdminRoute>
                 }
               />
-              
+
+              {/* Users Management */}
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminRoute>
+                    <AppLayout>
+                      <UsersPage />
+                    </AppLayout>
+                  </AdminRoute>
+                }
+              />
+
               {/* Lead Management */}
               <Route
                 path="/admin/leads"

@@ -5,6 +5,7 @@
 export { ProjectsPage, ProjectDetailPage } from './PortalPages';
 export {
   AdminDashboardPage,
+  UsersPage,
   LeadQueuePage,
   ProjectsTablePage,
   ClientsTablePage,

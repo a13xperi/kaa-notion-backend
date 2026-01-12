@@ -33,6 +33,7 @@ const PORTAL_NAV_ITEMS = [
 // Admin navigation items
 const ADMIN_NAV_ITEMS = [
   { icon: '📈', label: 'Dashboard', href: '/admin' },
+  { icon: '👤', label: 'Users', href: '/admin/users' },
   { icon: '📥', label: 'Lead Queue', href: '/admin/leads' },
   { icon: '📋', label: 'Projects', href: '/admin/projects' },
   { icon: '👥', label: 'Clients', href: '/admin/clients' },
