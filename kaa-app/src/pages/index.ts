@@ -3,10 +3,11 @@
  */
 
 export { ProjectsPage, ProjectDetailPage } from './PortalPages';
-export { 
-  AdminDashboardPage, 
-  LeadQueuePage, 
-  ProjectsTablePage, 
+export {
+  AdminDashboardPage,
+  UsersPage,
+  LeadQueuePage,
+  ProjectsTablePage,
   ClientsTablePage,
 } from './AdminPages';
 export { AuthCallbackPage } from './AuthCallbackPage';
