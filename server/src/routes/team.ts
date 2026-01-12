@@ -63,10 +63,11 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     authMiddleware,
     requireAdmin,
     validateBody(createInviteSchema),
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const user = (req as unknown as AuthenticatedRequest).user;
         const { email, role } = req.body as z.infer<typeof createInviteSchema>;
-        const invitedById = req.user!.id;
+        const invitedById = user!.id;
 
         const result = await teamInviteService.createInvite(
           email,
@@ -207,10 +208,11 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     '/invite/:id/resend',
     authMiddleware,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const user = (req as unknown as AuthenticatedRequest).user;
         const { id } = req.params;
-        const invitedById = req.user!.id;
+        const invitedById = user!.id;
 
         const result = await teamInviteService.resendInvite(id, invitedById);
 
@@ -245,10 +247,11 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     '/invite/:id',
     authMiddleware,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const user = (req as unknown as AuthenticatedRequest).user;
         const { id } = req.params;
-        const cancelledById = req.user!.id;
+        const cancelledById = user!.id;
 
         const result = await teamInviteService.cancelInvite(id, cancelledById);
 
@@ -279,7 +282,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     '/invites',
     authMiddleware,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const invites = await teamInviteService.getPendingInvites();
 
@@ -300,7 +303,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     '/members',
     authMiddleware,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const members = await prisma.teamMember.findMany({
           where: {
@@ -356,8 +359,9 @@ export function createTeamRouter(prisma: PrismaClient): Router {
     '/members/:id',
     authMiddleware,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const user = (req as unknown as AuthenticatedRequest).user;
         const { id } = req.params;
         const { role, isActive } = req.body;
 
@@ -396,7 +400,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
         // Create audit log
         await prisma.auditLog.create({
           data: {
-            userId: req.user!.id,
+            userId: user!.id,
             action: 'team_member_updated',
             resourceType: 'team_member',
             resourceId: id,

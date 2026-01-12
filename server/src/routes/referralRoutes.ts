@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import * as referralService from '../services/referralService';
 import { prisma } from '../utils/prisma';
 
@@ -20,14 +20,18 @@ const router = Router();
  */
 router.get('/code', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     // Try to get existing code first
     let codeRecord = await referralService.getUserReferralCode(user.id);
 
     // If no code exists, create one
     if (!codeRecord) {
-      codeRecord = await referralService.createReferralCode(user.id);
+      codeRecord = await referralService.createReferralCode({
+        ownerId: user.id,
+        ownerName: user.name || '',
+        ownerEmail: user.email,
+      });
     }
 
     res.json({ code: codeRecord?.code || null });
@@ -76,7 +80,7 @@ router.get('/validate/:code', async (req: Request, res: Response) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { referralCode, email, name } = req.body;
 
     if (!referralCode || !email) {
@@ -102,7 +106,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { status, page, limit } = req.query;
 
     const pageNum = page ? parseInt(page as string, 10) : 1;
@@ -150,7 +154,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/rewards', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { status } = req.query;
 
     const rewards = await referralService.getRewardsByUser(
@@ -175,7 +179,7 @@ router.get('/rewards', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/stats', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const stats = await referralService.getUserReferralStats(user.id);
     res.json(stats);
   } catch (error) {
@@ -190,7 +194,7 @@ router.get('/stats', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/stats/global', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -214,7 +218,7 @@ router.get('/stats/global', authenticate, async (req: Request, res: Response) =>
  */
 router.post('/:id/approve', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -240,7 +244,7 @@ router.post('/:id/approve', authenticate, async (req: Request, res: Response) =>
  */
 router.post('/:id/mark-paid', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -271,7 +275,7 @@ router.post('/:id/mark-paid', authenticate, async (req: Request, res: Response) 
  */
 router.post('/:id/cancel', authenticate, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
       return res.status(403).json({ error: 'Admin access required' });

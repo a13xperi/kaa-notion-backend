@@ -132,10 +132,10 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       401:
    *         $ref: '#/components/responses/UnauthorizedError'
    */
-  router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = req.query as ListProjectsQuery;
-      const user = req.user!;
+      const user = (req as unknown as AuthenticatedRequest).user!;
 
       // Pagination
       const page = Math.max(1, parseInt(query.page || '1'));
@@ -293,10 +293,10 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       404:
    *         $ref: '#/components/responses/NotFoundError'
    */
-  router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const user = req.user!;
+      const user = (req as unknown as AuthenticatedRequest).user!;
 
       // Get project with all related data
       const project = await prisma.project.findUnique({
@@ -525,8 +525,9 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
    *       404:
    *         $ref: '#/components/responses/NotFoundError'
    */
-  router.patch('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.patch('/:id', requireAuth, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const user = (req as unknown as AuthenticatedRequest).user;
       const { id } = req.params;
       const { status, paymentStatus, notionPageId } = req.body;
 
@@ -590,7 +591,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
       // Log the update
       await prisma.auditLog.create({
         data: {
-          userId: req.user!.id,
+          userId: user!.id,
           action: 'project_update',
           resourceType: 'project',
           resourceId: id,
@@ -602,7 +603,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
         },
       });
 
-      logger.info(`Project ${id} updated by user ${req.user!.id}`, updateData);
+      logger.info(`Project ${id} updated by user ${user!.id}`, updateData);
 
       res.json({
         success: true,

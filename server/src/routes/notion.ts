@@ -7,7 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import type { PrismaClient, SyncStatus } from '@prisma/client';
 import { getNotionSyncService, NotionSyncService } from '../services';
 import { internalError } from '../utils/AppError';
-import { requireAuth, requireAdmin } from '../middleware';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -78,6 +78,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.post('/sync', authMiddleware, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const user = (req as unknown as AuthenticatedRequest).user;
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       const results = await syncService.syncAllPending();
@@ -85,7 +86,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
       // Log audit
       await prisma.auditLog.create({
         data: {
-          userId: req.user!.id,
+          userId: user!.id,
           action: 'notion_sync_triggered',
           resourceType: 'notion_sync',
           details: JSON.stringify(results),
@@ -109,6 +110,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.post('/retry', authMiddleware, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const user = (req as unknown as AuthenticatedRequest).user;
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
       const count = await syncService.retryFailed();
@@ -116,7 +118,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
       // Log audit
       await prisma.auditLog.create({
         data: {
-          userId: req.user!.id,
+          userId: user!.id,
           action: 'notion_retry_triggered',
           resourceType: 'notion_sync',
           details: JSON.stringify({ retriedCount: count }),
@@ -140,7 +142,8 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
   // ============================================================================
   router.post('/sync/project/:id', authMiddleware, requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    
+    const user = (req as unknown as AuthenticatedRequest).user;
+
     try {
       const syncService = (req as NotionServiceRequest).notionSyncService as NotionSyncService;
 
@@ -175,7 +178,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
       // Log audit
       await prisma.auditLog.create({
         data: {
-          userId: req.user!.id,
+          userId: user!.id,
           action: 'notion_project_sync',
           resourceType: 'project',
           resourceId: id,

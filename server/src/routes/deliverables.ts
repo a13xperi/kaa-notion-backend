@@ -11,7 +11,7 @@
  * - DELETE /api/deliverables/:id - Delete deliverable (admin only, cleans up storage)
  */
 
-import { Router, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
@@ -244,11 +244,11 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   router.get(
     '/projects/:projectId/deliverables',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const { category } = req.query;
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Get project with deliverables
         const project = await prisma.project.findUnique({
@@ -331,11 +331,11 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
     '/projects/:projectId/deliverables',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const body = req.body as CreateDeliverableBody;
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Validate required fields
         if (!body.name || !body.category || !body.filePath || !body.fileUrl || !body.fileSize || !body.fileType) {
@@ -434,10 +434,10 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   router.get(
     '/deliverables/:id',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Get deliverable with project info
         const deliverable = await prisma.deliverable.findUnique({
@@ -506,10 +506,10 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   router.get(
     '/deliverables/:id/download',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Get deliverable with project info
         const deliverable = await prisma.deliverable.findUnique({
@@ -590,10 +590,10 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
     '/deliverables/:id',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Get deliverable
         const deliverable = await prisma.deliverable.findUnique({
@@ -681,11 +681,11 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   router.post(
     '/projects/:projectId/deliverables/batch-download',
     requireAuth,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
         const { deliverableIds } = req.body as { deliverableIds?: string[] };
-        const user = req.user!;
+        const user = (req as unknown as AuthenticatedRequest).user;
 
         // Validate input
         if (!deliverableIds || !Array.isArray(deliverableIds) || deliverableIds.length === 0) {

@@ -136,10 +136,10 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
   router.get(
     '/projects/:projectId/milestones',
     authMiddleware,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req, res, next) => {
       try {
         const { projectId } = req.params;
-        const user = req.user!;
+        const user = (req as AuthenticatedRequest).user;
 
         // Get project with milestones
         const project = await prisma.project.findUnique({
@@ -210,10 +210,10 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
   router.get(
     '/milestones/:id',
     authMiddleware,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req, res, next) => {
       try {
         const { id } = req.params;
-        const user = req.user!;
+        const user = (req as AuthenticatedRequest).user;
 
         // Get milestone with project info
         const milestone = await prisma.milestone.findUnique({
@@ -315,11 +315,11 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
     '/milestones/:id',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req, res, next) => {
       try {
         const { id } = req.params;
         const body = req.body as UpdateMilestoneBody;
-        const user = req.user!;
+        const user = (req as AuthenticatedRequest).user;
 
         // Validate status if provided
         if (body.status && !Object.values(MilestoneStatus).includes(body.status)) {

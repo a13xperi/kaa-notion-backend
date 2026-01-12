@@ -33,10 +33,10 @@ router.get('/vapid-key', (_req: Request, res: Response) => {
  * POST /api/push/subscribe
  * Subscribe to push notifications
  */
-router.post('/subscribe', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/subscribe', authenticate, async (req: Request, res: Response) => {
   try {
     const { endpoint, keys } = req.body;
-    const userId = req.user!.id;
+    const userId = (req as unknown as AuthenticatedRequest).user!.id;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
       return res.status(400).json({
@@ -70,10 +70,10 @@ router.post('/subscribe', authenticate, async (req: AuthenticatedRequest, res: R
  * DELETE /api/push/unsubscribe
  * Unsubscribe from push notifications
  */
-router.delete('/unsubscribe', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/unsubscribe', authenticate, async (req: Request, res: Response) => {
   try {
     const { endpoint } = req.body;
-    const userId = req.user!.id;
+    const userId = (req as unknown as AuthenticatedRequest).user!.id;
 
     if (!endpoint) {
       return res.status(400).json({
@@ -101,9 +101,9 @@ router.delete('/unsubscribe', authenticate, async (req: AuthenticatedRequest, re
  * GET /api/push/status
  * Check if user has active push subscriptions
  */
-router.get('/status', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/status', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req as unknown as AuthenticatedRequest).user!.id;
     const subscriptions = await pushService.getUserSubscriptions(userId);
 
     res.json({
@@ -126,9 +126,9 @@ router.get('/status', authenticate, async (req: AuthenticatedRequest, res: Respo
  * POST /api/push/test
  * Send a test push notification (for debugging)
  */
-router.post('/test', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/test', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req as unknown as AuthenticatedRequest).user!.id;
 
     const result = await pushService.sendToUser(userId, {
       title: 'Test Notification',

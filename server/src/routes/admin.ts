@@ -88,7 +88,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/dashboard - Dashboard stats
   // -------------------------------------------------------------------------
-  router.get('/dashboard', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/dashboard', authMiddleware, requireAdmin, async (req, res, next) => {
     try {
       const startOfMonth = getStartOfMonth();
 
@@ -240,7 +240,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/leads - All leads with filtering
   // -------------------------------------------------------------------------
-  router.get('/leads', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/leads', authMiddleware, requireAdmin, async (req, res, next) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, search, startDate, endDate } = req.query;
@@ -332,7 +332,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/projects - All projects with filtering
   // -------------------------------------------------------------------------
-  router.get('/projects', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/projects', authMiddleware, requireAdmin, async (req, res, next) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, paymentStatus, search } = req.query;
@@ -446,7 +446,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   // GET /api/admin/clients - All clients with stats
   // -------------------------------------------------------------------------
-  router.get('/clients', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  router.get('/clients', authMiddleware, requireAdmin, async (req, res, next) => {
     try {
       const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
       const { status, tier, search } = req.query;
@@ -569,8 +569,9 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     '/sync/health',
     requireAuth,
     requireAdmin,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    async (req, res, next) => {
       try {
+        const user = (req as AuthenticatedRequest).user;
         const notionApiKey = process.env.NOTION_API_KEY;
         const projectsDatabaseId = process.env.NOTION_PROJECTS_DATABASE_ID;
 
@@ -770,7 +771,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         // Log audit
         await prisma.auditLog.create({
           data: {
-            userId: req.user!.id,
+            userId: user!.id,
             action: 'sync_health_check',
             resourceType: 'sync',
             details: JSON.stringify({
