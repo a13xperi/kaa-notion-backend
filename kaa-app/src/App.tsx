@@ -8,7 +8,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, RequireAuth, RequireAdmin } from './contexts/AuthContext';
+import { AuthProvider, RequireAuth, RequireAdmin, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './components/common';
 import { DarkModeProvider } from './contexts/DarkModeContext';
 import pwaManager from './utils/pwa';
@@ -30,6 +30,21 @@ import { IntakeForm } from './components/intake/IntakeForm';
 import { ProjectsPage, ProjectDetailPage } from './pages';
 import { UserProfile } from './components/profile';
 import { DashboardWelcome } from './components/dashboard';
+import ClientHub from './components/ClientHub';
+import MessagingSystem from './components/MessagingSystem';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import DesignIdeas from './components/DesignIdeas';
+import { NotificationCenter } from './components/NotificationCenter';
+import NotificationSettings from './components/NotificationSettings';
+import Deliverables from './components/Deliverables';
+import ClientDocuments from './components/ClientDocuments';
+import DocumentUpload from './components/DocumentUpload';
+import NotificationSystem from './components/NotificationSystem';
+import NotionWorkspaceViewer from './components/NotionWorkspaceViewer';
+import MilestoneTimeline from './components/MilestoneTimeline';
+import CommunityFeed from './components/CommunityFeed';
+import Resources from './components/Resources';
+import { Milestone, MilestoneSummary } from './types/portal.types';
 
 // Admin Pages
 import { 
@@ -97,8 +112,16 @@ function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-page__container">
+        {/* Back Button */}
+        <button 
+          className="auth-page__back-button" 
+          onClick={() => navigate('/')}
+          aria-label="Go back to home page"
+        >
+          <span aria-hidden="true">←</span> Back
+        </button>
         <div className="auth-page__header">
-          <h1>Welcome Back</h1>
+          <h1>Sage in your garden wizard</h1>
           <p>Sign in to your SAGE account</p>
         </div>
         <LoginForm
@@ -221,6 +244,152 @@ function DemoPage() {
 }
 
 /**
+ * Messages Page - wrapper for MessagingSystem
+ */
+function MessagesPage() {
+  const { user } = useAuth();
+  return (
+    <MessagingSystem
+      currentUser={user?.email || 'Guest'}
+      userType="client"
+    />
+  );
+}
+
+/**
+ * Analytics Page - wrapper for AnalyticsDashboard
+ */
+function AnalyticsPage() {
+  const { user } = useAuth();
+  return (
+    <AnalyticsDashboard
+      userType="client"
+      currentUser={user?.email || 'Guest'}
+    />
+  );
+}
+
+/**
+ * Design Ideas Page - wrapper for DesignIdeas
+ */
+function DesignIdeasPage() {
+  const { user } = useAuth();
+  return (
+    <DesignIdeas
+      clientAddress={user?.email || 'demo-client'}
+    />
+  );
+}
+
+/**
+ * Deliverables Page - wrapper for Deliverables
+ */
+function DeliverablesPage() {
+  const { user } = useAuth();
+  return (
+    <Deliverables
+      clientAddress={user?.email || 'demo-client'}
+    />
+  );
+}
+
+/** Documents Page */
+function DocumentsPage() {
+  const { user } = useAuth();
+  return <ClientDocuments clientAddress={user?.email || 'demo-client'} />;
+}
+
+/** Upload Page */
+function UploadPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  return (
+    <DocumentUpload
+      clientAddress={user?.email || 'demo-client'}
+      onUploadComplete={() => navigate('/portal/deliverables')}
+    />
+  );
+}
+
+/** Notifications Page */
+function NotificationsPage() {
+  const { user } = useAuth();
+  return (
+    <NotificationSystem currentUser={user?.email || 'Guest'} userType="client" />
+  );
+}
+
+/** Community Page - Social feed with tips, updates, and showcases */
+function CommunityPage() {
+  const { user } = useAuth();
+  return (
+    <CommunityFeed clientAddress={user?.email || ''} />
+  );
+}
+
+/** Workspace Page - Project status and task management via Notion */
+function WorkspacePage() {
+  const { user } = useAuth();
+  return (
+    <NotionWorkspaceViewer clientMode clientAddress={user?.email || ''} />
+  );
+}
+
+/** Resources Page - Learning library with courses, guides, and install gallery */
+function ResourcesPage() {
+  const { user } = useAuth();
+  return (
+    <Resources clientAddress={user?.email || ''} />
+  );
+}
+
+/** Schedule Page */
+function SchedulePage() {
+  // Demo milestones until API wires in
+  const milestones: Milestone[] = [
+    { id: 'm1', name: 'Project Kickoff', order: 1, status: 'COMPLETED', dueDate: null, completedAt: new Date(Date.now() - 60*24*3600*1000).toISOString() },
+    { id: 'm2', name: 'Phase 1 Delivery', order: 2, status: 'COMPLETED', dueDate: null, completedAt: new Date(Date.now() - 30*24*3600*1000).toISOString() },
+    { id: 'm3', name: 'Phase 2 Review', order: 3, status: 'IN_PROGRESS', dueDate: new Date(Date.now() + 12*24*3600*1000).toISOString(), completedAt: null },
+    { id: 'm4', name: 'Final Delivery', order: 4, status: 'PENDING', dueDate: new Date(Date.now() + 45*24*3600*1000).toISOString(), completedAt: null },
+  ];
+  const summary: MilestoneSummary = {
+    total: milestones.length,
+    completed: milestones.filter(m=>m.status==='COMPLETED').length,
+    inProgress: milestones.filter(m=>m.status==='IN_PROGRESS').length,
+    pending: milestones.filter(m=>m.status==='PENDING').length,
+    percentage: Math.round(milestones.filter(m=>m.status==='COMPLETED').length / milestones.length * 100),
+  };
+  return <MilestoneTimeline milestones={milestones} summary={summary} orientation="horizontal" />;
+}
+
+/**
+ * Notification Settings Page - wrapper for NotificationSettings
+ */
+function NotificationSettingsPage() {
+  return <NotificationSettings />;
+}
+
+/**
+ * Portal Dashboard - wrapper for ClientHub with navigation
+ */
+function PortalDashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  return (
+    <ClientHub
+      clientAddress={user?.email || 'Guest'}
+      onViewProjects={() => navigate('/portal/projects')}
+      onViewDocuments={() => navigate('/portal/documents')}
+      onUpload={() => navigate('/portal/upload')}
+      onViewMessages={() => navigate('/portal/messages')}
+      onViewAnalytics={() => navigate('/portal/analytics')}
+      onViewDeliverables={() => navigate('/portal/deliverables')}
+    />
+  );
+}
+
+/**
  * Main App Component
  */
 function App() {
@@ -277,7 +446,7 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AppLayout>
-                      <DashboardWelcome />
+                      <PortalDashboard />
                     </AppLayout>
                   </ProtectedRoute>
                 }
@@ -314,6 +483,150 @@ function App() {
                   <ProtectedRoute>
                     <AppLayout>
                       <UserProfile />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Workspace - Project Status & Tasks */}
+              <Route
+                path="/portal/workspace"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <WorkspacePage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Messages */}
+              <Route
+                path="/portal/messages"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <MessagesPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Deliverables */}
+              <Route
+                path="/portal/deliverables"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <DeliverablesPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Documents */}
+              <Route
+                path="/portal/documents"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <DocumentsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Upload */}
+              <Route
+                path="/portal/upload"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <UploadPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Notifications */}
+              <Route
+                path="/portal/notifications"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <NotificationsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Community */}
+              <Route
+                path="/portal/community"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <CommunityPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Resources / Learning Library */}
+              <Route
+                path="/portal/resources"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <ResourcesPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Schedule */}
+              <Route
+                path="/portal/schedule"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <SchedulePage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Analytics */}
+              <Route
+                path="/portal/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <AnalyticsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Design Ideas */}
+              <Route
+                path="/portal/design"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <DesignIdeasPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Notification Settings */}
+              <Route
+                path="/portal/settings"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <NotificationSettingsPage />
                     </AppLayout>
                   </ProtectedRoute>
                 }

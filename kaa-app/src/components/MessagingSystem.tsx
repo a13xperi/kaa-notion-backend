@@ -35,6 +35,11 @@ const MessagingSystem: React.FC<MessagingSystemProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Scroll page to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   useEffect(() => {
     loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,7 +59,8 @@ const MessagingSystem: React.FC<MessagingSystemProps> = ({
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll within the messages container, not the whole page
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
   };
 
   const loadConversations = () => {

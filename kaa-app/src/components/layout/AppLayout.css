@@ -131,10 +131,82 @@
   background: #e5e7eb;
 }
 
+/* App Body - contains sidebar and main content */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 64px);
+}
+
+/* Sidebar */
+.app-sidebar {
+  width: 240px;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 64px;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.app-sidebar__nav {
+  padding: 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #4b5563;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.app-sidebar__link:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.app-sidebar__link--active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.app-sidebar__link--active:hover {
+  background: #dbeafe;
+}
+
+.app-sidebar__icon {
+  font-size: 1.125rem;
+  width: 24px;
+  text-align: center;
+}
+
+.app-sidebar__label {
+  flex: 1;
+}
+
+.app-sidebar__footer {
+  margin-top: auto;
+  padding: 1rem 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
 /* Main Content */
 .app-main {
   flex: 1;
   background: #f9fafb;
+  padding: 1.5rem;
+  overflow-y: auto;
 }
 
 /* Footer */
@@ -216,6 +288,25 @@
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    width: 72px;
+  }
+
+  .app-sidebar__label {
+    display: none;
+  }
+
+  .app-sidebar__link {
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  .app-sidebar__icon {
+    width: auto;
+  }
+}
+
 @media (max-width: 768px) {
   .app-header__container {
     height: 56px;
@@ -236,6 +327,18 @@
   .app-footer__links {
     grid-template-columns: 1fr;
     gap: 2rem;
+  }
+
+  .app-sidebar {
+    display: none;
+  }
+
+  .app-body {
+    min-height: calc(100vh - 56px);
+  }
+
+  .app-main {
+    padding: 1rem;
   }
 }
 
@@ -273,5 +376,32 @@
 
   .app-main {
     background: #111827;
+  }
+
+  .app-sidebar {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .app-sidebar__link {
+    color: #9ca3af;
+  }
+
+  .app-sidebar__link:hover {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .app-sidebar__link--active {
+    background: #1e3a5f;
+    color: #60a5fa;
+  }
+
+  .app-sidebar__link--active:hover {
+    background: #1e4976;
+  }
+
+  .app-sidebar__footer {
+    border-color: #374151;
   }
 }

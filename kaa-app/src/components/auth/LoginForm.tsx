@@ -42,7 +42,7 @@ export function LoginForm({ onSuccess, onRegisterClick }: LoginFormProps) {
   return (
     <div className="auth-form">
       <div className="auth-form__header">
-        <h2 className="auth-form__title">Welcome Back</h2>
+        <h2 className="auth-form__title">Sage in your garden wizard</h2>
         <p className="auth-form__subtitle">Sign in to access your projects</p>
       </div>
 

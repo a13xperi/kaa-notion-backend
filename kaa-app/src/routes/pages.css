@@ -35,6 +35,32 @@
   margin: 0;
 }
 
+.auth-page__back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1.5rem;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-page__back-button:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.auth-page__back-button:active {
+  transform: translateY(1px);
+}
+
 /* Intake Page */
 .intake-page {
   min-height: 100vh;
@@ -77,6 +103,17 @@
 
   .auth-page__header p {
     color: #9ca3af;
+  }
+
+  .auth-page__back-button {
+    border-color: #374151;
+    color: #d1d5db;
+  }
+
+  .auth-page__back-button:hover {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #f9fafb;
   }
 
   .intake-page {

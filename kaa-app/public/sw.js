@@ -1,9 +1,9 @@
 // KAA App Service Worker
 // Provides offline functionality and caching
 
-const CACHE_NAME = 'kaa-app-v1.0.0';
-const STATIC_CACHE = 'kaa-static-v1.0.0';
-const DYNAMIC_CACHE = 'kaa-dynamic-v1.0.0';
+const CACHE_NAME = 'kaa-app-v1.0.1';
+const STATIC_CACHE = 'kaa-static-v1.0.1';
+const DYNAMIC_CACHE = 'kaa-dynamic-v1.0.1';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [

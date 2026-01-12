@@ -51,6 +51,7 @@ const CATEGORIES: DeliverableCategory[] = [
 export function DeliverableList({
   deliverables,
   projectName,
+  projectId,
   summary,
   onDownload,
   onView,

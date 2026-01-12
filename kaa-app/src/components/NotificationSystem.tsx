@@ -1,6 +1,54 @@
-import React, { useState } from 'react';
-import { useNotifications, useNotificationMutations } from '../hooks/useNotifications';
+import React, { useState, useMemo } from 'react';
+import { useNotifications, useNotificationMutations, Notification } from '../hooks/useNotifications';
 import './NotificationSystem.css';
+
+// Demo notifications when API is unavailable
+const DEMO_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'demo-1',
+    type: 'MESSAGE_RECEIVED',
+    title: 'New message from Project Manager',
+    message: 'Hi there! Just wanted to check in on your project progress. Let me know if you have any questions.',
+    link: '/portal/messages',
+    read: false,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+  },
+  {
+    id: 'demo-2',
+    type: 'DELIVERABLE_READY',
+    title: 'Design Draft Ready for Review',
+    message: 'Your Phase 2 design draft is ready for review. Please check the deliverables section.',
+    link: '/portal/deliverables',
+    read: false,
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+  },
+  {
+    id: 'demo-3',
+    type: 'PROJECT_UPDATE',
+    title: 'Project Milestone Achieved',
+    message: 'Congratulations! Phase 1 of your project has been completed successfully.',
+    link: '/portal/projects',
+    read: true,
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+  },
+  {
+    id: 'demo-4',
+    type: 'MILESTONE_COMPLETED',
+    title: 'Milestone: Site Analysis Complete',
+    message: 'The site analysis phase has been marked as complete. Moving to design phase.',
+    link: '/portal/analytics',
+    read: true,
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+  },
+  {
+    id: 'demo-5',
+    type: 'SYSTEM',
+    title: 'Welcome to SAGE Portal!',
+    message: 'Thanks for joining! Explore your dashboard to get started with your landscape design project.',
+    read: true,
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+  },
+];
 
 interface NotificationSystemProps {
   currentUser: string;
@@ -14,11 +62,12 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   onClose
 }) => {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [localNotifications, setLocalNotifications] = useState<Notification[]>(DEMO_NOTIFICATIONS);
 
   // Fetch notifications from API
   const {
-    notifications,
-    unreadCount,
+    notifications: apiNotifications,
+    unreadCount: apiUnreadCount,
     isLoading,
     isError,
     refetch
@@ -28,23 +77,44 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   });
 
   const {
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
+    markAsRead: apiMarkAsRead,
+    markAllAsRead: apiMarkAllAsRead,
+    deleteNotification: apiDeleteNotification,
     isMarkingAllRead
   } = useNotificationMutations();
 
+  // Use API data if available, otherwise use demo data
+  const usingDemoData = isError || (apiNotifications.length === 0 && !isLoading);
+  const notifications = usingDemoData ? localNotifications : apiNotifications;
+  const unreadCount = usingDemoData 
+    ? localNotifications.filter(n => !n.read).length 
+    : apiUnreadCount;
+
   const handleMarkAsRead = (notificationId: string) => {
-    markAsRead(notificationId);
+    if (usingDemoData) {
+      setLocalNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      );
+    } else {
+      apiMarkAsRead(notificationId);
+    }
   };
 
   const handleMarkAllAsRead = () => {
-    markAllAsRead();
+    if (usingDemoData) {
+      setLocalNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } else {
+      apiMarkAllAsRead();
+    }
   };
 
   const handleDelete = (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation();
-    deleteNotification(notificationId);
+    if (usingDemoData) {
+      setLocalNotifications(prev => prev.filter(n => n.id !== notificationId));
+    } else {
+      apiDeleteNotification(notificationId);
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -89,26 +159,6 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
           <div className="loading-state">
             <div className="loading-spinner"></div>
             <p>Loading notifications...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="notification-system">
-        <div className="notification-header">
-          <div className="header-title-section">
-            <h1>Notifications</h1>
-          </div>
-        </div>
-        <div className="notification-content">
-          <div className="error-state">
-            <p>Failed to load notifications</p>
-            <button onClick={() => refetch()} className="retry-btn">
-              Try Again
-            </button>
           </div>
         </div>
       </div>

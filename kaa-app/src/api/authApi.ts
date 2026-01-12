@@ -5,6 +5,12 @@
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+// Debug: Log API base URL in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('[AuthAPI] API_BASE_URL:', API_BASE_URL);
+  console.log('[AuthAPI] REACT_APP_API_URL env:', process.env.REACT_APP_API_URL);
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -100,44 +106,78 @@ export function getAuthHeaders(): HeadersInit {
  * Register a new user account.
  */
 export async function register(input: RegisterInput): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+  // Ensure we're using the full API URL
+  const apiUrl = API_BASE_URL.endsWith('/') 
+    ? `${API_BASE_URL}auth/register` 
+    : `${API_BASE_URL}/auth/register`;
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[AuthAPI] Register URL:', apiUrl);
+  }
+  
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 
-  const data = await response.json();
-
   if (!response.ok) {
-    throw new Error(data.error?.message || 'Registration failed');
+    let errorMessage = 'Registration failed';
+    try {
+      const data = await response.json();
+      errorMessage = data.error?.message || data.message || errorMessage;
+    } catch {
+      errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
 
-  // Store auth data
-  storeAuth(data.data.token, data.data.user);
+  const data = await response.json();
 
-  return data.data;
+  // Store auth data
+  if (data.data?.token && data.data?.user) {
+    storeAuth(data.data.token, data.data.user);
+    return data.data;
+  }
+  
+  throw new Error('Invalid response format from server');
 }
 
 /**
  * Login with email and password.
  */
 export async function login(input: LoginInput): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  // Ensure we're using the full API URL
+  const apiUrl = API_BASE_URL.endsWith('/') 
+    ? `${API_BASE_URL}auth/login` 
+    : `${API_BASE_URL}/auth/login`;
+  
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 
-  const data = await response.json();
-
   if (!response.ok) {
-    throw new Error(data.error?.message || 'Login failed');
+    let errorMessage = 'Login failed';
+    try {
+      const data = await response.json();
+      errorMessage = data.error?.message || data.message || errorMessage;
+    } catch {
+      errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
 
-  // Store auth data
-  storeAuth(data.data.token, data.data.user);
+  const data = await response.json();
 
-  return data.data;
+  // Store auth data
+  if (data.data?.token && data.data?.user) {
+    storeAuth(data.data.token, data.data.user);
+    return data.data;
+  }
+  
+  throw new Error('Invalid response format from server');
 }
 
 /**
