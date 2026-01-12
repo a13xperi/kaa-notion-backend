@@ -6,9 +6,10 @@
 import { ReactNode } from 'react';
 import './Badge.css';
 
-type BadgeVariant = 
+type BadgeVariant =
   | 'default'
   | 'primary'
+  | 'secondary'
   | 'success'
   | 'warning'
   | 'danger'
