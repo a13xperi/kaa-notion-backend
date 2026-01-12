@@ -90,7 +90,6 @@ export async function getOrCreateStripeCustomer(clientId: string): Promise<strin
           name: true,
         },
       },
-      subscription: true,
     },
   });
 
@@ -98,19 +97,25 @@ export async function getOrCreateStripeCustomer(clientId: string): Promise<strin
     throw notFound('Client');
   }
 
-  // Return existing customer ID if available
-  if (client.subscription?.stripeCustomerId) {
-    return client.subscription.stripeCustomerId;
+  // Return existing customer ID if available (stripeCustomerId is on Client model)
+  if (client.stripeCustomerId) {
+    return client.stripeCustomerId;
   }
 
   // Create new Stripe customer
   const customer = await stripe.customers.create({
-    email: client.user.email,
+    email: client.user.email || undefined,
     name: client.user.name || undefined,
     metadata: {
       clientId: client.id,
       userId: client.userId,
     },
+  });
+
+  // Update client with new stripeCustomerId
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { stripeCustomerId: customer.id },
   });
 
   return customer.id;
@@ -176,15 +181,13 @@ export async function createSubscription(
       where: { clientId },
       create: {
         clientId,
-        tier,
-        stripeCustomerId,
+        stripeSubscriptionId: `free_${clientId}`, // Placeholder for free tier
+        stripePriceId: 'free',
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
       },
       update: {
-        tier,
-        stripeCustomerId,
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
@@ -213,23 +216,21 @@ export async function createSubscription(
   });
 
   // Store subscription in database
+  // Note: Subscription model doesn't have tier or stripeCustomerId (those are on Client)
   const subscription = await prisma.subscription.upsert({
     where: { clientId },
     create: {
       clientId,
-      tier,
-      stripeCustomerId,
       stripeSubscriptionId: stripeSubscription.id,
-      stripePriceId: tierConfig.stripePriceIdMonthly,
-      status: 'PENDING',
+      stripePriceId: tierConfig.stripePriceIdMonthly || '',
+      status: 'TRIALING', // Use TRIALING as initial status (closest to PENDING)
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     },
     update: {
-      tier,
       stripeSubscriptionId: stripeSubscription.id,
-      stripePriceId: tierConfig.stripePriceIdMonthly,
-      status: 'PENDING',
+      stripePriceId: tierConfig.stripePriceIdMonthly || '',
+      status: 'TRIALING',
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     },
@@ -286,16 +287,15 @@ export async function updateSubscriptionTier(
   // If downgrading to free tier
   if (newTier === 1 || !tierConfig.stripePriceIdMonthly) {
     // Cancel Stripe subscription if exists
-    if (subscription.stripeSubscriptionId) {
+    if (subscription.stripeSubscriptionId && !subscription.stripeSubscriptionId.startsWith('free_')) {
       await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
     }
 
     const updated = await prisma.subscription.update({
       where: { clientId },
       data: {
-        tier: newTier,
-        stripeSubscriptionId: null,
-        stripePriceId: null,
+        stripeSubscriptionId: `free_${clientId}`,
+        stripePriceId: 'free',
         status: 'ACTIVE',
         canceledAt: null,
         cancelAtPeriodEnd: false,
@@ -329,8 +329,7 @@ export async function updateSubscriptionTier(
   const updated = await prisma.subscription.update({
     where: { clientId },
     data: {
-      tier: newTier,
-      stripePriceId: tierConfig.stripePriceIdMonthly,
+      stripePriceId: tierConfig.stripePriceIdMonthly || '',
     },
   });
 
@@ -414,16 +413,17 @@ export async function createBillingPortalSession(
   clientId: string,
   returnUrl: string
 ): Promise<string> {
-  const subscription = await prisma.subscription.findUnique({
-    where: { clientId },
+  // stripeCustomerId is on Client, not Subscription
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
   });
 
-  if (!subscription?.stripeCustomerId) {
+  if (!client?.stripeCustomerId) {
     throw notFound('Stripe customer');
   }
 
   const session = await stripe.billingPortal.sessions.create({
-    customer: subscription.stripeCustomerId,
+    customer: client.stripeCustomerId,
     return_url: returnUrl,
   });
 
@@ -474,24 +474,24 @@ export async function createCheckoutSession(
  * Handle Stripe webhook events
  */
 export async function handleStripeWebhook(
-  event: Stripe.Event
+  event: import('stripe').Stripe.Event
 ): Promise<void> {
   switch (event.type) {
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
-      await handleSubscriptionUpdate(event.data.object as Stripe.Subscription);
+      await handleSubscriptionUpdate(event.data.object as import('stripe').Stripe.Subscription);
       break;
 
     case 'customer.subscription.deleted':
-      await handleSubscriptionCanceled(event.data.object as Stripe.Subscription);
+      await handleSubscriptionCanceled(event.data.object as import('stripe').Stripe.Subscription);
       break;
 
     case 'invoice.payment_succeeded':
-      await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
+      await handlePaymentSucceeded(event.data.object as import('stripe').Stripe.Invoice);
       break;
 
     case 'invoice.payment_failed':
-      await handlePaymentFailed(event.data.object as Stripe.Invoice);
+      await handlePaymentFailed(event.data.object as import('stripe').Stripe.Invoice);
       break;
 
     default:
@@ -500,7 +500,7 @@ export async function handleStripeWebhook(
 }
 
 async function handleSubscriptionUpdate(
-  stripeSubscription: Stripe.Subscription
+  stripeSubscription: import('stripe').Stripe.Subscription
 ): Promise<void> {
   const clientId = stripeSubscription.metadata.clientId;
   if (!clientId) return;
@@ -525,7 +525,7 @@ async function handleSubscriptionUpdate(
 }
 
 async function handleSubscriptionCanceled(
-  stripeSubscription: Stripe.Subscription
+  stripeSubscription: import('stripe').Stripe.Subscription
 ): Promise<void> {
   const clientId = stripeSubscription.metadata.clientId;
   if (!clientId) return;
@@ -542,35 +542,38 @@ async function handleSubscriptionCanceled(
   await updateClientTier(clientId, 1);
 }
 
-async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
+async function handlePaymentSucceeded(invoice: import('stripe').Stripe.Invoice): Promise<void> {
   const customerId = invoice.customer as string;
 
-  const subscription = await prisma.subscription.findFirst({
+  // Find client by stripeCustomerId, then get their subscription
+  const client = await prisma.client.findFirst({
     where: { stripeCustomerId: customerId },
+    include: { subscription: true },
   });
 
-  if (subscription) {
+  if (client?.subscription) {
     await prisma.subscription.update({
-      where: { id: subscription.id },
+      where: { id: client.subscription.id },
       data: {
         status: 'ACTIVE',
-        lastPaymentDate: new Date(),
-        lastPaymentAmount: invoice.amount_paid,
+        // Note: lastPaymentDate and lastPaymentAmount don't exist on Subscription model
       },
     });
   }
 }
 
-async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+async function handlePaymentFailed(invoice: import('stripe').Stripe.Invoice): Promise<void> {
   const customerId = invoice.customer as string;
 
-  const subscription = await prisma.subscription.findFirst({
+  // Find client by stripeCustomerId, then get their subscription
+  const client = await prisma.client.findFirst({
     where: { stripeCustomerId: customerId },
+    include: { subscription: true },
   });
 
-  if (subscription) {
+  if (client?.subscription) {
     await prisma.subscription.update({
-      where: { id: subscription.id },
+      where: { id: client.subscription.id },
       data: {
         status: 'PAST_DUE',
       },
@@ -582,19 +585,20 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 // HELPER FUNCTIONS
 // ============================================
 
-function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
+function mapStripeStatus(status: import('stripe').Stripe.Subscription.Status): SubscriptionStatus {
+  // SubscriptionStatus enum: ACTIVE, PAST_DUE, CANCELED, PAUSED, TRIALING
   const statusMap: Record<string, SubscriptionStatus> = {
     active: 'ACTIVE',
     past_due: 'PAST_DUE',
     canceled: 'CANCELED',
     unpaid: 'PAST_DUE',
-    incomplete: 'PENDING',
+    incomplete: 'TRIALING', // Map incomplete to TRIALING as closest match
     incomplete_expired: 'CANCELED',
-    trialing: 'TRIAL',
+    trialing: 'TRIALING',
     paused: 'PAUSED',
   };
 
-  return statusMap[status] || 'PENDING';
+  return statusMap[status] || 'TRIALING';
 }
 
 async function updateClientTier(clientId: string, tier: number): Promise<void> {
@@ -628,21 +632,29 @@ export async function getSubscriptionMetrics(): Promise<{
   mrr: number;
   churnRate: number;
 }> {
+  // Get subscriptions with their clients (tier is on Client)
   const subscriptions = await prisma.subscription.findMany({
     where: { status: { not: 'CANCELED' } },
+    include: {
+      client: {
+        select: { tier: true },
+      },
+    },
   });
 
   const activeSubscriptions = subscriptions.filter((s) => s.status === 'ACTIVE').length;
 
   const byTier: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
   subscriptions.forEach((s) => {
-    byTier[s.tier] = (byTier[s.tier] || 0) + 1;
+    const tier = s.client.tier;
+    byTier[tier] = (byTier[tier] || 0) + 1;
   });
 
-  // Calculate MRR
+  // Calculate MRR based on client tier
   let mrr = 0;
   subscriptions.forEach((s) => {
-    const pricing = TIER_PRICING[s.tier as keyof typeof TIER_PRICING];
+    const tier = s.client.tier;
+    const pricing = TIER_PRICING[tier as keyof typeof TIER_PRICING];
     if (pricing?.monthlyPrice) {
       mrr += pricing.monthlyPrice;
     }

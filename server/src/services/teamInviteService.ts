@@ -112,15 +112,17 @@ export class TeamInviteService {
       expiresAt.setDate(expiresAt.getDate() + INVITE_EXPIRY_DAYS);
 
       // Create user account (inactive until invite accepted)
-      let user = existingUser;
-      if (!user) {
+      let userId: string;
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
         // Create placeholder user with temporary password
         const tempPasswordHash = await bcrypt.hash(
           crypto.randomBytes(32).toString('hex'),
           BCRYPT_ROUNDS
         );
 
-        user = await this.prisma.user.create({
+        const newUser = await this.prisma.user.create({
           data: {
             email: normalizedEmail,
             passwordHash: tempPasswordHash,
@@ -128,12 +130,13 @@ export class TeamInviteService {
             role: role,
           },
         });
+        userId = newUser.id;
       }
 
       // Create team member record with invite token
       const teamMember = await this.prisma.teamMember.create({
         data: {
-          userId: user.id,
+          userId: userId,
           role: role,
           invitedById: invitedById,
           inviteToken: inviteToken,
@@ -149,10 +152,10 @@ export class TeamInviteService {
           action: 'team_invite_created',
           resourceType: 'team_member',
           resourceId: teamMember.id,
-          details: {
+          details: JSON.stringify({
             invitedEmail: normalizedEmail,
             role: role,
-          },
+          }),
         },
       });
 
@@ -287,9 +290,9 @@ export class TeamInviteService {
             action: 'team_invite_accepted',
             resourceType: 'team_member',
             resourceId: teamMember.id,
-            details: {
+            details: JSON.stringify({
               role: teamMember.role,
-            },
+            }),
           },
         });
 
@@ -365,9 +368,9 @@ export class TeamInviteService {
           action: 'team_invite_resent',
           resourceType: 'team_member',
           resourceId: teamMemberId,
-          details: {
+          details: JSON.stringify({
             email: teamMember.user.email,
-          },
+          }),
         },
       });
 
@@ -445,9 +448,9 @@ export class TeamInviteService {
             action: 'team_invite_cancelled',
             resourceType: 'team_member',
             resourceId: teamMemberId,
-            details: {
+            details: JSON.stringify({
               email: teamMember.user.email,
-            },
+            }),
           },
         });
       });
