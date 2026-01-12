@@ -54,6 +54,7 @@ import {
   LeadQueuePage,
   ProjectsTablePage,
   ClientsTablePage,
+  DatabaseExplorerPage,
 } from './pages';
 
 // Common
@@ -694,6 +695,18 @@ function App() {
                   <AdminRoute>
                     <AppLayout>
                       <ClientsTablePage />
+                    </AppLayout>
+                  </AdminRoute>
+                }
+              />
+
+              {/* Database Explorer */}
+              <Route
+                path="/admin/database"
+                element={
+                  <AdminRoute>
+                    <AppLayout>
+                      <DatabaseExplorerPage />
                     </AppLayout>
                   </AdminRoute>
                 }

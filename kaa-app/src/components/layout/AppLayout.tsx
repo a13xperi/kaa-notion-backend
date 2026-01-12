@@ -37,6 +37,7 @@ const ADMIN_NAV_ITEMS = [
   { icon: '📥', label: 'Lead Queue', href: '/admin/leads' },
   { icon: '📋', label: 'Projects', href: '/admin/projects' },
   { icon: '👥', label: 'Clients', href: '/admin/clients' },
+  { icon: '🗄️', label: 'Database', href: '/admin/database' },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

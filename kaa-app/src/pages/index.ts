@@ -9,5 +9,6 @@ export {
   LeadQueuePage,
   ProjectsTablePage,
   ClientsTablePage,
+  DatabaseExplorerPage,
 } from './AdminPages';
 export { AuthCallbackPage } from './AuthCallbackPage';
