@@ -3,7 +3,15 @@
  * Prisma connection pooling and management utilities.
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+// Local type definitions for Prisma types (for environments where Prisma isn't fully generated)
+type LogLevel = 'info' | 'query' | 'warn' | 'error';
+type LogDefinition = { level: LogLevel; emit: 'stdout' | 'event' };
+type PrismaLogConfig = Array<LogLevel | LogDefinition>;
+type TransactionIsolationLevel = 'ReadCommitted' | 'Serializable' | 'RepeatableRead' | 'ReadUncommitted';
+type QueryEvent = { timestamp: Date; query: string; params: string; duration: number; target: string };
+type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import { logger } from '../logger';
 import { recordDbQuery } from './metrics';
 
@@ -117,7 +125,7 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
   config = { ...config, ...overrides };
   
   // Configure logging based on environment
-  const logConfig: Prisma.PrismaClientOptions['log'] = config.logQueries
+  const logConfig: PrismaLogConfig = config.logQueries
     ? [
         { level: 'query', emit: 'event' },
         { level: 'error', emit: 'event' },
@@ -133,8 +141,7 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
 
   // Set up event handlers for logging, stats, and metrics
   if (config.logQueries) {
-    // @ts-expect-error - Prisma event types are complex
-    prisma.$on('query', (e: Prisma.QueryEvent) => {
+    prisma.$on('query', (e: QueryEvent) => {
       const durationMs = e.duration;
       recordQuery(durationMs);
       
@@ -169,8 +176,7 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   } else {
     // Even if not logging, still record metrics for production monitoring
-    // @ts-expect-error - Prisma event types are complex
-    prisma.$on('query', (e: Prisma.QueryEvent) => {
+    prisma.$on('query', (e: QueryEvent) => {
       const durationMs = e.duration;
       
       // Extract model and operation (simplified)
@@ -189,13 +195,11 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   }
 
-  // @ts-expect-error - Prisma event types are complex  
   prisma.$on('error', (e: Error) => {
     logger.error('Database error', { error: e.message });
     stats.totalErrors++;
   });
 
-  // @ts-expect-error - Prisma event types are complex
   prisma.$on('warn', (e: { message: string }) => {
     logger.warn('Database warning', { message: e.message });
   });
@@ -305,13 +309,13 @@ export async function checkDatabaseHealth(prisma: PrismaClient): Promise<Databas
 export interface TransactionOptions {
   maxWait?: number;
   timeout?: number;
-  isolationLevel?: Prisma.TransactionIsolationLevel;
+  isolationLevel?: TransactionIsolationLevel;
 }
 
 const DEFAULT_TRANSACTION_OPTIONS: TransactionOptions = {
   maxWait: 5000,
   timeout: 10000,
-  isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+  isolationLevel: 'ReadCommitted',
 };
 
 /**
@@ -319,7 +323,7 @@ const DEFAULT_TRANSACTION_OPTIONS: TransactionOptions = {
  */
 export async function executeTransaction<T>(
   prisma: PrismaClient,
-  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  fn: (tx: TransactionClient) => Promise<T>,
   options: TransactionOptions = {}
 ): Promise<T> {
   const opts = { ...DEFAULT_TRANSACTION_OPTIONS, ...options };

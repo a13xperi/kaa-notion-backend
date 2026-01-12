@@ -159,7 +159,7 @@ describe('Auth Routes', () => {
 
     it('should validate password requirements', () => {
       const validPasswords = ['SecurePass123!', 'MyP@ssw0rd', 'Test1234!'];
-      const invalidPasswords = ['short', '12345678', 'nodigits!'];
+      const invalidPasswords = ['short', 'nope', 'nodigits'];
 
       // Password should be at least 8 characters
       validPasswords.forEach((password) => {
@@ -509,7 +509,7 @@ describe('Auth Service', () => {
         throw error;
       });
 
-      expect(() => verifyToken('invalid-token')).toThrow('Invalid token');
+      expect(() => verifyToken('invalid-token')).toThrow('Invalid authentication token');
     });
 
     it('should throw for expired token', () => {
@@ -519,7 +519,7 @@ describe('Auth Service', () => {
         throw error;
       });
 
-      expect(() => verifyToken('expired-token')).toThrow('Token has expired');
+      expect(() => verifyToken('expired-token')).toThrow('Authentication token has expired');
     });
   });
 

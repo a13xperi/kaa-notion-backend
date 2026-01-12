@@ -4,9 +4,28 @@
  * and avoiding N+1 problems.
  */
 
-import { Prisma } from '@prisma/client';
 import { cacheGet, cacheSet, cacheDel, CacheOptions } from '../services/cacheService';
 import { logger } from '../logger';
+
+// Local type definitions for Prisma types (for environments where Prisma isn't fully generated)
+// Using Record<string, unknown> for flexibility
+type SelectType = Record<string, unknown>;
+type IncludeType = Record<string, unknown>;
+
+// Namespace-style exports for compatibility with existing code
+namespace Prisma {
+  export type UserSelect = SelectType;
+  export type ProjectSelect = SelectType;
+  export type ClientSelect = SelectType;
+  export type LeadSelect = SelectType;
+  export type MilestoneSelect = SelectType;
+  export type DeliverableSelect = SelectType;
+  export type NotificationSelect = SelectType;
+  export type MessageSelect = SelectType;
+  export type ProjectInclude = IncludeType;
+  export type ClientInclude = IncludeType;
+  export type LeadInclude = IncludeType;
+}
 
 // ============================================================================
 // TYPES
@@ -648,7 +667,7 @@ export function wrapWithTiming<T>(
 export async function parallelQueries<T extends readonly unknown[]>(
   queries: { [K in keyof T]: () => Promise<T[K]> }
 ): Promise<T> {
-  return Promise.all(queries.map((q) => q())) as Promise<T>;
+  return Promise.all(queries.map((q) => q())) as unknown as Promise<T>;
 }
 
 // ============================================================================

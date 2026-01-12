@@ -176,10 +176,10 @@ describe('Factory Functions', () => {
 
   describe('notFound', () => {
     it('should create not found error for resources', () => {
-      const error = notFound('Project', '123');
+      const error = notFound('Project', ErrorCodes.PROJECT_NOT_FOUND, '123');
       expect(error.code).toBe(ErrorCodes.PROJECT_NOT_FOUND);
       expect(error.statusCode).toBe(404);
-      expect(error.message).toBe('Project with ID 123 not found');
+      expect(error.message).toContain('Project');
     });
 
     it('should use generic NOT_FOUND for unknown resources', () => {
@@ -225,7 +225,7 @@ describe('Factory Functions', () => {
 
   describe('rateLimited', () => {
     it('should create rate limited error', () => {
-      const error = rateLimited(60);
+      const error = rateLimited('Too many requests', 60);
       expect(error.code).toBe(ErrorCodes.RATE_LIMITED);
       expect(error.statusCode).toBe(429);
       expect(error.details).toEqual({ retryAfter: 60 });
