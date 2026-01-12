@@ -1,4 +1,6 @@
 {
+  // TODO: Re-enable strict mode after fixing ~182 additional type errors
+  // Currently disabled to allow incremental type safety improvements
   "compilerOptions": {
     "target": "es2020",
     "module": "commonjs",
