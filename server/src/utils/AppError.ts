@@ -229,7 +229,6 @@ export class AppError extends Error {
       this.isOperational = options?.isOperational ?? true;
       if (options?.cause) {
         this.originalCause = options.cause;
-        this.cause = options.cause;
       }
     }
 

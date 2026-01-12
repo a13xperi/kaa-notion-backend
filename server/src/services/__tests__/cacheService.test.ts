@@ -12,7 +12,7 @@ import {
   cacheStats,
   isCacheAvailable,
   withCache,
-  CacheKeys,
+  CACHE_KEYS,
   CacheTags,
 } from '../cacheService';
 
@@ -228,26 +228,26 @@ describe('CacheService', () => {
     });
   });
 
-  describe('CacheKeys', () => {
+  describe('CACHE_KEYS', () => {
     it('should generate correct user keys', () => {
-      expect(CacheKeys.user('123')).toBe('user:123');
-      expect(CacheKeys.userProfile('123')).toBe('user:123:profile');
+      expect(CACHE_KEYS.user('123')).toBe('user:123');
+      expect(CACHE_KEYS.userProfile('123')).toBe('user:123:profile');
     });
 
     it('should generate correct project keys', () => {
-      expect(CacheKeys.project('abc')).toBe('project:abc');
-      expect(CacheKeys.projectList('client1')).toBe('projects:client:client1');
-      expect(CacheKeys.projectMilestones('proj1')).toBe('project:proj1:milestones');
+      expect(CACHE_KEYS.project('abc')).toBe('project:abc');
+      expect(CACHE_KEYS.projectList('user1')).toBe('projects:user:user1');
+      expect(CACHE_KEYS.projectMilestones('proj1')).toBe('project:proj1:milestones');
     });
 
     it('should generate correct lead keys', () => {
-      expect(CacheKeys.lead('lead1')).toBe('lead:lead1');
-      expect(CacheKeys.leadList(1, 10)).toBe('leads:list:1:10');
+      expect(CACHE_KEYS.lead('lead1')).toBe('lead:lead1');
+      expect(CACHE_KEYS.leadList(1, 10)).toBe('leads:list:1:10');
     });
 
     it('should generate static keys', () => {
-      expect(CacheKeys.pricing()).toBe('pricing:tiers');
-      expect(CacheKeys.adminStats()).toBe('admin:stats');
+      expect(CACHE_KEYS.pricing()).toBe('pricing:tiers');
+      expect(CACHE_KEYS.adminStats('week')).toBe('admin:stats:week');
     });
   });
 

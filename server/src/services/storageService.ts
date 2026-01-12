@@ -531,4 +531,97 @@ export function getStorageService(): StorageService {
   return storageServiceInstance;
 }
 
+// ============================================================================
+// HELPER FUNCTIONS FOR TESTING COMPATIBILITY
+// These provide a simplified API that can be easily mocked in tests
+// ============================================================================
+
+/**
+ * Allowed MIME types for validation
+ */
+export const ALLOWED_TYPES = {
+  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'],
+  drawing: ['application/pdf', 'image/svg+xml', 'application/dxf', 'image/vnd.dwg'],
+};
+
+/**
+ * Check if a file type is allowed
+ */
+export function isAllowedFileType(mimeType: string): boolean {
+  const allAllowed = [
+    ...ALLOWED_TYPES.document,
+    ...ALLOWED_TYPES.image,
+    ...ALLOWED_TYPES.drawing,
+  ];
+  return allAllowed.includes(mimeType);
+}
+
+/**
+ * Check if file size is within limit
+ */
+export function isAllowedFileSize(size: number, _category?: string): boolean {
+  const maxSize = 50 * 1024 * 1024; // 50MB default
+  return size <= maxSize;
+}
+
+/**
+ * Get file category from MIME type
+ */
+export function getFileCategory(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (ALLOWED_TYPES.document.includes(mimeType)) return 'document';
+  if (ALLOWED_TYPES.drawing.includes(mimeType)) return 'drawing';
+  return 'other';
+}
+
+/**
+ * Get maximum file size
+ */
+export function getMaxFileSize(): number {
+  return 50 * 1024 * 1024; // 50MB
+}
+
+/**
+ * Format bytes to human readable string
+ */
+export function formatBytes(bytes: number): string {
+  return StorageService.formatFileSize(bytes);
+}
+
+/**
+ * Upload file wrapper (for simplified API)
+ */
+export async function uploadFile(
+  buffer: Buffer,
+  fileName: string,
+  contentType: string,
+  _basePath: string
+): Promise<UploadResult> {
+  const service = getStorageService();
+  return service.uploadFile(buffer, {
+    projectId: 'default',
+    category: 'deliverables',
+    fileName,
+    contentType,
+    userId: 'system',
+  });
+}
+
+/**
+ * Get signed URL wrapper (for simplified API)
+ */
+export async function getSignedUrl(filePath: string): Promise<SignedUrlResult> {
+  const service = getStorageService();
+  return service.getSignedUrl(filePath);
+}
+
+/**
+ * Delete file wrapper (for simplified API)
+ */
+export async function deleteFile(filePath: string): Promise<DeleteResult> {
+  const service = getStorageService();
+  return service.deleteFile(filePath);
+}
+
 export default StorageService;

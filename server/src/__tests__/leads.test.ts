@@ -354,6 +354,9 @@ describe('Tier Router Integration', () => {
       budgetRange: 'Under $5,000',
       timeline: '1-2 weeks',
       projectType: 'consultation',
+      hasSurvey: false,
+      hasDrawings: false,
+      projectAddress: '123 Test St',
     });
 
     expect(result.tier).toBe(1);
@@ -374,6 +377,7 @@ describe('Tier Router Integration', () => {
       projectType: 'new_build',
       hasSurvey: true,
       hasDrawings: true,
+      projectAddress: '456 Premium Ave',
     });
 
     expect(result.tier).toBe(4);
@@ -391,6 +395,9 @@ describe('Tier Router Integration', () => {
       budgetRange: '$50,000+',
       timeline: '1-2 weeks',
       projectType: 'renovation',
+      hasSurvey: false,
+      hasDrawings: false,
+      projectAddress: '789 Mixed St',
     });
 
     expect(result.needsManualReview).toBe(true);

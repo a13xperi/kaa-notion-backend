@@ -4,10 +4,77 @@
  * Supports both functional API (for Stripe webhook flows) and class-based API (for advanced use).
  */
 
-import { PrismaClient, Client, User, Project, Lead, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { hashPassword } from './authService';
 import { notFound, conflict, ErrorCodes } from '../utils/AppError';
+
+// ============================================================================
+// LOCAL TYPE DEFINITIONS (compatible with Prisma schema)
+// ============================================================================
+
+type UserType = 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN';
+type ClientStatus = 'ONBOARDING' | 'ACTIVE' | 'COMPLETED' | 'CLOSED';
+type LeadStatus = 'NEW' | 'QUALIFIED' | 'NEEDS_REVIEW' | 'CONVERTED' | 'CLOSED';
+type ProjectStatus = 'INTAKE' | 'ONBOARDING' | 'IN_PROGRESS' | 'AWAITING_FEEDBACK' | 'REVISIONS' | 'DELIVERED' | 'CLOSED';
+
+interface User {
+  id: string;
+  email: string | null;
+  name?: string | null;
+  userType: UserType;
+  tier: number | null;
+  role?: string;
+  passwordHash?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface Client {
+  id: string;
+  userId: string;
+  leadId?: string | null;
+  tier: number;
+  status: ClientStatus;
+  projectAddress?: string | null;
+  stripeCustomerId?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface Lead {
+  id: string;
+  email: string;
+  name?: string | null;
+  projectAddress?: string | null;
+  budgetRange?: string;
+  timeline?: string;
+  projectType?: string;
+  hasSurvey?: boolean;
+  hasDrawings?: boolean;
+  recommendedTier?: number | null;
+  routingReason?: string | null;
+  status: LeadStatus;
+  tierOverride?: number | null;
+  overrideReason?: string | null;
+  clientId?: string | null;
+  client?: Client | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface Project {
+  id: string;
+  clientId: string;
+  leadId?: string | null;
+  tier: number;
+  name: string;
+  status: ProjectStatus;
+  paymentStatus?: string;
+  projectAddress?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 // ============================================================================
 // TYPES - Functional API (Stripe Integration)
@@ -321,7 +388,7 @@ export async function getClients(options: {
   const { page = 1, limit = 20, tier, status } = options;
   const skip = (page - 1) * limit;
 
-  const where: Prisma.ClientWhereInput = {};
+  const where: Record<string, unknown> = {};
 
   if (tier) {
     where.tier = tier;

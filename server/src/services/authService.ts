@@ -5,7 +5,7 @@
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, User, UserType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '../config/logger';
 import {
   invalidToken,
@@ -15,6 +15,22 @@ import {
   notFound,
   ErrorCodes,
 } from '../utils/AppError';
+
+// Local type definitions for Prisma compatibility
+type UserType = 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN';
+
+interface User {
+  id: string;
+  email: string | null;
+  name?: string | null;
+  userType: UserType;
+  tier: number | null;
+  passwordHash: string | null;
+  role?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  lastLogin?: Date | null;
+}
 
 // ============================================================================
 // TYPES

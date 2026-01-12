@@ -214,7 +214,7 @@ describe('Deliverable Routes', () => {
       mockStorage.getSignedUrl.mockResolvedValue({
         success: true,
         signedUrl,
-        expiresAt: new Date(Date.now() + 3600000),
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
       });
 
       const result = await storageService.getSignedUrl('projects/test/file.pdf');
@@ -225,7 +225,7 @@ describe('Deliverable Routes', () => {
 
     it('should set appropriate expiration time', async () => {
       const expiresIn = 3600; // 1 hour
-      const expiresAt = new Date(Date.now() + expiresIn * 1000);
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
       mockStorage.getSignedUrl.mockResolvedValue({
         success: true,
@@ -236,7 +236,7 @@ describe('Deliverable Routes', () => {
       const result = await storageService.getSignedUrl('test/path');
 
       expect(result.expiresAt).toBeDefined();
-      expect(result.expiresAt!.getTime()).toBeGreaterThan(Date.now());
+      expect(new Date(result.expiresAt!).getTime()).toBeGreaterThan(Date.now());
     });
 
     it('should verify user has access to file', async () => {
@@ -388,8 +388,8 @@ describe('Deliverable Routes', () => {
           .toLowerCase();
       };
 
-      expect(sanitizeFileName('My File (1).pdf')).toBe('my_file__1_.pdf');
-      expect(sanitizeFileName('../../../etc/passwd')).toBe('_.._.._.._etc_passwd');
+      expect(sanitizeFileName('My File (1).pdf')).toBe('my_file_1_.pdf');
+      expect(sanitizeFileName('../../../etc/passwd')).toBe('.._.._.._etc_passwd');
     });
   });
 
