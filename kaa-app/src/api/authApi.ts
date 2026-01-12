@@ -259,6 +259,31 @@ export async function requestPasswordReset(email: string): Promise<{ message: st
 }
 
 /**
+ * Change password for logged-in user.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/auth/password/change`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Current password is incorrect');
+    }
+    throw new Error(data.error?.message || 'Password change failed');
+  }
+
+  return data;
+}
+
+/**
  * Check if user is authenticated.
  */
 export function isAuthenticated(): boolean {
