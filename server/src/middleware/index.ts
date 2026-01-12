@@ -79,6 +79,9 @@ export {
   passwordResetRateLimit,
   teamInviteRateLimit,
   uploadRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  adminRateLimit,
 } from './rateLimit';
 
 // Login protection
