@@ -6,7 +6,9 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { FigmaClient } from '../figma-client';
 import { logger } from '../logger';
-import { verifyToken } from './authService';
+import { verifyToken, type JwtPayload } from '../middleware/auth';
+import { prisma } from '../utils/prisma';
+import { AuditActions, ResourceTypes, logAudit } from './auditService';
 
 // ============================================================================
 // TYPES
@@ -154,47 +156,69 @@ export function shutdownRealtimeService(): void {
  * Handle new WebSocket connection
  */
 function handleConnection(socket: WebSocket, request: { url?: string }): void {
-  // Parse authentication from query string (in production, use proper auth)
+  void handleConnectionAsync(socket, request);
+}
+
+function mapUserTypeToConnection(
+  userType: JwtPayload['userType'] | null | undefined
+): ClientConnection['userType'] {
+  switch (userType) {
+    case 'ADMIN':
+      return 'admin';
+    case 'TEAM':
+      return 'team';
+    default:
+      return 'client';
+  }
+}
+
+async function handleConnectionAsync(socket: WebSocket, request: { url?: string }): Promise<void> {
+  // Parse authentication from query string
   const url = new URL(request.url || '', 'ws://localhost');
-  const userId = url.searchParams.get('userId');
-  const userType = url.searchParams.get('userType') as 'client' | 'team' | 'admin' | null;
   const token = url.searchParams.get('token');
 
-  if (!userId || !userType) {
-    logger.warn('WebSocket connection rejected - missing credentials');
+  if (!token) {
+    logger.warn('WebSocket connection rejected - missing token');
     socket.close(4001, 'Authentication required');
     return;
   }
 
-  // Verify the JWT token
-  if (!token) {
-    logger.warn('WebSocket connection rejected - missing token', { userId });
+  // Verify JWT token
+  let payload: JwtPayload;
+  try {
+    payload = verifyToken(token);
+  } catch (error) {
+    logger.warn('WebSocket connection rejected - invalid token', {
+      error: error instanceof Error ? error.message : error,
+    });
     socket.close(4001, 'Invalid token');
     return;
   }
 
-  try {
-    const payload = verifyToken(token, 'access');
+  // Verify user exists and is active
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    include: {
+      client: true,
+      teamMember: true,
+    },
+  });
 
-    // Verify the token belongs to the claimed user
-    if (payload.userId !== userId) {
-      logger.warn('WebSocket connection rejected - token/userId mismatch', {
-        claimedUserId: userId,
-        tokenUserId: payload.userId,
-      });
-      socket.close(4001, 'Invalid token');
-      return;
-    }
-
-    logger.debug('WebSocket token verified', { userId, userType });
-  } catch (error) {
-    logger.warn('WebSocket connection rejected - invalid token', {
-      userId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    socket.close(4001, 'Invalid or expired token');
+  if (!user) {
+    logger.warn('WebSocket connection rejected - user not found', { userId: payload.userId });
+    socket.close(4001, 'Invalid token');
     return;
   }
+
+  if (user.teamMember && !user.teamMember.isActive) {
+    logger.warn('WebSocket connection rejected - inactive team member', { userId: user.id });
+    socket.close(4001, 'User inactive');
+    return;
+  }
+
+  const userId = user.id;
+  const userType = mapUserTypeToConnection(user.userType ?? payload.userType);
+
 
   // Check connection limit per user
   const existingConnections = connections.get(userId) || [];
@@ -222,6 +246,15 @@ function handleConnection(socket: WebSocket, request: { url?: string }): void {
   connections.set(userId, userConnections);
 
   logger.info('WebSocket client connected', { userId, userType });
+  void logAudit({
+    action: AuditActions.WEBSOCKET_CONNECT,
+    resourceType: ResourceTypes.WEBSOCKET,
+    resourceId: userId,
+    userId,
+    details: {
+      userType,
+    },
+  });
 
   // Send connection confirmation
   sendToSocket(socket, {
@@ -314,6 +347,17 @@ function handleSubscribe(connection: ClientConnection, payload: { projectIds?: s
     userId: connection.userId,
     projectIds,
   });
+  if (projectIds.length > 0) {
+    void logAudit({
+      action: AuditActions.WEBSOCKET_SUBSCRIBE,
+      resourceType: ResourceTypes.WEBSOCKET,
+      resourceId: connection.userId,
+      userId: connection.userId,
+      details: {
+        projectIds,
+      },
+    });
+  }
 }
 
 /**
@@ -340,6 +384,17 @@ function handleUnsubscribe(connection: ClientConnection, payload: { projectIds?:
     userId: connection.userId,
     projectIds,
   });
+  if (projectIds.length > 0) {
+    void logAudit({
+      action: AuditActions.WEBSOCKET_UNSUBSCRIBE,
+      resourceType: ResourceTypes.WEBSOCKET,
+      resourceId: connection.userId,
+      userId: connection.userId,
+      details: {
+        projectIds,
+      },
+    });
+  }
 }
 
 /**

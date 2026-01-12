@@ -11,6 +11,7 @@ import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
 import { requireAuth, requireAdmin } from '../middleware';
+import { AuditActions, ResourceTypes, logAuditFromRequest } from '../services/auditService';
 
 // ============================================================================
 // TYPES
@@ -185,20 +186,11 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           },
         });
 
-        // Log audit
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            action: 'file_uploaded',
-            resourceType: 'deliverable',
-            resourceId: deliverable.id,
-            details: JSON.stringify({
-              projectId,
-              fileName: file.originalname,
-              fileSize: uploadResult.fileSize,
-              category,
-            }),
-          },
+        void logAuditFromRequest(req, AuditActions.FILE_UPLOAD, ResourceTypes.DELIVERABLE, deliverable.id, {
+          projectId,
+          fileName: file.originalname,
+          fileSize: uploadResult.fileSize,
+          category,
         });
 
         recordDeliverableUploaded(category || 'Document');
@@ -317,18 +309,10 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           }
         }
 
-        // Log audit
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            action: 'files_uploaded',
-            resourceType: 'deliverable',
-            details: JSON.stringify({
-              projectId,
-              fileCount: files.length,
-              successCount: results.filter((r) => r.success).length,
-            }),
-          },
+        void logAuditFromRequest(req, AuditActions.FILE_UPLOAD, ResourceTypes.DELIVERABLE, undefined, {
+          projectId,
+          fileCount: files.length,
+          successCount: results.filter((r) => r.success).length,
         });
 
         const successCount = results.filter((r) => r.success).length;
@@ -420,18 +404,9 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
           where: { id: deliverableId },
         });
 
-        // Log audit
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            action: 'file_deleted',
-            resourceType: 'deliverable',
-            resourceId: deliverableId,
-            details: JSON.stringify({
-              projectId: deliverable.projectId,
-              fileName: deliverable.name,
-            }),
-          },
+        void logAuditFromRequest(req, AuditActions.FILE_DELETE, ResourceTypes.DELIVERABLE, deliverableId, {
+          projectId: deliverable.projectId,
+          fileName: deliverable.name,
         });
 
         return res.json({
