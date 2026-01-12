@@ -5,7 +5,7 @@
  * Routes:
  * - GET /api/projects/:projectId/deliverables - Get all deliverables for a project
  * - POST /api/projects/:projectId/deliverables - Upload a new deliverable (admin only)
- * - POST /api/projects/:projectId/deliverables/batch-download - Get download URLs for multiple deliverables
+ * - POST /api/projects/:projectId/deliverables/batch-download - Get signed download URLs for multiple deliverables
  * - GET /api/deliverables/:id - Get single deliverable details
  * - GET /api/deliverables/:id/download - Get signed download URL
  * - DELETE /api/deliverables/:id - Delete deliverable (admin only, cleans up storage)
@@ -17,7 +17,12 @@ import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware';
-import { getStorageService } from '../services/storageService';
+import { requireStorageService } from '../middleware/featureFlagGuard';
+import { StorageService, getStorageService } from '../services/storageService';
+
+interface StorageServiceRequest extends AuthenticatedRequest {
+  storageService?: StorageService;
+}
 
 // ============================================================================
 // TYPES
@@ -97,6 +102,19 @@ interface SignedUrlResponse {
     expiresAt: Date;
     fileType: string;
     fileSize: number;
+  };
+}
+
+interface BatchDownloadRequest {
+  deliverableIds?: string[];
+}
+
+interface BatchDownloadResponse {
+  success: boolean;
+  data: {
+    projectId: string;
+    downloadCount: number;
+    deliverables: SignedUrlResponse['data'][];
   };
 }
 
@@ -226,6 +244,38 @@ function toDeliverableDetail(deliverable: {
       email: deliverable.uploadedBy.email,
     },
   };
+}
+
+async function deleteStorageFileWithRetry(
+  storageService: StorageService,
+  filePath: string,
+  correlationId?: string,
+  maxAttempts: number = 2
+): Promise<{ success: boolean; error?: string }> {
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = await storageService.deleteFile(filePath);
+
+    if (result.success) {
+      return result;
+    }
+
+    lastError = result.error ?? 'Unknown storage delete error';
+    logger.warn('Storage delete attempt failed', {
+      attempt,
+      maxAttempts,
+      filePath,
+      correlationId,
+      error: lastError,
+    });
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+
+  return { success: false, error: lastError ?? 'Unknown storage delete error' };
 }
 
 // ============================================================================
@@ -429,6 +479,112 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
   );
 
   // -------------------------------------------------------------------------
+  // POST /api/projects/:projectId/deliverables/batch-download - Get signed download URLs
+  // -------------------------------------------------------------------------
+  router.post(
+    '/projects/:projectId/deliverables/batch-download',
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { projectId } = req.params;
+        const user = req.user!;
+        const body = req.body as BatchDownloadRequest;
+        const deliverableIds = body?.deliverableIds?.filter(Boolean) ?? [];
+
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          include: {
+            deliverables: {
+              where: deliverableIds.length ? { id: { in: deliverableIds } } : undefined,
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+
+        if (!project) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Project not found',
+            },
+          });
+        }
+
+        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
+          if (project.clientId !== user.clientId) {
+            return res.status(403).json({
+              success: false,
+              error: {
+                code: 'FORBIDDEN',
+                message: 'Access denied to this project',
+              },
+            });
+          }
+        }
+
+        if (deliverableIds.length && project.deliverables.length !== deliverableIds.length) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'One or more deliverables were not found for this project',
+            },
+          });
+        }
+
+        if (project.deliverables.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'NO_DELIVERABLES',
+              message: 'No deliverables available for batch download',
+            },
+          });
+        }
+
+        const deliverables = project.deliverables.map((deliverable) => {
+          const { url, expiresAt } = generateSignedUrl(deliverable.fileUrl, 60);
+          return {
+            id: deliverable.id,
+            name: deliverable.name,
+            downloadUrl: url,
+            expiresAt,
+            fileType: deliverable.fileType,
+            fileSize: deliverable.fileSize,
+          };
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'deliverable_batch_download',
+            resourceType: 'project',
+            resourceId: projectId,
+            details: JSON.stringify({
+              deliverableIds: deliverables.map((item) => item.id),
+              downloadCount: deliverables.length,
+            }),
+          },
+        });
+
+        const response: BatchDownloadResponse = {
+          success: true,
+          data: {
+            projectId,
+            downloadCount: deliverables.length,
+            deliverables,
+          },
+        };
+
+        res.json(response);
+      } catch (error) {
+        next(internalError('Failed to generate batch download URLs', error as Error));
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /api/deliverables/:id - Get single deliverable details
   // -------------------------------------------------------------------------
   router.get(
@@ -590,6 +746,7 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
     '/deliverables/:id',
     requireAuth,
     requireAdmin,
+    requireStorageService,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
@@ -616,33 +773,34 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
           });
         }
 
-        // Delete from database first
+        // Delete from storage first to avoid orphaned files
+        const storageService = (req as StorageServiceRequest).storageService ?? getStorageService();
+        const deleteResult = await deleteStorageFileWithRetry(
+          storageService,
+          deliverable.filePath,
+          req.correlationId
+        );
+
+        if (!deleteResult.success) {
+          logger.error('Storage delete failed', {
+            error: deleteResult.error,
+            correlationId: req.correlationId,
+            filePath: deliverable.filePath,
+            deliverableId: id,
+          });
+          return res.status(502).json({
+            success: false,
+            error: {
+              code: 'STORAGE_DELETE_FAILED',
+              message: 'Failed to delete deliverable file from storage',
+            },
+          });
+        }
+
+        // Delete from database after successful storage deletion
         await prisma.deliverable.delete({
           where: { id },
         });
-
-        // Delete file from Supabase Storage with retry logic
-        let storageDeleteSuccess = false;
-        let storageError: string | undefined;
-
-        try {
-          const storageService = getStorageService();
-          const result = await withRetry(
-            async () => storageService.deleteFile(deliverable.filePath),
-            3, // maxRetries
-            1000 // baseDelayMs
-          );
-          storageDeleteSuccess = result.success;
-          storageError = result.error;
-        } catch (error) {
-          // Storage service not initialized or delete failed after retries
-          // Log but don't fail the request - DB record is already deleted
-          logger.warn(`Storage delete failed for deliverable ${id}`, {
-            filePath: deliverable.filePath,
-            error: (error as Error).message,
-          });
-          storageError = (error as Error).message;
-        }
 
         // Log the deletion
         await prisma.auditLog.create({
@@ -654,164 +812,20 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
             details: JSON.stringify({
               projectId: deliverable.projectId,
               fileName: deliverable.name,
-              storageDeleteSuccess,
-              storageError,
+              storageDeleteSuccess: true,
             }),
           },
         });
 
-        logger.info(`Deliverable ${id} deleted by user ${user.id}`, {
-          storageDeleteSuccess,
-        });
+        logger.info(`Deliverable ${id} deleted by user ${user.id}`);
 
         res.json({
           success: true,
           message: 'Deliverable deleted successfully',
-          storageCleanedUp: storageDeleteSuccess,
+          storageCleanedUp: true,
         });
       } catch (error) {
         next(internalError('Failed to delete deliverable', error as Error));
-      }
-    }
-  );
-
-  // -------------------------------------------------------------------------
-  // POST /api/projects/:projectId/deliverables/batch-download - Get download URLs for multiple deliverables
-  // -------------------------------------------------------------------------
-  router.post(
-    '/projects/:projectId/deliverables/batch-download',
-    requireAuth,
-    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-      try {
-        const { projectId } = req.params;
-        const { deliverableIds } = req.body as { deliverableIds?: string[] };
-        const user = req.user!;
-
-        // Validate input
-        if (!deliverableIds || !Array.isArray(deliverableIds) || deliverableIds.length === 0) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'deliverableIds must be a non-empty array',
-            },
-          });
-        }
-
-        // Limit batch size to prevent abuse
-        if (deliverableIds.length > 50) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Maximum 50 deliverables per batch',
-            },
-          });
-        }
-
-        // Get project to verify access
-        const project = await prisma.project.findUnique({
-          where: { id: projectId },
-          select: { id: true, clientId: true },
-        });
-
-        if (!project) {
-          return res.status(404).json({
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: 'Project not found',
-            },
-          });
-        }
-
-        // Authorization check
-        if (user.userType !== 'ADMIN' && user.userType !== 'TEAM') {
-          if (project.clientId !== user.clientId) {
-            return res.status(403).json({
-              success: false,
-              error: {
-                code: 'FORBIDDEN',
-                message: 'Access denied to this project',
-              },
-            });
-          }
-        }
-
-        // Get all requested deliverables for this project
-        const deliverables = await prisma.deliverable.findMany({
-          where: {
-            id: { in: deliverableIds },
-            projectId: projectId,
-          },
-          select: {
-            id: true,
-            name: true,
-            filePath: true,
-            fileUrl: true,
-            fileType: true,
-            fileSize: true,
-          },
-        });
-
-        // Check if all requested deliverables were found
-        const foundIds = new Set(deliverables.map((d: { id: string }) => d.id));
-        const missingIds = deliverableIds.filter((id: string) => !foundIds.has(id));
-
-        if (missingIds.length > 0) {
-          return res.status(404).json({
-            success: false,
-            error: {
-              code: 'NOT_FOUND',
-              message: `Deliverables not found: ${missingIds.join(', ')}`,
-            },
-          });
-        }
-
-        // Generate signed URLs for all deliverables
-        const expiresInMinutes = 60;
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
-
-        const downloads = deliverables.map((d: { id: string; name: string; fileUrl: string; fileType: string; fileSize: number }) => {
-          const { url } = generateSignedUrl(d.fileUrl, expiresInMinutes);
-          return {
-            id: d.id,
-            name: d.name,
-            downloadUrl: url,
-            fileType: d.fileType,
-            fileSize: d.fileSize,
-            fileSizeFormatted: formatFileSize(d.fileSize),
-          };
-        });
-
-        // Log the batch download request
-        await prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'deliverable_batch_download',
-            resourceType: 'project',
-            resourceId: projectId,
-            details: JSON.stringify({
-              deliverableIds,
-              count: deliverables.length,
-            }),
-          },
-        });
-
-        const totalSize = deliverables.reduce((sum: number, d: { fileSize: number }) => sum + d.fileSize, 0);
-        res.json({
-          success: true,
-          data: {
-            projectId,
-            expiresAt,
-            totalSize,
-            totalSizeFormatted: formatFileSize(totalSize),
-            downloads,
-          },
-        });
-      } catch (error) {
-        next(internalError('Failed to generate batch download URLs', error as Error));
       }
     }
   );

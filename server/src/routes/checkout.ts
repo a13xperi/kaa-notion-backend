@@ -15,6 +15,7 @@ import { validationError, notFound } from '../utils/AppError';
 import { logger } from '../logger';
 import { createCheckoutSchema, type CreateCheckoutInput } from '../utils';
 import { validateBody } from '../middleware';
+import { AuditActions, ResourceTypes, getRequestAuditMetadata, logAudit } from '../services/auditService';
 
 // ============================================================================
 // ROUTER FACTORY
@@ -104,6 +105,18 @@ export function createCheckoutRouter(prisma: PrismaClient): Router {
           leadId,
           tier,
           email,
+        });
+        void logAudit({
+          action: AuditActions.CHECKOUT_START,
+          resourceType: ResourceTypes.LEAD,
+          resourceId: leadId,
+          details: {
+            sessionId: session.id,
+            tier,
+            email,
+            projectId,
+          },
+          metadata: getRequestAuditMetadata(req),
         });
 
         res.status(201).json({

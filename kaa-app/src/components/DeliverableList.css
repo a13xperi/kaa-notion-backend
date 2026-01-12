@@ -204,7 +204,10 @@
 /* Footer */
 .deliverable-list__footer {
   display: flex;
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border-color, #e5e7eb);
 }
@@ -226,6 +229,26 @@
 
 .deliverable-list__download-all:hover {
   background: var(--primary-hover, #1d4ed8);
+}
+
+.deliverable-list__download-all:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background: var(--primary-disabled, #93c5fd);
+}
+
+.deliverable-list__download-status {
+  margin: 0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.deliverable-list__download-status.is-success {
+  color: var(--text-success, #059669);
+}
+
+.deliverable-list__download-status.is-error {
+  color: var(--text-danger, #dc2626);
 }
 
 /* Loading skeleton */

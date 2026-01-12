@@ -125,13 +125,13 @@ router.post('/invite', requireAuth, async (req: Request, res: Response) => {
  */
 router.post('/accept-invite', async (req: Request, res: Response) => {
   try {
-    const { userId, password } = req.body;
+    const { userId, password, inviteToken } = req.body;
 
-    if (!userId || !password) {
-      return res.status(400).json({ error: 'User ID and password are required' });
+    if (!userId || !password || !inviteToken) {
+      return res.status(400).json({ error: 'User ID, password, and invite token are required' });
     }
 
-    const teamMember = await teamService.acceptInvite(userId, password);
+    const teamMember = await teamService.acceptInvite(userId, password, inviteToken);
     res.json(teamMember);
   } catch (error: any) {
     console.error('Error accepting invite:', error);

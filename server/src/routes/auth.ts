@@ -16,6 +16,7 @@ import {
   extractToken,
   refreshAccessToken,
 } from '../services/authService';
+import { AuditActions, ResourceTypes, getRequestAuditMetadata, logAudit } from '../services/auditService';
 import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
 import { loginProtection, onLoginSuccess, onLoginFailure, validateBody } from '../middleware';
@@ -104,6 +105,18 @@ export function createAuthRouter(prisma: PrismaClient): Router {
 
         logger.info('User registered', { userId: result.user.id, email });
         recordAuthAttempt('register', 'success');
+        void logAudit({
+          action: AuditActions.REGISTER,
+          resourceType: ResourceTypes.USER,
+          resourceId: result.user.id,
+          userId: result.user.id,
+          details: {
+            email: result.user.email,
+            userType: result.user.userType,
+            tier: result.user.tier ?? null,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
 
         res.status(201).json({
           success: true,
@@ -173,6 +186,18 @@ export function createAuthRouter(prisma: PrismaClient): Router {
 
         logger.info('User logged in', { userId: result.user.id, email });
         recordAuthAttempt('login', 'success');
+        void logAudit({
+          action: AuditActions.LOGIN,
+          resourceType: ResourceTypes.USER,
+          resourceId: result.user.id,
+          userId: result.user.id,
+          details: {
+            email: result.user.email,
+            userType: result.user.userType,
+            rememberMe: !!rememberMe,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
 
         res.json({
           success: true,
@@ -270,6 +295,16 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         const result = await refreshAccessToken(prisma, refreshToken);
 
         recordAuthAttempt('refresh', 'success');
+        void logAudit({
+          action: AuditActions.TOKEN_REFRESH,
+          resourceType: ResourceTypes.USER,
+          resourceId: result.userId,
+          userId: result.userId,
+          details: {
+            tokenExpiresIn: result.expiresIn,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
         res.json({
           success: true,
           data: {
@@ -371,9 +406,24 @@ export function createAuthRouter(prisma: PrismaClient): Router {
         try {
           const payload = verifyToken(token);
           logger.info('User logged out', { userId: payload.userId });
+          void logAudit({
+            action: AuditActions.LOGOUT,
+            resourceType: ResourceTypes.USER,
+            resourceId: payload.userId,
+            userId: payload.userId,
+            metadata: getRequestAuditMetadata(req),
+          });
         } catch {
           // Token invalid, but still log the attempt
           logger.info('Logout attempt with invalid token');
+          void logAudit({
+            action: AuditActions.LOGOUT,
+            resourceType: ResourceTypes.USER,
+            details: {
+              reason: 'invalid_token',
+            },
+            metadata: getRequestAuditMetadata(req),
+          });
         }
       }
 

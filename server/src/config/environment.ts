@@ -22,6 +22,7 @@ const requiredEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
   // JWT Authentication (required)
+  // NOTE: Production requires a strong secret (see validation below) to prevent token forgery.
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 });
@@ -31,6 +32,7 @@ const requiredEnvSchema = z.object({
  */
 const optionalEnvSchema = z.object({
   // Stripe (optional but recommended)
+  // NOTE: If Stripe is enabled in production, webhook signing must be configured.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
@@ -40,6 +42,7 @@ const optionalEnvSchema = z.object({
   // Notion (optional)
   NOTION_API_KEY: z.string().optional(),
   NOTION_PROJECTS_DATABASE_ID: z.string().optional(),
+  NOTION_SIGNING_SECRET: z.string().optional(),
 
   // Supabase Storage (optional)
   SUPABASE_URL: z.string().url().optional(),
@@ -58,6 +61,7 @@ const optionalEnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().default('support@sage.design'),
 
   // Frontend & CORS
+  // NOTE: Production requires explicit allowed origins to prevent permissive CORS.
   FRONTEND_URL: z.string().url().optional(),
   CORS_ORIGINS: z.string().optional(),
 
@@ -98,6 +102,7 @@ export interface ValidationResult {
  */
 export function validateEnvironment(): ValidationResult {
   const warnings: string[] = [];
+  const productionErrors: string[] = [];
   
   // Parse and validate
   const result = envSchema.safeParse(process.env);
@@ -115,13 +120,16 @@ export function validateEnvironment(): ValidationResult {
   }
 
   const config = result.data;
-  const productionErrors: string[] = [];
 
   // Production-specific FATAL errors (block startup)
   if (config.NODE_ENV === 'production') {
     // JWT_SECRET must be strong in production
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
-      productionErrors.push('JWT_SECRET must be at least 64 characters in production');
+    const disallowedSecrets = new Set([
+      'development-secret-key',
+      'development-secret-change-in-production',
+    ]);
+    if (disallowedSecrets.has(config.JWT_SECRET) || config.JWT_SECRET.length < 64) {
+      productionErrors.push('JWT_SECRET must be at least 64 characters and not a default value in production');
     }
 
     // CORS must be configured in production

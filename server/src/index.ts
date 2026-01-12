@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -36,15 +36,17 @@ import {
   errorHandler,
   notFoundHandler,
   apiRateLimiter,
-  authRateLimiter,
-  leadCreationRateLimiter,
-  checkoutRateLimiter,
-  uploadRateLimiter,
-  adminRateLimiter,
+  apiRateLimit,
+  authRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  uploadRateLimit,
+  adminRateLimit,
   requireAuth,
   requireProjectAccess,
   requireNotionService,
   requireStorageService,
+  createFigmaAccessMiddleware,
 } from './middleware';
 import { authenticate } from './middleware/auth';
 import { logger, requestLogger } from './logger';
@@ -111,8 +113,13 @@ app.use(compression());
 // Stripe webhooks need the raw body for signature verification - keep this before express.json().
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
-// JSON parsing for all other routes
-app.use(express.json({ limit: '10mb' }));
+// JSON parsing for all other routes (capture raw body for webhook signature verification)
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: Request, _res, buf) => {
+    (req as Request & { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
 
 // Request logging with correlation IDs (skip for health checks)
 app.use((req, res, next) => {
@@ -155,8 +162,8 @@ logger.info('Audit service initialized');
 
 // Initialize auth service
 initAuthService({
-  jwtSecret: process.env.JWT_SECRET || 'development-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  jwtSecret: envConfig.JWT_SECRET,
+  jwtExpiresIn: envConfig.JWT_EXPIRES_IN,
   saltRounds: 12,
 });
 logger.info('Auth service initialized');
@@ -191,21 +198,21 @@ if (features.apiDocsEnabled) {
 app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, requireNotionService, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, requireStorageService, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
+app.use('/api/admin', adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/notion', adminRateLimit, requireNotionService, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/upload', uploadRateLimit, requireStorageService, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
 const apiAuth = requireAuth(prisma);
 app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
 app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
 app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimiter, apiAuth, createAdminRouter(prisma)); // Handles /api/admin/* endpoints
-app.use('/api/notion', adminRateLimiter, apiAuth, createNotionRouter({ prisma })); // Handles /api/notion/* sync endpoints
-app.use('/api/upload', uploadRateLimiter, createUploadRouter({ prisma })); // Handles /api/upload/* file upload endpoints
-app.use('/api/leads', leadCreationRateLimiter, createLeadsRouter(prisma)); // Handles /api/leads/* endpoints
-app.use('/api/checkout', checkoutRateLimiter, createCheckoutRouter(prisma)); // Handles /api/checkout/* endpoints
+app.use('/api/admin', apiAuth, adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/notion', apiAuth, adminRateLimit, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
+app.use('/api/upload', apiAuth, uploadRateLimit, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
+app.use('/api/leads', leadRateLimit, createLeadsRouter(prisma)); // Redis-backed lead rate limits (per-user when available).
+app.use('/api/checkout', checkoutRateLimit, createCheckoutRouter(prisma)); // Redis-backed checkout rate limits (per-user when available).
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
-app.use('/api/auth', authRateLimiter, createAuthRouter(prisma)); // Handles /api/auth/* endpoints
-app.use('/api/team', apiRateLimiter, createTeamRouter(prisma)); // Handles /api/team/* endpoints
+app.use('/api/auth', authRateLimit, createAuthRouter(prisma)); // Redis-backed auth rate limits (per-user when available).
+app.use('/api/team', apiRateLimit, createTeamRouter(prisma)); // Redis-backed team rate limits (per-user when available).
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());
@@ -228,14 +235,10 @@ app.get('/test', (req, res) => {
 });
 
 // REST API endpoints for Figma
-// Protected with authentication and project access check
-// Requires projectId query parameter to verify user has access to the project
-const figmaProjectAccess = requireProjectAccess((req) => {
-  const projectId = req.query.projectId;
-  return typeof projectId === 'string' ? projectId : null;
-});
+// Protected with authentication and Figma-specific access middleware
+const figmaAuth = [requireAuth(prisma), createFigmaAccessMiddleware(prisma)];
 
-app.get('/file/:fileKey', authenticate, figmaProjectAccess, async (req, res, next) => {
+const getFigmaFileHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const { projectId } = req.query;
     if (!projectId || typeof projectId !== 'string') {
@@ -254,9 +257,9 @@ app.get('/file/:fileKey', authenticate, figmaProjectAccess, async (req, res, nex
   } catch (error) {
     next(internalError('Failed to fetch Figma file', error as Error));
   }
-});
+};
 
-app.get('/file/:fileKey/nodes', authenticate, figmaProjectAccess, async (req, res, next) => {
+const getFigmaNodesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const { nodeIds, projectId } = req.query;
     if (!projectId || typeof projectId !== 'string') {
@@ -282,7 +285,12 @@ app.get('/file/:fileKey/nodes', authenticate, figmaProjectAccess, async (req, re
   } catch (error) {
     next(internalError('Failed to fetch Figma nodes', error as Error));
   }
-});
+};
+
+app.get('/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
+app.get('/api/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/api/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
 
 app.post('/webhook', handleFigmaWebhook);
 

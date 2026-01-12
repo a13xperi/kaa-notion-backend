@@ -11,6 +11,7 @@ import {
   Milestone,
   Deliverable,
   DeliverableDownload,
+  BatchDeliverableDownload,
   ApiResponse,
 } from '../types/portal.types';
 
@@ -225,6 +226,24 @@ export async function getDeliverableDownloadUrl(
   });
 
   return handleResponse<ApiResponse<DeliverableDownload>>(response);
+}
+
+/**
+ * Get signed download URLs for multiple deliverables
+ */
+export async function batchDownloadDeliverables(
+  projectId: string,
+  deliverableIds: string[]
+): Promise<ApiResponse<BatchDeliverableDownload>> {
+  const url = `${API_BASE_URL}/projects/${projectId}/deliverables/batch-download`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ deliverableIds }),
+  });
+
+  return handleResponse<ApiResponse<BatchDeliverableDownload>>(response);
 }
 
 /**

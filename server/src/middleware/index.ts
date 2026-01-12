@@ -79,6 +79,9 @@ export {
   passwordResetRateLimit,
   teamInviteRateLimit,
   uploadRateLimit,
+  leadRateLimit,
+  checkoutRateLimit,
+  adminRateLimit,
 } from './rateLimit';
 
 // Login protection
@@ -123,3 +126,15 @@ export {
   requireNotionService,
   requireStorageService,
 } from './featureFlagGuard';
+
+// Figma Access
+export {
+  createFigmaAccessMiddleware,
+} from './figmaAccess';
+
+// Sanitization
+export {
+  sanitizeInput,
+  strictSanitize,
+  trimStrings,
+} from './sanitize';
