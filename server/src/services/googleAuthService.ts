@@ -91,24 +91,12 @@ export function getGoogleAuthUrl(state?: string): string {
     'https://www.googleapis.com/auth/userinfo.profile',
   ];
 
-  const options: {
-    access_type: 'offline';
-    scope: string[];
-    prompt: 'consent';
-    response_type: 'code';
-    state?: string;
-  } = {
+  return oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
     prompt: 'consent',
-    response_type: 'code',
-  };
-
-  if (state) {
-    options.state = state;
-  }
-
-  return oAuth2Client.generateAuthUrl(options);
+    state,
+  });
 }
 
 /**

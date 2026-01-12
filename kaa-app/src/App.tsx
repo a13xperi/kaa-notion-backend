@@ -25,6 +25,7 @@ import { LoginForm, RegisterForm } from './components/auth';
 import { PricingPage } from './components/pricing';
 import { CheckoutSuccess, CheckoutCancel } from './components/checkout';
 import { IntakeForm } from './components/intake/IntakeForm';
+import { AuthCallbackPage } from './pages/AuthCallbackPage';
 
 // Portal Pages
 import { ProjectsPage, ProjectDetailPage } from './pages';
@@ -434,6 +435,9 @@ function App() {
               {/* Checkout */}
               <Route path="/checkout/success" element={<CheckoutSuccess />} />
               <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+              
+              {/* OAuth Callback */}
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
               
               {/* Demo (legacy) */}
               <Route path="/demo" element={<DemoPage />} />
