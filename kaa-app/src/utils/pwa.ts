@@ -90,7 +90,6 @@ class PWAManager {
     const defaultOptions: NotificationOptions = {
       icon: '/logo192.png',
       badge: '/logo192.png',
-      vibrate: [200, 100, 200],
       requireInteraction: false,
       ...options
     };
