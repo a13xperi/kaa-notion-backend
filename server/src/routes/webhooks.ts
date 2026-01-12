@@ -318,13 +318,13 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
               action: 'notion_webhook',
               resourceType: 'notion_page',
               resourceId: pageId,
-              details: {
+              details: JSON.stringify({
                 event_type: eventType,
                 page_id: pageId,
                 last_edited_time: lastEditedTime,
                 synced: false,
                 reason: 'No linked project found',
-              },
+              }),
             },
           });
 
@@ -409,13 +409,13 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
             action: 'notion_webhook',
             resourceType: 'notion_page',
             resourceId: pageId,
-            details: {
+            details: JSON.stringify({
               event_type: eventType,
               page_id: pageId,
               last_edited_time: lastEditedTime,
               project_id: project.id,
               synced: hasUpdates,
-            },
+            }),
           },
         });
 

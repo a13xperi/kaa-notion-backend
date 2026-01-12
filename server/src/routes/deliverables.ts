@@ -405,13 +405,13 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
             action: 'deliverable_upload',
             resourceType: 'deliverable',
             resourceId: deliverable.id,
-            details: {
+            details: JSON.stringify({
               projectId,
               fileName: body.name,
               category: body.category,
               fileSize: body.fileSize,
               fileType: body.fileType,
-            },
+            }),
           },
         });
 
@@ -557,10 +557,10 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
             action: 'deliverable_download',
             resourceType: 'deliverable',
             resourceId: id,
-            details: {
+            details: JSON.stringify({
               projectId: deliverable.projectId,
               fileName: deliverable.name,
-            },
+            }),
           },
         });
 
@@ -651,12 +651,12 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
             action: 'deliverable_delete',
             resourceType: 'deliverable',
             resourceId: id,
-            details: {
+            details: JSON.stringify({
               projectId: deliverable.projectId,
               fileName: deliverable.name,
               storageDeleteSuccess,
               storageError,
-            },
+            }),
           },
         });
 
@@ -792,10 +792,10 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
             action: 'deliverable_batch_download',
             resourceType: 'project',
             resourceId: projectId,
-            details: {
+            details: JSON.stringify({
               deliverableIds,
               count: deliverables.length,
-            },
+            }),
           },
         });
 

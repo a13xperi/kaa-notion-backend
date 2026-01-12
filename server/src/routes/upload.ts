@@ -10,6 +10,7 @@ import { StorageService } from '../services/storageService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
 import { recordDeliverableUploaded } from '../config/metrics';
+import { requireAuth, requireAdmin } from '../middleware';
 
 // ============================================================================
 // TYPES
@@ -108,13 +109,16 @@ function handleMulterError(err: any, req: Request, res: Response, next: Function
 
 export function createUploadRouter({ prisma }: UploadRouterDependencies): Router {
   const router = Router();
+  const authMiddleware = requireAuth(prisma);
+  const adminMiddleware = requireAdmin(prisma);
 
   // ============================================================================
   // POST /api/upload - Upload a single file
   // ============================================================================
   router.post(
     '/',
-    requireAdmin(),
+    authMiddleware,
+    adminMiddleware,
     upload.single('file'),
     handleMulterError,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -188,12 +192,12 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
             action: 'file_uploaded',
             resourceType: 'deliverable',
             resourceId: deliverable.id,
-            details: {
+            details: JSON.stringify({
               projectId,
               fileName: file.originalname,
               fileSize: uploadResult.fileSize,
               category,
-            },
+            }),
           },
         });
 
@@ -224,7 +228,8 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.post(
     '/multiple',
-    requireAdmin(),
+    authMiddleware,
+    adminMiddleware,
     upload.array('files', 10),
     handleMulterError,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -318,11 +323,11 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
             userId: req.user!.id,
             action: 'files_uploaded',
             resourceType: 'deliverable',
-            details: {
+            details: JSON.stringify({
               projectId,
               fileCount: files.length,
               successCount: results.filter((r) => r.success).length,
-            },
+            }),
           },
         });
 
@@ -371,8 +376,8 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
   // ============================================================================
   router.delete(
     '/:deliverableId',
-    requireAuth,
-    requireAdmin,
+    authMiddleware,
+    adminMiddleware,
     async (req: Request, res: Response, next: NextFunction) => {
       const { deliverableId } = req.params;
       
@@ -422,10 +427,10 @@ export function createUploadRouter({ prisma }: UploadRouterDependencies): Router
             action: 'file_deleted',
             resourceType: 'deliverable',
             resourceId: deliverableId,
-            details: {
+            details: JSON.stringify({
               projectId: deliverable.projectId,
               fileName: deliverable.name,
-            },
+            }),
           },
         });
 
