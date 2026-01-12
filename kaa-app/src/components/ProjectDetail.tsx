@@ -258,6 +258,7 @@ export function ProjectDetail({
               uploadedBy: { id: '', email: null },
             }))}
             projectName={project.name}
+            projectId={project.id}
             onDownload={onDeliverableDownload}
             onView={onDeliverableView}
             emptyMessage="No deliverables have been uploaded yet"
