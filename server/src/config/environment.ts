@@ -3,7 +3,7 @@
  * Validates required environment variables at startup.
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { logger } from '../logger';
 
 // ============================================================================

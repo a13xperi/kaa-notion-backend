@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import { Prisma } from '../types/prisma-types';
 import {
   AppError,

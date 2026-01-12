@@ -21,7 +21,7 @@ import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
 import { loginProtection, onLoginSuccess, onLoginFailure, validateBody } from '../middleware';
 import { recordAuthAttempt } from '../config/metrics';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 // ============================================================================
 // SCHEMAS

@@ -24,7 +24,7 @@ import {
   AuthenticatedRequest,
 } from '../middleware';
 import { teamInviteRateLimit } from '../middleware/rateLimit';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getEmailService } from '../services/emailService';
 
 // ============================================================================

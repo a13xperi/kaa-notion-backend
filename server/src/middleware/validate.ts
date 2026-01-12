@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { z, ZodSchema, ZodError } from 'zod';
+import { z, ZodSchema, ZodError } from 'zod/v3';
 import { validationError } from '../utils/AppError';
 import { formatZodErrors, getFirstError as getFirstErrorUtil } from '../utils/validators';
 

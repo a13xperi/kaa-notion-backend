@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { prisma } from '../utils/prisma';
 import { logger } from '../config/logger';
 import { notifyNewMessage } from '../services/notificationService';

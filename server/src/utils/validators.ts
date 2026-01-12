@@ -3,7 +3,7 @@
  * Zod schemas for API request validation.
  */
 
-import { z, ZodError } from 'zod';
+import { z, ZodError } from 'zod/v3';
 
 // ============================================================================
 // ZOD ERROR FORMATTING
@@ -64,7 +64,7 @@ export const paginationSchema = z.object({
 
 export const sortSchema = z.object({
   sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  sortOrder: z.enum(['asc', 'desc'] as const).optional().default('desc'),
 });
 
 // ============================================================================
@@ -113,14 +113,14 @@ export const createLeadSchema = z.object({
     '25k_50k',
     '50k_100k',
     'over_100k',
-  ]).optional(),
+  ] as const).optional(),
   timeline: z.enum([
     'immediately',
     '1_3_months',
     '3_6_months',
     '6_12_months',
     'over_1_year',
-  ]).optional(),
+  ] as const).optional(),
   projectType: z.enum([
     'full_landscape',
     'front_yard',
@@ -129,7 +129,7 @@ export const createLeadSchema = z.object({
     'pool_area',
     'garden',
     'other',
-  ]).optional(),
+  ] as const).optional(),
   hasSurvey: z.boolean().default(false),
   hasDrawings: z.boolean().default(false),
   budget: z.coerce.number().positive().optional(),
@@ -137,7 +137,7 @@ export const createLeadSchema = z.object({
 });
 
 export const updateLeadSchema = z.object({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED'] as const).optional(),
   recommendedTier: z.number().int().min(1).max(4).optional(),
   routingReason: z.string().max(500).optional(),
   tierOverrideReason: z.string().max(500).optional(),
@@ -145,7 +145,7 @@ export const updateLeadSchema = z.object({
 });
 
 export const leadFiltersSchema = paginationSchema.merge(sortSchema).extend({
-  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED']).optional(),
+  status: z.enum(['NEW', 'QUALIFIED', 'NEEDS_REVIEW', 'CLOSED'] as const).optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
   search: z.string().optional(),
   startDate: z.string().datetime().optional(),
@@ -171,9 +171,9 @@ export const updateProjectSchema = z.object({
     'REVISIONS',
     'DELIVERED',
     'CLOSED',
-  ]).optional(),
+  ] as const).optional(),
   name: z.string().min(1).max(200).optional(),
-  paymentStatus: z.enum(['pending', 'paid', 'refunded']).optional(),
+  paymentStatus: z.enum(['pending', 'paid', 'refunded'] as const).optional(),
 });
 
 export const projectFiltersSchema = paginationSchema.merge(sortSchema).extend({
@@ -184,7 +184,7 @@ export const projectFiltersSchema = paginationSchema.merge(sortSchema).extend({
     'REVISIONS',
     'DELIVERED',
     'CLOSED',
-  ]).optional(),
+  ] as const).optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
   paymentStatus: z.string().optional(),
   search: z.string().optional(),
@@ -195,7 +195,7 @@ export const projectFiltersSchema = paginationSchema.merge(sortSchema).extend({
 // ============================================================================
 
 export const updateMilestoneSchema = z.object({
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).optional(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).optional(),
   dueDate: z.string().datetime().optional().nullable(),
   completedAt: z.string().datetime().optional().nullable(),
 });
@@ -215,7 +215,7 @@ export const createDeliverableSchema = z.object({
     'Invoice',
     'Contract',
     'Other',
-  ]),
+  ] as const),
   description: z.string().max(1000).optional(),
   filePath: z.string(),
   fileUrl: z.string().url(),
@@ -232,12 +232,12 @@ export const deliverableFiltersSchema = paginationSchema.extend({
 // ============================================================================
 
 export const updateClientSchema = z.object({
-  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED']).optional(),
+  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED'] as const).optional(),
   tier: z.number().int().min(1).max(4).optional(),
 });
 
 export const clientFiltersSchema = paginationSchema.merge(sortSchema).extend({
-  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED']).optional(),
+  status: z.enum(['ONBOARDING', 'ACTIVE', 'COMPLETED', 'CLOSED'] as const).optional(),
   tier: z.coerce.number().int().min(1).max(4).optional(),
   search: z.string().optional(),
 });
@@ -269,7 +269,7 @@ export const uploadSchema = z.object({
     'Invoice',
     'Contract',
     'Other',
-  ]).optional().default('Document'),
+  ] as const).optional().default('Document'),
   description: z.string().max(1000).optional(),
 });
 

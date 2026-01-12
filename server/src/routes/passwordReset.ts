@@ -8,7 +8,7 @@
 
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { prisma } from '../utils/prisma';
 import { sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../config/logger';

@@ -11,7 +11,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import metricsService from '../services/metricsService';
 import { logger } from '../config/logger';
 

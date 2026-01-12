@@ -9,7 +9,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import notificationService from '../services/notificationService';
 import { logger } from '../config/logger';
 
