@@ -8,19 +8,21 @@ import { PrismaClient } from '@prisma/client';
 import { FigmaClient } from './figma-client';
 import { handleFigmaWebhook } from './webhook-handler';
 import { performHealthCheck, livenessCheck, readinessCheck } from './services/healthService';
-import { 
-  createProjectsRouter, 
-  createMilestonesRouter, 
-  createDeliverablesRouter, 
-  createAdminRouter, 
-  createNotionRouter, 
-  createUploadRouter, 
+import {
+  createProjectsRouter,
+  createMilestonesRouter,
+  createDeliverablesRouter,
+  createAdminRouter,
+  createNotionRouter,
+  createUploadRouter,
   createLeadsRouter,
   createCheckoutRouter,
   createWebhooksRouter,
   createAuthRouter,
   createTeamRouter,
 } from './routes';
+import { createSuperAdminRouter } from './routes/superAdmin';
+import { initGoogleAuth } from './services/googleAuthService';
 import {
   initNotionSyncService,
   initStorageService,
@@ -168,6 +170,18 @@ initAuthService({
 });
 logger.info('Auth service initialized');
 
+// Initialize Google OAuth if configured
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  initGoogleAuth({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/google/callback`,
+  });
+  logger.info('Google OAuth initialized');
+} else {
+  logger.warn('Google OAuth not configured - missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+}
+
 // Initialize email service
 const emailProvider = process.env.RESEND_API_KEY ? 'resend' : 
                      process.env.SMTP_HOST ? 'nodemailer' : 'console';
@@ -207,6 +221,7 @@ app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
 app.use('/api/milestones', apiRateLimiter, apiAuth, createMilestonesRouter(prisma));
 app.use('/api/deliverables', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma));
 app.use('/api/admin', apiAuth, adminRateLimit, createAdminRouter(prisma));
+app.use('/api/super-admin', apiAuth, adminRateLimit, createSuperAdminRouter(prisma));
 app.use('/api/notion', apiAuth, adminRateLimit, requireNotionService, createNotionRouter({ prisma }));
 app.use('/api/upload', apiAuth, uploadRateLimit, requireStorageService, createUploadRouter({ prisma }));
 app.use('/api/team', apiAuth, apiRateLimit, createTeamRouter(prisma));
