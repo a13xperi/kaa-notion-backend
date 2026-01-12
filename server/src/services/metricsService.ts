@@ -313,13 +313,13 @@ export async function getTierDistribution(): Promise<TierDistribution[]> {
       _sum: { amount: true },
     });
 
-    const projectCountMap = new Map(projectsByTier.map(p => [p.tier, p._count.id]));
-    const revenueMap = new Map(revenueByTier.map(r => [r.tier || 0, r._sum.amount || 0]));
+    const projectCountMap = new Map<number, number>(projectsByTier.map(p => [p.tier, p._count.id]));
+    const revenueMap = new Map<number, number>(revenueByTier.map(r => [r.tier || 0, r._sum.amount || 0]));
 
-    const totalProjects = projectsByTier.reduce((sum, p) => sum + p._count.id, 0);
+    const totalProjects: number = projectsByTier.reduce((sum, p) => sum + p._count.id, 0);
 
     return tiers.map(tier => {
-      const count = projectCountMap.get(tier.id) || 0;
+      const count: number = projectCountMap.get(tier.id) || 0;
       return {
         tier: tier.id,
         tierName: tier.name,
