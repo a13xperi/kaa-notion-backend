@@ -448,7 +448,8 @@ export async function createNotionDeliverablePage(
       database_id: NOTION_DELIVERABLES_DATABASE_ID,
     },
     icon: {
-      emoji: fileTypeEmoji,
+      type: 'emoji' as const,
+      emoji: fileTypeEmoji as any,
     },
     properties,
     children,

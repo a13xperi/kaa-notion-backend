@@ -422,7 +422,8 @@ export async function createNotionLeadPage(
       database_id: NOTION_LEADS_DATABASE_ID,
     },
     icon: {
-      emoji: statusEmoji,
+      type: 'emoji' as const,
+      emoji: statusEmoji as any,
     },
     properties,
     children,
@@ -491,7 +492,8 @@ export async function updateNotionLeadPage(
   await notion.pages.update({
     page_id: notionPageId,
     icon: {
-      emoji: statusEmoji,
+      type: 'emoji' as const,
+      emoji: statusEmoji as any,
     },
     properties,
   });

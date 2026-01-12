@@ -22,6 +22,12 @@ import { logger } from '../logger';
 import { loginProtection, onLoginSuccess, onLoginFailure, validateBody } from '../middleware';
 import { recordAuthAttempt } from '../config/metrics';
 import { z } from 'zod/v3';
+import {
+  isGoogleAuthEnabled,
+  getGoogleAuthUrl,
+  handleGoogleCallback,
+  verifyGoogleIdToken,
+} from '../services/googleAuthService';
 
 // ============================================================================
 // SCHEMAS
@@ -55,6 +61,10 @@ const refreshTokenSchema = z.object({
 type RegisterInput = z.infer<typeof registerSchema>;
 type LoginInput = z.infer<typeof loginSchema>;
 type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+
+const googleIdTokenSchema = z.object({
+  idToken: z.string().min(1, 'ID token is required'),
+});
 
 // ============================================================================
 // ROUTER FACTORY
@@ -430,6 +440,195 @@ export function createAuthRouter(prisma: PrismaClient): Router {
       res.json({
         success: true,
         message: 'Logged out successfully',
+      });
+    }
+  );
+
+  // ============================================================================
+  // GOOGLE OAUTH ROUTES
+  // ============================================================================
+
+  /**
+   * GET /google
+   * Get Google OAuth authorization URL.
+   */
+  router.get(
+    '/google',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!isGoogleAuthEnabled()) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'OAUTH_NOT_CONFIGURED',
+              message: 'Google OAuth is not configured',
+            },
+          });
+        }
+
+        const state = req.query.state as string | undefined;
+        const authUrl = getGoogleAuthUrl(state);
+
+        res.json({
+          success: true,
+          data: {
+            authUrl,
+          },
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /google/callback
+   * Handle Google OAuth callback with authorization code.
+   */
+  router.get(
+    '/google/callback',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { code, error: oauthError, state } = req.query;
+
+        if (oauthError) {
+          logger.warn('Google OAuth error', { error: oauthError });
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'OAUTH_ERROR',
+              message: oauthError as string,
+            },
+          });
+        }
+
+        if (!code || typeof code !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'MISSING_CODE',
+              message: 'Authorization code is required',
+            },
+          });
+        }
+
+        const result = await handleGoogleCallback(prisma, code);
+
+        logger.info('User authenticated via Google OAuth', {
+          userId: result.user.id,
+          isNewUser: result.user.isNewUser,
+        });
+
+        recordAuthAttempt('google_login', 'success');
+        void logAudit({
+          action: AuditActions.LOGIN,
+          resourceType: ResourceTypes.USER,
+          resourceId: result.user.id,
+          userId: result.user.id,
+          details: {
+            email: result.user.email,
+            method: 'google_oauth',
+            isNewUser: result.user.isNewUser,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
+
+        // Redirect to frontend with tokens (or return JSON for API usage)
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const redirectUrl = new URL('/auth/callback', frontendUrl);
+        redirectUrl.searchParams.set('token', result.token);
+        redirectUrl.searchParams.set('refreshToken', result.refreshToken);
+        if (state) {
+          redirectUrl.searchParams.set('state', state as string);
+        }
+
+        res.redirect(redirectUrl.toString());
+      } catch (error) {
+        recordAuthAttempt('google_login', 'failed');
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /google/token
+   * Authenticate using a Google ID token (for mobile/SPA direct auth).
+   */
+  router.post(
+    '/google/token',
+    validateBody(googleIdTokenSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!isGoogleAuthEnabled()) {
+          return res.status(503).json({
+            success: false,
+            error: {
+              code: 'OAUTH_NOT_CONFIGURED',
+              message: 'Google OAuth is not configured',
+            },
+          });
+        }
+
+        const { idToken } = req.body;
+        const result = await verifyGoogleIdToken(prisma, idToken);
+
+        logger.info('User authenticated via Google ID token', {
+          userId: result.user.id,
+          isNewUser: result.user.isNewUser,
+        });
+
+        recordAuthAttempt('google_token', 'success');
+        void logAudit({
+          action: AuditActions.LOGIN,
+          resourceType: ResourceTypes.USER,
+          resourceId: result.user.id,
+          userId: result.user.id,
+          details: {
+            email: result.user.email,
+            method: 'google_id_token',
+            isNewUser: result.user.isNewUser,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
+
+        res.json({
+          success: true,
+          data: {
+            user: {
+              id: result.user.id,
+              email: result.user.email,
+              name: result.user.name,
+              userType: result.user.userType,
+              tier: result.user.tier,
+            },
+            token: result.token,
+            refreshToken: result.refreshToken,
+            expiresIn: result.expiresIn,
+            isNewUser: result.user.isNewUser,
+          },
+        });
+      } catch (error) {
+        recordAuthAttempt('google_token', 'failed');
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /providers
+   * Get available authentication providers.
+   */
+  router.get(
+    '/providers',
+    async (_req: Request, res: Response) => {
+      res.json({
+        success: true,
+        data: {
+          providers: [
+            { id: 'email', name: 'Email & Password', enabled: true },
+            { id: 'google', name: 'Google', enabled: isGoogleAuthEnabled() },
+          ],
+        },
       });
     }
   );
