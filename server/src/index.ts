@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -111,8 +111,13 @@ app.use(compression());
 // Stripe webhooks need the raw body for signature verification - keep this before express.json().
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 
-// JSON parsing for all other routes
-app.use(express.json({ limit: '10mb' }));
+// JSON parsing for all other routes (capture raw body for webhook signature verification)
+app.use(express.json({
+  limit: '10mb',
+  verify: (req: Request, _res, buf) => {
+    (req as Request & { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
 
 // Request logging with correlation IDs (skip for health checks)
 app.use((req, res, next) => {

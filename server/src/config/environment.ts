@@ -42,6 +42,7 @@ const optionalEnvSchema = z.object({
   // Notion (optional)
   NOTION_API_KEY: z.string().optional(),
   NOTION_PROJECTS_DATABASE_ID: z.string().optional(),
+  NOTION_SIGNING_SECRET: z.string().optional(),
 
   // Supabase Storage (optional)
   SUPABASE_URL: z.string().url().optional(),
