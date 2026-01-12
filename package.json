@@ -7,7 +7,6 @@
     "node": ">=18.0.0 <23.0.0"
   },
   "workspaces": [
-    "kaa-app",
     "server",
     "shared"
   ],
