@@ -811,6 +811,406 @@ export function createAdminRouter(prisma: PrismaClient): Router {
     }
   );
 
+  // -------------------------------------------------------------------------
+  // DATABASE EXPLORER ENDPOINTS
+  // -------------------------------------------------------------------------
+
+  // Supported tables for database explorer
+  const SUPPORTED_TABLES: Record<string, { model: string; displayName: string }> = {
+    users: { model: 'user', displayName: 'Users' },
+    clients: { model: 'client', displayName: 'Clients' },
+    projects: { model: 'project', displayName: 'Projects' },
+    leads: { model: 'lead', displayName: 'Leads' },
+    payments: { model: 'payment', displayName: 'Payments' },
+    milestones: { model: 'milestone', displayName: 'Milestones' },
+    deliverables: { model: 'deliverable', displayName: 'Deliverables' },
+    audit_log: { model: 'auditLog', displayName: 'Audit Log' },
+  };
+
+  // Table schema definitions (column info)
+  const TABLE_SCHEMAS: Record<string, Array<{ name: string; type: string; nullable: boolean }>> = {
+    users: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'email', type: 'string', nullable: true },
+      { name: 'name', type: 'string', nullable: true },
+      { name: 'role', type: 'string', nullable: false },
+      { name: 'userType', type: 'enum', nullable: false },
+      { name: 'tier', type: 'int', nullable: true },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+      { name: 'updatedAt', type: 'datetime', nullable: false },
+      { name: 'lastLogin', type: 'datetime', nullable: true },
+    ],
+    clients: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'userId', type: 'uuid', nullable: false },
+      { name: 'tier', type: 'int', nullable: false },
+      { name: 'status', type: 'enum', nullable: false },
+      { name: 'projectAddress', type: 'string', nullable: true },
+      { name: 'stripeCustomerId', type: 'string', nullable: true },
+      { name: 'maxProjects', type: 'int', nullable: false },
+      { name: 'referralCode', type: 'string', nullable: true },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+      { name: 'updatedAt', type: 'datetime', nullable: false },
+    ],
+    projects: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'clientId', type: 'uuid', nullable: false },
+      { name: 'leadId', type: 'uuid', nullable: true },
+      { name: 'tier', type: 'int', nullable: false },
+      { name: 'status', type: 'enum', nullable: false },
+      { name: 'name', type: 'string', nullable: false },
+      { name: 'projectAddress', type: 'string', nullable: true },
+      { name: 'notionPageId', type: 'string', nullable: true },
+      { name: 'paymentStatus', type: 'string', nullable: false },
+      { name: 'syncStatus', type: 'enum', nullable: false },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+      { name: 'updatedAt', type: 'datetime', nullable: false },
+    ],
+    leads: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'email', type: 'string', nullable: false },
+      { name: 'name', type: 'string', nullable: true },
+      { name: 'projectAddress', type: 'string', nullable: false },
+      { name: 'budgetRange', type: 'string', nullable: true },
+      { name: 'timeline', type: 'string', nullable: true },
+      { name: 'projectType', type: 'string', nullable: true },
+      { name: 'hasSurvey', type: 'boolean', nullable: false },
+      { name: 'hasDrawings', type: 'boolean', nullable: false },
+      { name: 'recommendedTier', type: 'int', nullable: false },
+      { name: 'status', type: 'enum', nullable: false },
+      { name: 'clientId', type: 'uuid', nullable: true },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+      { name: 'updatedAt', type: 'datetime', nullable: false },
+    ],
+    payments: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'projectId', type: 'uuid', nullable: false },
+      { name: 'stripePaymentIntentId', type: 'string', nullable: false },
+      { name: 'amount', type: 'int', nullable: false },
+      { name: 'currency', type: 'string', nullable: false },
+      { name: 'status', type: 'enum', nullable: false },
+      { name: 'tier', type: 'int', nullable: true },
+      { name: 'paidAt', type: 'datetime', nullable: true },
+      { name: 'failureReason', type: 'string', nullable: true },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+      { name: 'updatedAt', type: 'datetime', nullable: false },
+    ],
+    milestones: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'projectId', type: 'uuid', nullable: false },
+      { name: 'tier', type: 'int', nullable: false },
+      { name: 'name', type: 'string', nullable: false },
+      { name: 'order', type: 'int', nullable: false },
+      { name: 'status', type: 'enum', nullable: false },
+      { name: 'dueDate', type: 'datetime', nullable: true },
+      { name: 'completedAt', type: 'datetime', nullable: true },
+      { name: 'syncStatus', type: 'enum', nullable: false },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+    ],
+    deliverables: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'projectId', type: 'uuid', nullable: false },
+      { name: 'name', type: 'string', nullable: false },
+      { name: 'filePath', type: 'string', nullable: false },
+      { name: 'fileUrl', type: 'string', nullable: false },
+      { name: 'fileSize', type: 'int', nullable: false },
+      { name: 'fileType', type: 'string', nullable: false },
+      { name: 'category', type: 'string', nullable: false },
+      { name: 'description', type: 'string', nullable: true },
+      { name: 'uploadedById', type: 'uuid', nullable: false },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+    ],
+    audit_log: [
+      { name: 'id', type: 'uuid', nullable: false },
+      { name: 'userId', type: 'uuid', nullable: true },
+      { name: 'action', type: 'string', nullable: false },
+      { name: 'resourceType', type: 'string', nullable: true },
+      { name: 'resourceId', type: 'uuid', nullable: true },
+      { name: 'details', type: 'json', nullable: true },
+      { name: 'ip', type: 'string', nullable: true },
+      { name: 'userAgent', type: 'string', nullable: true },
+      { name: 'createdAt', type: 'datetime', nullable: false },
+    ],
+  };
+
+  // GET /api/admin/database/tables - List all tables with record counts
+  router.get(
+    '/database/tables',
+    authMiddleware,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        // Get counts for all supported tables in parallel
+        const counts = await Promise.all([
+          prisma.user.count(),
+          prisma.client.count(),
+          prisma.project.count(),
+          prisma.lead.count(),
+          prisma.payment.count(),
+          prisma.milestone.count(),
+          prisma.deliverable.count(),
+          prisma.auditLog.count(),
+        ]);
+
+        const tables = [
+          { name: 'users', displayName: 'Users', recordCount: counts[0] },
+          { name: 'clients', displayName: 'Clients', recordCount: counts[1] },
+          { name: 'projects', displayName: 'Projects', recordCount: counts[2] },
+          { name: 'leads', displayName: 'Leads', recordCount: counts[3] },
+          { name: 'payments', displayName: 'Payments', recordCount: counts[4] },
+          { name: 'milestones', displayName: 'Milestones', recordCount: counts[5] },
+          { name: 'deliverables', displayName: 'Deliverables', recordCount: counts[6] },
+          { name: 'audit_log', displayName: 'Audit Log', recordCount: counts[7] },
+        ];
+
+        res.json({
+          success: true,
+          data: tables,
+        });
+
+        void logAuditFromRequest(
+          req,
+          AuditActions.DATABASE_VIEW_TABLES,
+          ResourceTypes.DATABASE,
+          undefined,
+          { tableCount: tables.length }
+        );
+      } catch (error) {
+        next(internalError('Failed to fetch database tables', error as Error));
+      }
+    }
+  );
+
+  // GET /api/admin/database/tables/:tableName - Get table schema
+  router.get(
+    '/database/tables/:tableName',
+    authMiddleware,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { tableName } = req.params;
+
+        if (!SUPPORTED_TABLES[tableName]) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Table '${tableName}' not found or not supported`,
+            },
+          });
+        }
+
+        const schema = TABLE_SCHEMAS[tableName];
+        const tableInfo = SUPPORTED_TABLES[tableName];
+
+        res.json({
+          success: true,
+          data: {
+            name: tableName,
+            displayName: tableInfo.displayName,
+            columns: schema,
+          },
+        });
+
+        void logAuditFromRequest(
+          req,
+          AuditActions.DATABASE_VIEW_SCHEMA,
+          ResourceTypes.DATABASE,
+          tableName,
+          { tableName }
+        );
+      } catch (error) {
+        next(internalError('Failed to fetch table schema', error as Error));
+      }
+    }
+  );
+
+  // GET /api/admin/database/tables/:tableName/records - Get paginated records
+  router.get(
+    '/database/tables/:tableName/records',
+    authMiddleware,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { tableName } = req.params;
+        const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
+        const { search } = req.query;
+
+        if (!SUPPORTED_TABLES[tableName]) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Table '${tableName}' not found or not supported`,
+            },
+          });
+        }
+
+        const tableInfo = SUPPORTED_TABLES[tableName];
+        const modelName = tableInfo.model as keyof typeof prisma;
+
+        // Build where clause for search
+        let where: any = {};
+        if (search) {
+          const searchStr = search as string;
+          // Add search filters based on table
+          switch (tableName) {
+            case 'users':
+              where = {
+                OR: [
+                  { email: { contains: searchStr, mode: 'insensitive' } },
+                  { name: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'clients':
+              where = {
+                OR: [
+                  { projectAddress: { contains: searchStr, mode: 'insensitive' } },
+                  { referralCode: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'projects':
+              where = {
+                OR: [
+                  { name: { contains: searchStr, mode: 'insensitive' } },
+                  { projectAddress: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'leads':
+              where = {
+                OR: [
+                  { email: { contains: searchStr, mode: 'insensitive' } },
+                  { name: { contains: searchStr, mode: 'insensitive' } },
+                  { projectAddress: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'payments':
+              where = {
+                OR: [
+                  { stripePaymentIntentId: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'milestones':
+              where = {
+                OR: [{ name: { contains: searchStr, mode: 'insensitive' } }],
+              };
+              break;
+            case 'deliverables':
+              where = {
+                OR: [
+                  { name: { contains: searchStr, mode: 'insensitive' } },
+                  { category: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+            case 'audit_log':
+              where = {
+                OR: [
+                  { action: { contains: searchStr, mode: 'insensitive' } },
+                  { resourceType: { contains: searchStr, mode: 'insensitive' } },
+                ],
+              };
+              break;
+          }
+        }
+
+        // Get total count and records
+        const model = prisma[modelName] as any;
+        const [total, records] = await Promise.all([
+          model.count({ where }),
+          model.findMany({
+            where,
+            orderBy: { [sortBy]: sortOrder },
+            skip: (page - 1) * limit,
+            take: limit,
+          }),
+        ]);
+
+        res.json({
+          success: true,
+          data: records,
+          meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+            tableName,
+          },
+        });
+
+        void logAuditFromRequest(
+          req,
+          AuditActions.DATABASE_VIEW_RECORDS,
+          ResourceTypes.DATABASE,
+          tableName,
+          { tableName, page, limit, search, recordCount: records.length }
+        );
+      } catch (error) {
+        next(internalError('Failed to fetch table records', error as Error));
+      }
+    }
+  );
+
+  // GET /api/admin/database/tables/:tableName/records/:id - Get single record
+  router.get(
+    '/database/tables/:tableName/records/:id',
+    authMiddleware,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { tableName, id } = req.params;
+
+        if (!SUPPORTED_TABLES[tableName]) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Table '${tableName}' not found or not supported`,
+            },
+          });
+        }
+
+        const tableInfo = SUPPORTED_TABLES[tableName];
+        const modelName = tableInfo.model as keyof typeof prisma;
+        const model = prisma[modelName] as any;
+
+        const record = await model.findUnique({
+          where: { id },
+        });
+
+        if (!record) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Record with id '${id}' not found in table '${tableName}'`,
+            },
+          });
+        }
+
+        res.json({
+          success: true,
+          data: record,
+        });
+
+        void logAuditFromRequest(
+          req,
+          AuditActions.DATABASE_VIEW_RECORD,
+          ResourceTypes.DATABASE,
+          id,
+          { tableName, recordId: id }
+        );
+      } catch (error) {
+        next(internalError('Failed to fetch record', error as Error));
+      }
+    }
+  );
+
   return router;
 }
 

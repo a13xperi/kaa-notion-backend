@@ -48,11 +48,12 @@ import Resources from './components/Resources';
 import { Milestone, MilestoneSummary } from './types/portal.types';
 
 // Admin Pages
-import { 
-  AdminDashboardPage, 
-  LeadQueuePage, 
-  ProjectsTablePage, 
+import {
+  AdminDashboardPage,
+  LeadQueuePage,
+  ProjectsTablePage,
   ClientsTablePage,
+  DatabaseExplorerPage,
 } from './pages';
 
 // Common
@@ -681,6 +682,18 @@ function App() {
                   <AdminRoute>
                     <AppLayout>
                       <ClientsTablePage />
+                    </AppLayout>
+                  </AdminRoute>
+                }
+              />
+
+              {/* Database Explorer */}
+              <Route
+                path="/admin/database"
+                element={
+                  <AdminRoute>
+                    <AppLayout>
+                      <DatabaseExplorerPage />
                     </AppLayout>
                   </AdminRoute>
                 }

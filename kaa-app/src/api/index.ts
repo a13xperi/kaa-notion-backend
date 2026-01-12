@@ -68,3 +68,20 @@ export {
 
 // Notion API (existing)
 export * from './notionApi';
+
+// Admin API
+export {
+  getDatabaseTables,
+  getTableSchema,
+  getTableRecords,
+  getTableRecord,
+  formatCellValue,
+  getColumnTypeColor,
+  getTableIcon,
+  type DatabaseTable,
+  type ColumnSchema,
+  type TableSchema,
+  type PaginationMeta,
+  type TableRecordsResponse,
+  type RecordQueryParams,
+} from './adminApi';

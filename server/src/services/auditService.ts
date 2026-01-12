@@ -92,6 +92,12 @@ export const AuditActions = {
   SYNC_NOTION_FAIL: 'SYNC_NOTION_FAIL',
   SYNC_HEALTH_CHECK: 'SYNC_HEALTH_CHECK',
 
+  // Database explorer operations
+  DATABASE_VIEW_TABLES: 'DATABASE_VIEW_TABLES',
+  DATABASE_VIEW_SCHEMA: 'DATABASE_VIEW_SCHEMA',
+  DATABASE_VIEW_RECORDS: 'DATABASE_VIEW_RECORDS',
+  DATABASE_VIEW_RECORD: 'DATABASE_VIEW_RECORD',
+
   // WebSocket operations
   WEBSOCKET_CONNECT: 'WEBSOCKET_CONNECT',
   WEBSOCKET_SUBSCRIBE: 'WEBSOCKET_SUBSCRIBE',
@@ -172,6 +178,7 @@ export const ResourceTypes = {
   WEBHOOK: 'WEBHOOK',
   WEBSOCKET: 'WEBSOCKET',
   ADMIN: 'ADMIN',
+  DATABASE: 'DATABASE',
 } as const;
 
 export type ResourceType =
@@ -188,7 +195,8 @@ export type ResourceType =
   | 'notion_page'
   | 'webhook'
   | 'websocket'
-  | 'admin';
+  | 'admin'
+  | 'database';
 
 /**
  * Audit log entry data (functional API)
