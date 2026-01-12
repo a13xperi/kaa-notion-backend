@@ -62,7 +62,7 @@ export class ApiClient {
 
     const token = this.config.getToken?.();
     if (token) {
-      headers.set('Authorization', \`Bearer \${token}\`);
+      headers.set('Authorization', `Bearer ${token}`);
     }
 
     return headers;
@@ -265,7 +265,7 @@ export const leadsApi = {
       recommendedTier: number;
       status: string;
       createdAt: string;
-    }>(\`/leads/\${id}\`),
+    }>(`/leads/${id}`),
 };
 
 // Projects
@@ -287,10 +287,10 @@ export const projectsApi = {
       tier: number;
       milestones: Array<{ id: string; name: string; status: string; order: number }>;
       deliverables: Array<{ id: string; name: string; fileUrl: string }>;
-    }>(\`/projects/\${id}\`),
+    }>(`/projects/${id}`),
 
   update: (id: string, data: { status?: string }) =>
-    apiClient.patch<{ id: string; status: string }>(\`/projects/\${id}\`, data),
+    apiClient.patch<{ id: string; status: string }>(`/projects/${id}`, data),
 };
 
 // Checkout
