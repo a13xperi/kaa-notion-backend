@@ -52,7 +52,7 @@ router.get('/validate/:code', async (req: Request, res: Response) => {
 
     // Get the user who owns this code
     const user = await prisma.user.findUnique({
-      where: { id: codeRecord.userId },
+      where: { id: codeRecord.ownerId },
       select: { name: true },
     });
 
@@ -84,10 +84,9 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     }
 
     const referral = await referralService.applyReferral({
-      referralCode,
+      code: referralCode,
       referredEmail: email,
       referredName: name,
-      referredUserId: user.id,
     });
 
     res.status(201).json(referral);
@@ -106,10 +105,12 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     const user = (req as any).user;
     const { status, page, limit } = req.query;
 
+    const pageNum = page ? parseInt(page as string, 10) : 1;
+    const limitNum = limit ? parseInt(limit as string, 10) : 20;
     const referrals = await referralService.getReferralsByReferrer(user.id, {
       status: status as any,
-      page: page ? parseInt(page as string, 10) : undefined,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
+      offset: (pageNum - 1) * limitNum,
+      limit: limitNum,
     });
 
     res.json(referrals);
@@ -248,10 +249,10 @@ router.post('/:id/mark-paid', authenticate, async (req: Request, res: Response) 
     const { id } = req.params;
     const { paymentMethod, paymentReference } = req.body;
 
-    const reward = await referralService.markRewardPaid(id, {
-      paymentMethod,
-      paymentReference,
-    });
+    const notes = paymentMethod && paymentReference 
+      ? `Payment method: ${paymentMethod}, Reference: ${paymentReference}`
+      : undefined;
+    const reward = await referralService.markRewardPaid(id, notes);
 
     if (!reward) {
       return res.status(404).json({ error: 'Reward not found' });
