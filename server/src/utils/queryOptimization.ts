@@ -4,7 +4,7 @@
  * and avoiding N+1 problems.
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../types/prisma-types';
 import { cacheGet, cacheSet, cacheDel, CacheOptions } from '../services/cacheService';
 import { logger } from '../logger';
 
@@ -648,7 +648,7 @@ export function wrapWithTiming<T>(
 export async function parallelQueries<T extends readonly unknown[]>(
   queries: { [K in keyof T]: () => Promise<T[K]> }
 ): Promise<T> {
-  return Promise.all(queries.map((q) => q())) as Promise<T>;
+  return Promise.all(queries.map((q) => q())) as unknown as Promise<T>;
 }
 
 // ============================================================================

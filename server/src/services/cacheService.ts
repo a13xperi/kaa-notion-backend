@@ -860,14 +860,9 @@ export function cacheMiddleware(options: CacheMiddlewareOptions = {}) {
 // EXPORTS
 // ============================================================================
 
-export {
-  CacheOptions,
-  CachedItem,
-  CacheStats,
-  CacheMiddlewareOptions,
-  CacheConfig,
-  CacheValue,
-};
+// Type exports are already done at the top of the file with 'export interface'
+// Only export aliases for convenience
+export { CACHE_KEYS as CacheKeys };
 
 export default {
   initializeCache,

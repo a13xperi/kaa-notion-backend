@@ -3,7 +3,7 @@
  * Handles team collaboration, roles, and permissions
  */
 
-import { TeamRole, TeamMember, User } from '@prisma/client';
+import { TeamRole, TeamMember, User } from '../types/prisma-types';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { notFound, conflict, forbidden, badRequest, ErrorCodes } from '../utils/AppError';

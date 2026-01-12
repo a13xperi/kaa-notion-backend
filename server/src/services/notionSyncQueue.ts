@@ -759,4 +759,84 @@ export function initNotionSync(config: NotionSyncConfig): NotionSyncQueue {
   return syncQueueInstance;
 }
 
+// ============================================================================
+// CONVENIENCE QUEUE FUNCTIONS
+// ============================================================================
+
+/**
+ * Queue a project for sync
+ */
+export async function queueProjectSync(
+  projectId: string,
+  operation: SyncOperation,
+  payload?: Record<string, unknown>
+): Promise<string> {
+  const queue = getNotionSyncQueue();
+  return queue.enqueue({
+    entityType: 'PROJECT',
+    entityId: projectId,
+    operation,
+    priority: 1,
+    payload: payload || {},
+    maxAttempts: 3,
+  });
+}
+
+/**
+ * Queue a milestone for sync
+ */
+export async function queueMilestoneSync(
+  milestoneId: string,
+  operation: SyncOperation,
+  payload?: Record<string, unknown>
+): Promise<string> {
+  const queue = getNotionSyncQueue();
+  return queue.enqueue({
+    entityType: 'MILESTONE',
+    entityId: milestoneId,
+    operation,
+    priority: 2,
+    payload: payload || {},
+    maxAttempts: 3,
+  });
+}
+
+/**
+ * Queue a deliverable for sync
+ */
+export async function queueDeliverableSync(
+  deliverableId: string,
+  operation: SyncOperation,
+  payload?: Record<string, unknown>
+): Promise<string> {
+  const queue = getNotionSyncQueue();
+  return queue.enqueue({
+    entityType: 'DELIVERABLE',
+    entityId: deliverableId,
+    operation,
+    priority: 3,
+    payload: payload || {},
+    maxAttempts: 3,
+  });
+}
+
+/**
+ * Queue a lead for sync
+ */
+export async function queueLeadSync(
+  leadId: string,
+  operation: SyncOperation,
+  payload?: Record<string, unknown>
+): Promise<string> {
+  const queue = getNotionSyncQueue();
+  return queue.enqueue({
+    entityType: 'LEAD',
+    entityId: leadId,
+    operation,
+    priority: 4,
+    payload: payload || {},
+    maxAttempts: 3,
+  });
+}
+
 export default NotionSyncQueue;
