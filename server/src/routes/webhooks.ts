@@ -19,6 +19,7 @@ import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers'
 import { verifyNotionWebhookSignature } from '../utils/notionWebhookVerification';
 import { logger } from '../logger';
 import { requireNotionService } from '../middleware';
+import { AuditActions, ResourceTypes, getRequestAuditMetadata, logAudit } from '../services/auditService';
 
 // ============================================================================
 // TYPES
@@ -172,6 +173,17 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
             message: result.message,
           });
         }
+        void logAudit({
+          action: AuditActions.WEBHOOK_STRIPE_RECEIVED,
+          resourceType: ResourceTypes.WEBHOOK,
+          resourceId: event.id,
+          details: {
+            eventType: event.type,
+            processed: result.processed,
+            success: result.success,
+          },
+          metadata: getRequestAuditMetadata(req),
+        });
 
         res.json({
           success: result.success,
@@ -293,8 +305,8 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
           // Check if we've already processed this Notion update
           const existing = await prisma.auditLog.findFirst({
             where: {
-              action: 'notion_webhook',
-              resourceType: 'notion_page',
+              action: AuditActions.WEBHOOK_NOTION_RECEIVED,
+              resourceType: ResourceTypes.NOTION_PAGE,
               resourceId: eventId,
             },
             orderBy: { createdAt: 'desc' },
@@ -351,21 +363,18 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
           });
 
           // Still log the event
-          await prisma.auditLog.create({
-            data: {
-              action: 'notion_webhook',
-              resourceType: 'notion_page',
-              resourceId: pageId,
-              details: JSON.stringify({
-                event_type: eventType,
-                page_id: pageId,
-                last_edited_time: lastEditedTime,
-                request_id: notionRequestId,
-                request_timestamp: notionRequestTimestamp,
-                synced: false,
-                reason: 'No linked project found',
-              }),
+          void logAudit({
+            action: AuditActions.WEBHOOK_NOTION_RECEIVED,
+            resourceType: ResourceTypes.NOTION_PAGE,
+            resourceId: pageId,
+            details: {
+              event_type: eventType,
+              page_id: pageId,
+              last_edited_time: lastEditedTime,
+              synced: false,
+              reason: 'No linked project found',
             },
+            metadata: getRequestAuditMetadata(req),
           });
 
           return res.json({
@@ -444,21 +453,18 @@ export function createWebhooksRouter(prisma: PrismaClient): Router {
         }
 
         // Log the sync
-        await prisma.auditLog.create({
-          data: {
-            action: 'notion_webhook',
-            resourceType: 'notion_page',
-            resourceId: pageId,
-            details: JSON.stringify({
-              event_type: eventType,
-              page_id: pageId,
-              last_edited_time: lastEditedTime,
-              request_id: notionRequestId,
-              request_timestamp: notionRequestTimestamp,
-              project_id: project.id,
-              synced: hasUpdates,
-            }),
+        void logAudit({
+          action: AuditActions.WEBHOOK_NOTION_RECEIVED,
+          resourceType: ResourceTypes.NOTION_PAGE,
+          resourceId: pageId,
+          details: {
+            event_type: eventType,
+            page_id: pageId,
+            last_edited_time: lastEditedTime,
+            project_id: project.id,
+            synced: hasUpdates,
           },
+          metadata: getRequestAuditMetadata(req),
         });
 
         logger.info('Notion webhook processed successfully', {

@@ -16,6 +16,8 @@ import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/a
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
+import { requireAdmin, requireAuth } from '../middleware';
+import { AuditActions, ResourceTypes, logAuditFromRequest } from '../services/auditService';
 
 // ============================================================================
 // TYPES
@@ -232,6 +234,9 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         success: true,
         data: stats,
       });
+      void logAuditFromRequest(req, AuditActions.ADMIN_VIEW_DASHBOARD, ResourceTypes.ADMIN, undefined, {
+        periodStart: startOfMonth.toISOString(),
+      });
     } catch (error) {
       next(internalError('Failed to fetch dashboard stats', error as Error));
     }
@@ -323,6 +328,15 @@ export function createAdminRouter(prisma: PrismaClient): Router {
           total,
           totalPages: Math.ceil(total / limit),
         },
+      });
+      void logAuditFromRequest(req, AuditActions.ADMIN_VIEW_LEADS, ResourceTypes.ADMIN, undefined, {
+        page,
+        limit,
+        status,
+        tier,
+        search,
+        startDate,
+        endDate,
       });
     } catch (error) {
       next(internalError('Failed to fetch leads', error as Error));
@@ -437,6 +451,14 @@ export function createAdminRouter(prisma: PrismaClient): Router {
           total,
           totalPages: Math.ceil(total / limit),
         },
+      });
+      void logAuditFromRequest(req, AuditActions.ADMIN_VIEW_PROJECTS, ResourceTypes.ADMIN, undefined, {
+        page,
+        limit,
+        status,
+        tier,
+        paymentStatus,
+        search,
       });
     } catch (error) {
       next(internalError('Failed to fetch projects', error as Error));
@@ -556,6 +578,13 @@ export function createAdminRouter(prisma: PrismaClient): Router {
           total,
           totalPages: Math.ceil(total / limit),
         },
+      });
+      void logAuditFromRequest(req, AuditActions.ADMIN_VIEW_CLIENTS, ResourceTypes.ADMIN, undefined, {
+        page,
+        limit,
+        status,
+        tier,
+        search,
       });
     } catch (error) {
       next(internalError('Failed to fetch clients', error as Error));
@@ -768,16 +797,9 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         }
 
         // Log audit
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user!.id,
-            action: 'sync_health_check',
-            resourceType: 'sync',
-            details: JSON.stringify({
-              syncStatus: comparison.syncStatus,
-              discrepancyCount: comparison.projects.discrepancies.length,
-            }),
-          },
+        void logAuditFromRequest(req, AuditActions.SYNC_HEALTH_CHECK, ResourceTypes.SYNC, undefined, {
+          syncStatus: comparison.syncStatus,
+          discrepancyCount: comparison.projects.discrepancies.length,
         });
 
         res.json({
