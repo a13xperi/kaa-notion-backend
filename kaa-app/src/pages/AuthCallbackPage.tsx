@@ -53,11 +53,17 @@ export function AuthCallbackPage() {
             tier: profile.tier,
           });
 
-          // Redirect to portal
-          navigate('/portal', { replace: true });
-        } catch (profileError) {
+          // Force a full page reload to ensure AuthContext picks up the new tokens
+          // This is simpler than trying to sync state across contexts
+          window.location.href = '/portal';
+        } catch (profileError: any) {
           console.error('Failed to fetch profile:', profileError);
-          setError('Failed to complete authentication. Please try again.');
+          // Clear any partial auth state
+          localStorage.removeItem('sage_auth_token');
+          localStorage.removeItem('sage_refresh_token');
+          localStorage.removeItem('sage_user');
+          const errorMsg = profileError?.message || 'Failed to complete authentication';
+          setError(`${errorMsg}. Please try again.`);
           setIsProcessing(false);
         }
       } catch (err) {
