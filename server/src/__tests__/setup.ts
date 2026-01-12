@@ -65,6 +65,11 @@ export const mockPrisma = {
     findMany: jest.fn(),
     update: jest.fn(),
   },
+  teamMember: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
   deliverable: {
     create: jest.fn(),
     findUnique: jest.fn(),
