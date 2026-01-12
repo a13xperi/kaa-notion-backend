@@ -13,6 +13,7 @@ import {
   DeliverableDownload,
   ApiResponse,
 } from '../types/portal.types';
+import { getAuthHeaders } from './authApi';
 
 // ============================================================================
 // CONFIGURATION
@@ -20,23 +21,7 @@ import {
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-/**
- * Get auth headers for API requests
- * TODO: Replace with actual JWT token from auth context
- */
-function getAuthHeaders(): HeadersInit {
-  // Placeholder - in production, get from auth context/storage
-  const userId = localStorage.getItem('userId') || '';
-  const userType = localStorage.getItem('userType') || 'SAGE_CLIENT';
-  const clientId = localStorage.getItem('clientId') || '';
-
-  return {
-    'Content-Type': 'application/json',
-    'x-user-id': userId,
-    'x-user-type': userType,
-    'x-client-id': clientId,
-  };
-}
+// Reuse auth headers from shared auth client (JWT from storage).
 
 /**
  * Handle API response
