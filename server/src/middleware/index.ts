@@ -131,3 +131,10 @@ export {
 export {
   createFigmaAccessMiddleware,
 } from './figmaAccess';
+
+// Sanitization
+export {
+  sanitizeInput,
+  strictSanitize,
+  trimStrings,
+} from './sanitize';

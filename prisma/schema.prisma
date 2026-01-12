@@ -106,7 +106,7 @@ model User {
 model PasswordResetToken {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
-  tokenHash String    @map("token_hash") // SHA-256 hash of the token
+  tokenHash String    @unique @map("token_hash") // SHA-256 hash of the token
   expiresAt DateTime  @map("expires_at")
   usedAt    DateTime? @map("used_at") // When the token was used (null if unused)
   createdAt DateTime  @default(now()) @map("created_at")

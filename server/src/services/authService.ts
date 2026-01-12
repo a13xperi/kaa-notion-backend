@@ -4,6 +4,7 @@
  */
 
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, User, UserType } from '@prisma/client';
 import { logger } from '../config/logger';
@@ -65,6 +66,8 @@ let authConfig: AuthConfig = {
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d', // Long-lived refresh token
   saltRounds: 12,
 };
+
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export function initAuthService(config: Partial<AuthConfig>): void {
   authConfig = { ...authConfig, ...config };
@@ -157,6 +160,18 @@ export function extractToken(authHeader: string | undefined): string | null {
   if (type.toLowerCase() !== 'bearer' || !token) return null;
   
   return token;
+}
+
+// ============================================================================
+// PASSWORD RESET HELPERS
+// ============================================================================
+
+function generatePasswordResetToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function hashPasswordResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 // ============================================================================
