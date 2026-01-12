@@ -6,7 +6,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": false,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictNullChecks": true,
     "noEmitOnError": true,
     "esModuleInterop": true,

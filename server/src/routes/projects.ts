@@ -195,15 +195,15 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
       });
 
       // Transform to summary format with progress
-      const projectSummaries: ProjectSummary[] = projects.map((project) => {
+      const projectSummaries: ProjectSummary[] = projects.map((project: typeof projects[number]) => {
         const totalMilestones = project.milestones.length;
         const completedMilestones = project.milestones.filter(
-          (m) => m.status === 'COMPLETED'
+          (m: typeof project.milestones[number]) => m.status === 'COMPLETED'
         ).length;
 
         // Find next pending/in-progress milestone
         const nextMilestone = project.milestones.find(
-          (m) => m.status === 'PENDING' || m.status === 'IN_PROGRESS'
+          (m: typeof project.milestones[number]) => m.status === 'PENDING' || m.status === 'IN_PROGRESS'
         );
 
         return {
@@ -387,23 +387,23 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
       // Calculate progress
       const totalMilestones = project.milestones.length;
       const completedMilestones = project.milestones.filter(
-        (m) => m.status === 'COMPLETED'
+        (m: typeof project.milestones[number]) => m.status === 'COMPLETED'
       ).length;
       const inProgressMilestones = project.milestones.filter(
-        (m) => m.status === 'IN_PROGRESS'
+        (m: typeof project.milestones[number]) => m.status === 'IN_PROGRESS'
       ).length;
 
       // Get current milestone (first in-progress, or first pending)
       const currentMilestone = project.milestones.find(
-        (m) => m.status === 'IN_PROGRESS'
+        (m: typeof project.milestones[number]) => m.status === 'IN_PROGRESS'
       ) || project.milestones.find(
-        (m) => m.status === 'PENDING'
+        (m: typeof project.milestones[number]) => m.status === 'PENDING'
       );
 
       // Calculate total payments
       const totalPaid = project.payments
-        .filter((p) => p.status === 'SUCCEEDED')
-        .reduce((sum, p) => sum + p.amount, 0);
+        .filter((p: typeof project.payments[number]) => p.status === 'SUCCEEDED')
+        .reduce((sum: number, p: typeof project.payments[number]) => sum + p.amount, 0);
 
       res.json({
         success: true,
@@ -451,7 +451,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
           },
 
           // Full milestone list
-          milestones: project.milestones.map((m) => ({
+          milestones: project.milestones.map((m: typeof project.milestones[number]) => ({
             id: m.id,
             name: m.name,
             order: m.order,
@@ -464,7 +464,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
           payments: {
             totalPaid,
             currency: 'usd',
-            history: project.payments.map((p) => ({
+            history: project.payments.map((p: typeof project.payments[number]) => ({
               id: p.id,
               amount: p.amount,
               currency: p.currency,
@@ -474,7 +474,7 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
           },
 
           // Deliverables list
-          deliverables: project.deliverables.map((d) => ({
+          deliverables: project.deliverables.map((d: typeof project.deliverables[number]) => ({
             id: d.id,
             name: d.name,
             category: d.category,

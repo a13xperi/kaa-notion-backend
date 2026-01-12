@@ -165,27 +165,27 @@ export function createAdminRouter(prisma: PrismaClient): Router {
 
       // Transform grouped data
       const leadsByStatusMap: Record<string, number> = {};
-      leadsByStatus.forEach((item) => {
+      leadsByStatus.forEach((item: { status: string; _count: number }) => {
         leadsByStatusMap[item.status] = item._count;
       });
 
       const projectsByTierMap: Record<number, number> = {};
-      projectsByTier.forEach((item) => {
+      projectsByTier.forEach((item: { tier: number; _count: number }) => {
         projectsByTierMap[item.tier] = item._count;
       });
 
       const projectsByStatusMap: Record<string, number> = {};
-      projectsByStatus.forEach((item) => {
+      projectsByStatus.forEach((item: { status: string; _count: number }) => {
         projectsByStatusMap[item.status] = item._count;
       });
 
       const clientsByTierMap: Record<number, number> = {};
-      clientsByTier.forEach((item) => {
+      clientsByTier.forEach((item: { tier: number; _count: number }) => {
         clientsByTierMap[item.tier] = item._count;
       });
 
       const revenueByTierMap: Record<number, number> = {};
-      revenueByTier.forEach((item) => {
+      revenueByTier.forEach((item: { tier: number; _sum: { amount: number | null } }) => {
         revenueByTierMap[item.tier] = item._sum.amount || 0;
       });
 
@@ -195,7 +195,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         : 0;
 
       // Format recent activity
-      const recentActivity = recentAuditLogs.map((log) => ({
+      const recentActivity = recentAuditLogs.map((log: typeof recentAuditLogs[number]) => ({
         id: log.id,
         type: log.action,
         description: `${log.user?.email || 'System'} ${log.action.replace('_', ' ')} ${log.resourceType || ''}`,
@@ -298,7 +298,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
 
       res.json({
         success: true,
-        data: leads.map((lead) => ({
+        data: leads.map((lead: typeof leads[number]) => ({
           id: lead.id,
           email: lead.email,
           name: lead.name,
@@ -399,12 +399,12 @@ export function createAdminRouter(prisma: PrismaClient): Router {
 
       res.json({
         success: true,
-        data: projects.map((project) => {
+        data: projects.map((project: typeof projects[number]) => {
           const totalMilestones = project.milestones.length;
           const completedMilestones = project.milestones.filter(
-            (m) => m.status === 'COMPLETED'
+            (m: typeof project.milestones[number]) => m.status === 'COMPLETED'
           ).length;
-          const totalPaid = project.payments.reduce((sum, p) => sum + p.amount, 0);
+          const totalPaid = project.payments.reduce((sum: number, p: typeof project.payments[number]) => sum + p.amount, 0);
 
           return {
             id: project.id,
@@ -503,7 +503,7 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       });
 
       // Get payment totals for each client
-      const clientIds = clients.map((c) => c.id);
+      const clientIds = clients.map((c: typeof clients[number]) => c.id);
       const payments = await prisma.payment.groupBy({
         by: ['projectId'],
         where: {
@@ -516,16 +516,16 @@ export function createAdminRouter(prisma: PrismaClient): Router {
       // Create payment map
       const paymentMap = new Map<string, number>();
       for (const client of clients) {
-        const projectIds = client.projects.map((p) => p.id);
+        const projectIds = client.projects.map((p: typeof client.projects[number]) => p.id);
         const total = payments
-          .filter((p) => projectIds.includes(p.projectId))
-          .reduce((sum, p) => sum + (p._sum.amount || 0), 0);
+          .filter((p: typeof payments[number]) => projectIds.includes(p.projectId))
+          .reduce((sum: number, p: typeof payments[number]) => sum + (p._sum.amount || 0), 0);
         paymentMap.set(client.id, total);
       }
 
       res.json({
         success: true,
-        data: clients.map((client) => ({
+        data: clients.map((client: typeof clients[number]) => ({
           id: client.id,
           userId: client.userId,
           email: client.user.email,
@@ -536,12 +536,12 @@ export function createAdminRouter(prisma: PrismaClient): Router {
           stats: {
             projectCount: client.projects.length,
             activeProjects: client.projects.filter(
-              (p) => p.status !== 'DELIVERED' && p.status !== 'CLOSED'
+              (p: typeof client.projects[number]) => p.status !== 'DELIVERED' && p.status !== 'CLOSED'
             ).length,
             leadCount: client.leads.length,
             totalPaid: paymentMap.get(client.id) || 0,
           },
-          projects: client.projects.map((p) => ({
+          projects: client.projects.map((p: typeof client.projects[number]) => ({
             id: p.id,
             name: p.name,
             status: p.status,

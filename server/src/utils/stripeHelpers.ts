@@ -4,7 +4,7 @@
  */
 
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { sendPaymentConfirmation, sendWelcomeEmail } from '../services/emailService';
 import { recordPayment } from '../config/metrics';
 import { logger } from '../logger';
@@ -263,7 +263,7 @@ export async function handleCheckoutCompleted(
 
   try {
     // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 1. Get the lead
       const lead = await tx.lead.findUnique({
         where: { id: leadId },

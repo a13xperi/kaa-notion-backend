@@ -474,7 +474,7 @@ export async function syncProjectToNotion(
       tier: project.client.tier,
       user: project.client.user,
     } : undefined,
-    milestones: project.milestones.map(m => ({
+    milestones: project.milestones.map((m: typeof project.milestones[number]) => ({
       id: m.id,
       name: m.name,
       status: m.status,

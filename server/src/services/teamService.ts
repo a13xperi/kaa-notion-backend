@@ -377,7 +377,7 @@ export async function getProjectTeam(
     },
   });
 
-  return assignments.map((a) => ({
+  return assignments.map((a: typeof assignments[number]) => ({
     user: a.user,
     role: a.role,
     assignedAt: a.assignedAt,
@@ -410,7 +410,7 @@ export async function getMemberProjects(
     },
   });
 
-  return assignments.map((a) => ({
+  return assignments.map((a: typeof assignments[number]) => ({
     projectId: a.project.id,
     projectName: a.project.name,
     role: a.role,
@@ -468,7 +468,7 @@ export async function getTeamStats(): Promise<{
     where: { isActive: true },
   });
 
-  const pendingInvites = members.filter((m) => !m.acceptedAt).length;
+  const pendingInvites = members.filter((m: typeof members[number]) => !m.acceptedAt).length;
 
   const byRole: Record<TeamRole, number> = {
     OWNER: 0,
@@ -477,8 +477,8 @@ export async function getTeamStats(): Promise<{
     VIEWER: 0,
   };
 
-  members.forEach((m) => {
-    byRole[m.role]++;
+  members.forEach((m: typeof members[number]) => {
+    byRole[m.role as TeamRole]++;
   });
 
   const activeProjects = await prisma.project.count({

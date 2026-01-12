@@ -193,7 +193,7 @@ export class PrismaDatabaseAdapter implements DatabaseAdapter {
       orderBy: { createdAt: 'desc' },
     });
 
-    return projects.map((project) => ({
+    return projects.map((project: typeof projects[number]) => ({
       id: project.id,
       clientId: project.clientId,
       leadId: project.leadId,
@@ -251,7 +251,7 @@ export class PrismaDatabaseAdapter implements DatabaseAdapter {
       )
     );
 
-    return milestones.map((m) => ({
+    return milestones.map((m: typeof milestones[number]) => ({
       id: m.id,
       projectId: m.projectId,
       tier: m.tier,
@@ -270,7 +270,7 @@ export class PrismaDatabaseAdapter implements DatabaseAdapter {
       orderBy: { order: 'asc' },
     });
 
-    return milestones.map((m) => ({
+    return milestones.map((m: typeof milestones[number]) => ({
       id: m.id,
       projectId: m.projectId,
       tier: m.tier,
@@ -320,7 +320,7 @@ export class PrismaDatabaseAdapter implements DatabaseAdapter {
       orderBy: { createdAt: 'desc' },
     });
 
-    return payments.map((p) => ({
+    return payments.map((p: typeof payments[number]) => ({
       id: p.id,
       projectId: p.projectId,
       stripePaymentIntentId: p.stripePaymentIntentId,
@@ -339,7 +339,7 @@ export class PrismaDatabaseAdapter implements DatabaseAdapter {
   // -------------------------------------------------------------------------
 
   async transaction<T>(fn: (adapter: DatabaseAdapter) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create a new adapter with the transaction client
       const txAdapter = new PrismaDatabaseAdapter(tx as unknown as PrismaClient);
       return fn(txAdapter);

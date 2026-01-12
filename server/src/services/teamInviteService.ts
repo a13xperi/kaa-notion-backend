@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import { PrismaClient, TeamRole } from '@prisma/client';
+import { PrismaClient, TeamRole, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { logger } from '../logger';
 
@@ -249,7 +249,7 @@ export class TeamInviteService {
       const passwordHash = await bcrypt.hash(userData.password, BCRYPT_ROUNDS);
 
       // Use transaction to update user and team member
-      const result = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Get team member with user
         const teamMember = await tx.teamMember.findUnique({
           where: { id: validation.teamMemberId },
@@ -421,7 +421,7 @@ export class TeamInviteService {
       }
 
       // Delete team member and user (if user has no other data)
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Delete team member
         await tx.teamMember.delete({
           where: { id: teamMemberId },
@@ -484,7 +484,7 @@ export class TeamInviteService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return invites.map((invite) => ({
+      return invites.map((invite: typeof invites[number]) => ({
         id: invite.id,
         email: invite.user.email || '',
         role: invite.role,

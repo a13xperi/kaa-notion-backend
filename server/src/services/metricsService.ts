@@ -172,14 +172,15 @@ export async function getConversionMetrics(
         convertedAt: true,
       },
     });
+    type LeadConversionResult = typeof leads[number];
 
     const totalLeads = leads.length;
-    const convertedLeads = leads.filter(l => l.status === 'CONVERTED').length;
+    const convertedLeads = leads.filter((l: LeadConversionResult) => l.status === 'CONVERTED').length;
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
     // Calculate average time to convert
-    const convertedWithTime = leads.filter(l => l.convertedAt);
-    const totalDays = convertedWithTime.reduce((sum, lead) => {
+    const convertedWithTime = leads.filter((l: LeadConversionResult) => l.convertedAt);
+    const totalDays = convertedWithTime.reduce((sum: number, lead: LeadConversionResult) => {
       const days = (lead.convertedAt!.getTime() - lead.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       return sum + days;
     }, 0);
@@ -187,7 +188,7 @@ export async function getConversionMetrics(
 
     // Group by tier
     const tierMap = new Map<number, { leads: number; converted: number }>();
-    leads.forEach(lead => {
+    leads.forEach((lead: LeadConversionResult) => {
       const tier = lead.recommendedTier;
       const current = tierMap.get(tier) || { leads: 0, converted: 0 };
       current.leads++;
@@ -239,13 +240,14 @@ export async function getRevenueMetrics(
         },
       },
     });
+    type PaymentResult = typeof payments[number];
 
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalRevenue = payments.reduce((sum: number, p: PaymentResult) => sum + p.amount, 0);
     const averageOrderValue = payments.length > 0 ? totalRevenue / payments.length : 0;
 
     // Revenue by tier
     const tierRevenueMap = new Map<number, { revenue: number; count: number }>();
-    payments.forEach(payment => {
+    payments.forEach((payment: PaymentResult) => {
       const tier = payment.project.tier?.tier || 0;
       const current = tierRevenueMap.get(tier) || { revenue: 0, count: 0 };
       current.revenue += payment.amount;
@@ -263,7 +265,7 @@ export async function getRevenueMetrics(
 
     // Revenue by month
     const monthRevenueMap = new Map<string, { revenue: number; count: number }>();
-    payments.forEach(payment => {
+    payments.forEach((payment: PaymentResult) => {
       const month = getMonthKey(payment.createdAt);
       const current = monthRevenueMap.get(month) || { revenue: 0, count: 0 };
       current.revenue += payment.amount;
@@ -311,19 +313,22 @@ export async function getTierDistribution(): Promise<TierDistribution[]> {
         },
       },
     });
+    type TierResult = typeof tiers[number];
+    type TierProjectResult = TierResult['projects'][number];
+    type TierPaymentResult = TierProjectResult['payments'][number];
 
-    const totalProjects = tiers.reduce((sum, t) => sum + t._count.projects, 0);
+    const totalProjects = tiers.reduce((sum: number, t: TierResult) => sum + t._count.projects, 0);
 
-    return tiers.map(tier => ({
+    return tiers.map((tier: TierResult) => ({
       tier: tier.tier,
       tierName: tier.name,
       count: tier._count.projects,
       percentage: totalProjects > 0 ? Math.round((tier._count.projects / totalProjects) * 100) : 0,
       revenue: tier.projects.reduce(
-        (sum, project) => sum + project.payments.reduce((pSum, p) => pSum + p.amount, 0),
+        (sum: number, project: TierProjectResult) => sum + project.payments.reduce((pSum: number, p: TierPaymentResult) => pSum + p.amount, 0),
         0
       ),
-    })).sort((a, b) => a.tier - b.tier);
+    })).sort((a: TierDistribution, b: TierDistribution) => a.tier - b.tier);
   } catch (error) {
     logger.error('Failed to get tier distribution', {}, error as Error);
     throw error;
@@ -351,10 +356,11 @@ export async function getLeadMetrics(
         createdAt: true,
       },
     });
+    type LeadMetricResult = typeof leads[number];
 
     // By status
     const statusMap = new Map<string, number>();
-    leads.forEach(lead => {
+    leads.forEach((lead: LeadMetricResult) => {
       statusMap.set(lead.status, (statusMap.get(lead.status) || 0) + 1);
     });
 
@@ -364,7 +370,7 @@ export async function getLeadMetrics(
 
     // By source
     const sourceMap = new Map<string, number>();
-    leads.forEach(lead => {
+    leads.forEach((lead: LeadMetricResult) => {
       const source = lead.source || 'Direct';
       sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
     });
@@ -375,7 +381,7 @@ export async function getLeadMetrics(
 
     // By month
     const monthMap = new Map<string, number>();
-    leads.forEach(lead => {
+    leads.forEach((lead: LeadMetricResult) => {
       const month = getMonthKey(lead.createdAt);
       monthMap.set(month, (monthMap.get(month) || 0) + 1);
     });
@@ -417,16 +423,17 @@ export async function getProjectMetrics(
         completedAt: true,
       },
     });
+    type ProjectResult = typeof projects[number];
 
     const totalProjects = projects.length;
-    const activeProjects = projects.filter(p =>
+    const activeProjects = projects.filter((p: ProjectResult) =>
       p.status !== 'COMPLETED' && p.status !== 'CANCELLED'
     ).length;
-    const completedProjects = projects.filter(p => p.status === 'COMPLETED').length;
+    const completedProjects = projects.filter((p: ProjectResult) => p.status === 'COMPLETED').length;
 
     // By status
     const statusMap = new Map<string, number>();
-    projects.forEach(project => {
+    projects.forEach((project: ProjectResult) => {
       statusMap.set(project.status, (statusMap.get(project.status) || 0) + 1);
     });
 
@@ -435,8 +442,8 @@ export async function getProjectMetrics(
       .sort((a, b) => b.count - a.count);
 
     // Average completion time
-    const completedWithTime = projects.filter(p => p.completedAt);
-    const totalDays = completedWithTime.reduce((sum, project) => {
+    const completedWithTime = projects.filter((p: ProjectResult) => p.completedAt);
+    const totalDays = completedWithTime.reduce((sum: number, project: ProjectResult) => {
       const days = (project.completedAt!.getTime() - project.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       return sum + days;
     }, 0);
@@ -444,7 +451,7 @@ export async function getProjectMetrics(
 
     // By month
     const monthMap = new Map<string, { created: number; completed: number }>();
-    projects.forEach(project => {
+    projects.forEach((project: ProjectResult) => {
       const createdMonth = getMonthKey(project.createdAt);
       const current = monthMap.get(createdMonth) || { created: 0, completed: 0 };
       current.created++;

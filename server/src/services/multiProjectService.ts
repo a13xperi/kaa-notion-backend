@@ -278,10 +278,10 @@ export async function getActiveProjects(userId: string): Promise<
     orderBy: { updatedAt: 'desc' },
   });
 
-  return projects.map((project) => {
+  return projects.map((project: typeof projects[number]) => {
     const totalMilestones = project.milestones.length;
     const completedMilestones = project.milestones.filter(
-      (m) => m.status === 'COMPLETED'
+      (m: typeof project.milestones[number]) => m.status === 'COMPLETED'
     ).length;
     const progress = totalMilestones > 0
       ? Math.round((completedMilestones / totalMilestones) * 100)
@@ -328,8 +328,8 @@ export async function getProjectSummary(userId: string): Promise<{
     };
   }
 
-  const activeCount = client.projects.filter((p) => !p.archivedAt).length;
-  const archivedCount = client.projects.filter((p) => p.archivedAt).length;
+  const activeCount = client.projects.filter((p: typeof client.projects[number]) => !p.archivedAt).length;
+  const archivedCount = client.projects.filter((p: typeof client.projects[number]) => p.archivedAt).length;
   const maxProjects = client.maxProjects;
   const canCreateNew = maxProjects === -1 || activeCount < maxProjects;
 

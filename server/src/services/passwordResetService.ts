@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { logger } from '../logger';
 
@@ -176,7 +176,7 @@ export class PasswordResetService {
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
       // Use transaction to update password and mark token as used
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Update user's password
         await tx.user.update({
           where: { id: validation.userId },

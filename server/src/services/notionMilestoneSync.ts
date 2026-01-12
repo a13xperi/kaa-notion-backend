@@ -301,7 +301,7 @@ export async function syncAllMilestonesForProject(
   }
 
   // Create milestone blocks in order
-  const milestoneBlocks = milestones.map((m) =>
+  const milestoneBlocks = milestones.map((m: typeof milestones[number]) =>
     buildMilestoneBlock({
       id: m.id,
       name: m.name,

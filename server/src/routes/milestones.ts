@@ -176,9 +176,9 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
 
         // Calculate summary
         const total = project.milestones.length;
-        const completed = project.milestones.filter((m) => m.status === 'COMPLETED').length;
-        const inProgress = project.milestones.filter((m) => m.status === 'IN_PROGRESS').length;
-        const pending = project.milestones.filter((m) => m.status === 'PENDING').length;
+        const completed = project.milestones.filter((m: typeof project.milestones[number]) => m.status === 'COMPLETED').length;
+        const inProgress = project.milestones.filter((m: typeof project.milestones[number]) => m.status === 'IN_PROGRESS').length;
+        const pending = project.milestones.filter((m: typeof project.milestones[number]) => m.status === 'PENDING').length;
 
         const response: ProjectMilestonesResponse = {
           success: true,

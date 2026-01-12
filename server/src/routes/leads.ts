@@ -351,7 +351,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
       ]);
 
       // Format response
-      const formattedLeads = leads.map((lead) => ({
+      const formattedLeads = leads.map((lead: typeof leads[number]) => ({
         id: lead.id,
         email: lead.email,
         name: lead.name,
@@ -545,7 +545,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
       }
 
       // Create user and client in a transaction
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Create user account with a temporary password
         // The user will set their own password during first login/email verification
         const tempPasswordHash = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -667,7 +667,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
         }),
       ]);
 
-      const tierCounts = byTier.reduce((acc, item) => {
+      const tierCounts = byTier.reduce((acc: Record<number, number>, item: typeof byTier[number]) => {
         acc[item.recommendedTier] = item._count;
         return acc;
       }, {} as Record<number, number>);

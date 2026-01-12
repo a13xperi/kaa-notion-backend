@@ -354,7 +354,7 @@ export async function queryAuditLogs(options: AuditLogQueryOptions = {}) {
   ]);
 
   return {
-    logs: logs.map((log) => ({
+    logs: logs.map((log: typeof logs[number]) => ({
       ...log,
       details: log.details ? JSON.parse(log.details as string) : null,
     })),
@@ -393,7 +393,7 @@ export async function getResourceAuditLog(
     },
   });
 
-  return logs.map((log) => ({
+  return logs.map((log: typeof logs[number]) => ({
     ...log,
     details: log.details ? JSON.parse(log.details as string) : null,
   }));
@@ -409,7 +409,7 @@ export async function getUserAuditLog(userId: string, limit = 50) {
     take: limit,
   });
 
-  return logs.map((log) => ({
+  return logs.map((log: typeof logs[number]) => ({
     ...log,
     details: log.details ? JSON.parse(log.details as string) : null,
   }));
@@ -653,7 +653,7 @@ export class AuditService {
    */
   async logBatch(entries: AuditLogEntry[]): Promise<number> {
     const result = await this.prisma.auditLog.createMany({
-      data: entries.map((entry) => ({
+      data: entries.map((entry: typeof entries[number]) => ({
         userId: entry.userId || undefined,
         action: entry.action,
         resourceType: entry.resourceType || undefined,
@@ -809,7 +809,7 @@ export class AuditService {
     return {
       total,
       byAction: actionCounts,
-      byUser: byUser.map((item) => ({
+      byUser: byUser.map((item: typeof byUser[number]) => ({
         userId: item.userId!,
         count: item._count,
       })),

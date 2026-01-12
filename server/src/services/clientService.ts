@@ -150,7 +150,7 @@ export async function createClientFromLead(
   }
 
   // Create everything in a transaction
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 1. Find or create user
     let user = await tx.user.findUnique({
       where: { email: lead.email },
@@ -388,7 +388,7 @@ export class ClientService {
     const { leadId, tier, password } = input;
 
     // Start transaction
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 1. Get the lead
       const lead = await tx.lead.findUnique({
         where: { id: leadId },

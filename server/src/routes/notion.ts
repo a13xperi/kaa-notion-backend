@@ -232,15 +232,15 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
       return res.json({
         success: true,
         data: {
-          projects: projects.map((p) => ({
+          projects: projects.map((p: typeof projects[number]) => ({
             type: 'project',
             ...p,
           })),
-          milestones: milestones.map((m) => ({
+          milestones: milestones.map((m: typeof milestones[number]) => ({
             type: 'milestone',
             ...m,
           })),
-          deliverables: deliverables.map((d) => ({
+          deliverables: deliverables.map((d: typeof deliverables[number]) => ({
             type: 'deliverable',
             ...d,
           })),

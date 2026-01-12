@@ -296,7 +296,7 @@ export async function getPortfolioTags(): Promise<string[]> {
   });
 
   const tagSet = new Set<string>();
-  portfolios.forEach((p) => p.tags.forEach((tag) => tagSet.add(tag)));
+  portfolios.forEach((p: typeof portfolios[number]) => p.tags.forEach((tag: string) => tagSet.add(tag)));
 
   return Array.from(tagSet).sort();
 }
@@ -310,7 +310,7 @@ export async function getProjectTypes(): Promise<string[]> {
     where: { published: true },
   });
 
-  return portfolios.map((p) => p.projectType).sort();
+  return portfolios.map((p: typeof portfolios[number]) => p.projectType).sort();
 }
 
 // ============================================

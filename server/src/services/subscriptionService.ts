@@ -633,16 +633,16 @@ export async function getSubscriptionMetrics(): Promise<{
     where: { status: { not: 'CANCELED' } },
   });
 
-  const activeSubscriptions = subscriptions.filter((s) => s.status === 'ACTIVE').length;
+  const activeSubscriptions = subscriptions.filter((s: typeof subscriptions[number]) => s.status === 'ACTIVE').length;
 
   const byTier: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  subscriptions.forEach((s) => {
+  subscriptions.forEach((s: typeof subscriptions[number]) => {
     byTier[s.tier] = (byTier[s.tier] || 0) + 1;
   });
 
   // Calculate MRR
   let mrr = 0;
-  subscriptions.forEach((s) => {
+  subscriptions.forEach((s: typeof subscriptions[number]) => {
     const pricing = TIER_PRICING[s.tier as keyof typeof TIER_PRICING];
     if (pricing?.monthlyPrice) {
       mrr += pricing.monthlyPrice;

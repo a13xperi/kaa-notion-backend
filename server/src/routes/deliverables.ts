@@ -294,11 +294,11 @@ export function createDeliverablesRouter(prisma: PrismaClient): Router {
 
         // Calculate summary
         const total = project.deliverables.length;
-        const totalSize = project.deliverables.reduce((sum, d) => sum + d.fileSize, 0);
-        
+        const totalSize = project.deliverables.reduce((sum: number, d: typeof project.deliverables[number]) => sum + d.fileSize, 0);
+
         // Count by category
         const byCategory: Record<string, number> = {};
-        project.deliverables.forEach((d) => {
+        project.deliverables.forEach((d: typeof project.deliverables[number]) => {
           byCategory[d.category] = (byCategory[d.category] || 0) + 1;
         });
 

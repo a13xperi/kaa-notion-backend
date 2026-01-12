@@ -325,7 +325,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
           orderBy: { createdAt: 'desc' },
         });
 
-        const formattedMembers = members.map((member) => ({
+        const formattedMembers = members.map((member: typeof members[number]) => ({
           id: member.id,
           userId: member.user.id,
           email: member.user.email,
