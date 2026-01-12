@@ -189,6 +189,12 @@ export interface DeliverableDownload {
   fileSize: number;
 }
 
+export interface BatchDeliverableDownload {
+  projectId: string;
+  downloadCount: number;
+  deliverables: DeliverableDownload[];
+}
+
 // ============================================================================
 // API RESPONSE TYPES
 // ============================================================================

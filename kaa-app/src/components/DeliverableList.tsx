@@ -8,8 +8,8 @@ import { DeliverableCard } from './DeliverableCard';
 import {
   Deliverable,
   DeliverableCategory,
-  formatFileSize,
 } from '../types/portal.types';
+import { batchDownloadDeliverables } from '../api/portalApi';
 import './DeliverableList.css';
 
 // ============================================================================
@@ -19,6 +19,7 @@ import './DeliverableList.css';
 interface DeliverableListProps {
   deliverables: Deliverable[];
   projectName?: string;
+  projectId?: string;
   summary?: {
     total: number;
     byCategory: Record<string, number>;
@@ -59,6 +60,9 @@ export function DeliverableList({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchSuccess, setBatchSuccess] = useState<string | null>(null);
 
   // Filter deliverables
   const filteredDeliverables = useMemo(() => {
@@ -84,6 +88,51 @@ export function DeliverableList({
     const categories = new Set(deliverables.map((d) => d.category));
     return CATEGORIES.filter((c) => categories.has(c));
   }, [deliverables]);
+
+  const resolvedProjectId = projectId || deliverables[0]?.projectId;
+
+  const handleBatchDownload = async () => {
+    if (!resolvedProjectId) {
+      setBatchError('Missing project information for batch download.');
+      setBatchSuccess(null);
+      return;
+    }
+
+    const deliverableIds = filteredDeliverables.map((deliverable) => deliverable.id);
+
+    if (deliverableIds.length === 0) {
+      setBatchError('No deliverables available for batch download.');
+      setBatchSuccess(null);
+      return;
+    }
+
+    setIsBatchDownloading(true);
+    setBatchError(null);
+    setBatchSuccess(null);
+
+    try {
+      const response = await batchDownloadDeliverables(resolvedProjectId, deliverableIds);
+      const downloads = response.data?.deliverables ?? [];
+
+      if (!downloads.length) {
+        throw new Error('No download links were returned.');
+      }
+
+      downloads.forEach((download) => {
+        window.open(download.downloadUrl, '_blank', 'noopener,noreferrer');
+      });
+
+      setBatchSuccess(
+        `Download started for ${downloads.length} file${downloads.length === 1 ? '' : 's'}.`
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to start batch download.';
+      setBatchError(message);
+    } finally {
+      setIsBatchDownloading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -220,17 +269,27 @@ export function DeliverableList({
       )}
 
       {/* Download all button */}
-      {filteredDeliverables.length > 1 && onDownload && (
+      {filteredDeliverables.length > 1 && (
         <div className="deliverable-list__footer">
           <button
             className="deliverable-list__download-all"
-            onClick={() => {
-              // TODO: Implement batch download
-              alert('Batch download coming soon!');
-            }}
+            onClick={handleBatchDownload}
+            disabled={isBatchDownloading || !resolvedProjectId}
           >
-            ⬇️ Download All ({filteredDeliverables.length} files)
+            {isBatchDownloading
+              ? '⏳ Preparing downloads...'
+              : `⬇️ Download All (${filteredDeliverables.length} files)`}
           </button>
+          {(batchError || batchSuccess) && (
+            <p
+              className={`deliverable-list__download-status ${
+                batchError ? 'is-error' : 'is-success'
+              }`}
+              role={batchError ? 'alert' : 'status'}
+            >
+              {batchError || batchSuccess}
+            </p>
+          )}
         </div>
       )}
     </div>
