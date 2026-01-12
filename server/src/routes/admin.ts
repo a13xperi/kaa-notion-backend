@@ -591,6 +591,100 @@ export function createAdminRouter(prisma: PrismaClient): Router {
   });
 
   // -------------------------------------------------------------------------
+  // GET /api/admin/users - All users with filtering
+  // -------------------------------------------------------------------------
+  router.get('/users', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { page, limit, sortBy, sortOrder } = parsePaginationParams(req.query);
+      const { userType, search, hasClient } = req.query;
+
+      // Build where clause
+      const where: any = {};
+
+      if (userType) {
+        where.userType = userType;
+      }
+
+      if (search) {
+        where.OR = [
+          { email: { contains: search as string, mode: 'insensitive' } },
+          { name: { contains: search as string, mode: 'insensitive' } },
+        ];
+      }
+
+      if (hasClient === 'true') {
+        where.client = { isNot: null };
+      } else if (hasClient === 'false') {
+        where.client = null;
+      }
+
+      // Get total count
+      const total = await prisma.user.count({ where });
+
+      // Get users
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          userType: true,
+          tier: true,
+          lastLogin: true,
+          createdAt: true,
+          updatedAt: true,
+          client: {
+            select: {
+              id: true,
+              status: true,
+              _count: {
+                select: { projects: true },
+              },
+            },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      res.json({
+        success: true,
+        data: users.map((user) => ({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          userType: user.userType,
+          tier: user.tier,
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          client: user.client ? {
+            id: user.client.id,
+            status: user.client.status,
+            projectCount: user.client._count.projects,
+          } : null,
+        })),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+      void logAuditFromRequest(req, AuditActions.ADMIN_VIEW_USERS, ResourceTypes.ADMIN, undefined, {
+        page,
+        limit,
+        userType,
+        search,
+        hasClient,
+      });
+    } catch (error) {
+      next(internalError('Failed to fetch users', error as Error));
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // GET /api/admin/sync/health - Notion-Postgres reconciliation health check
   // -------------------------------------------------------------------------
   router.get(
