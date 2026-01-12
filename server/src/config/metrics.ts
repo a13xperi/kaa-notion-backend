@@ -274,7 +274,7 @@ export function recordProjectCreated(tier: number): void {
  * Record authentication attempt
  */
 export function recordAuthAttempt(
-  type: 'login' | 'register' | 'refresh',
+  type: 'login' | 'register' | 'refresh' | 'google_login' | 'google_token',
   status: 'success' | 'failed'
 ): void {
   authAttemptsTotal.inc({ type, status });

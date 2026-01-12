@@ -294,7 +294,13 @@ async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
     throw new Error('Failed to fetch Google user info');
   }
 
-  const data = await response.json();
+  const data = await response.json() as {
+    id: string;
+    email: string;
+    name: string;
+    picture?: string;
+    verified_email: boolean;
+  };
 
   return {
     id: data.id,
