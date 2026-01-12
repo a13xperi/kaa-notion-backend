@@ -1,6 +1,13 @@
 # KAA Notion Backend - Cursor Rules
 # React + TypeScript + Node.js + Supabase + Notion
 
+## Multi-Agent Coordination
+This repository supports multi-agent Claude Code workflows. If assigned an agent number (1-5), read `CLAUDE-CODE-MULTI-AGENT.md` for the full protocol. Key rules:
+- Only modify files within your assigned scope
+- Use `coordination/` files for cross-agent requests
+- Commit and sync every 30-60 minutes
+- Never modify shared files without acquiring a lock
+
 ## Project Context
 You are working on the SAGE MVP Platform - a tiered landscape architecture service platform. SAGE offers Tiers 1-3 (accessible services), while KAA Premium (Tier 4) is invitation-only luxury service.
 
