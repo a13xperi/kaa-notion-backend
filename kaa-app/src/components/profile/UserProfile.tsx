@@ -5,6 +5,8 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { requestPasswordReset } from '../../api/authApi';
+import { ChangePasswordModal } from './ChangePasswordModal';
 import './UserProfile.css';
 
 interface UserProfileProps {
@@ -15,6 +17,9 @@ export function UserProfile({ onClose }: UserProfileProps) {
   const { user, profile, logout, refreshProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordResetStatus, setPasswordResetStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -50,6 +55,22 @@ export function UserProfile({ onClose }: UserProfileProps) {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    setPasswordResetStatus('sending');
+    try {
+      await requestPasswordReset(user.email);
+      setPasswordResetStatus('sent');
+    } catch {
+      setPasswordResetStatus('error');
+    }
+  };
+
+  const handlePasswordChangeSuccess = () => {
+    setPasswordChangeSuccess(true);
+    setTimeout(() => setPasswordChangeSuccess(false), 5000);
   };
 
   return (
@@ -157,6 +178,64 @@ export function UserProfile({ onClose }: UserProfileProps) {
           </section>
         )}
 
+        {/* Password Security */}
+        <section className="user-profile__section">
+          <h3 className="user-profile__section-title">Password & Security</h3>
+          
+          {passwordChangeSuccess && (
+            <div className="user-profile__success-message">
+              Password changed successfully!
+            </div>
+          )}
+          
+          <div className="user-profile__password-actions">
+            <div className="user-profile__password-item">
+              <div className="user-profile__password-info">
+                <span className="user-profile__password-label">Password</span>
+                <span className="user-profile__password-hint">••••••••</span>
+              </div>
+              <button
+                className="user-profile__password-btn"
+                onClick={() => setShowChangePassword(true)}
+              >
+                Change Password
+              </button>
+            </div>
+            
+            <div className="user-profile__password-divider" />
+            
+            <div className="user-profile__password-item">
+              <div className="user-profile__password-info">
+                <span className="user-profile__password-label">Forgot your password?</span>
+                <span className="user-profile__password-hint">
+                  We'll send a reset link to {user?.email}
+                </span>
+              </div>
+              <button
+                className="user-profile__password-btn user-profile__password-btn--secondary"
+                onClick={handlePasswordReset}
+                disabled={passwordResetStatus === 'sending' || passwordResetStatus === 'sent'}
+              >
+                {passwordResetStatus === 'sending' && 'Sending...'}
+                {passwordResetStatus === 'sent' && 'Email Sent ✓'}
+                {passwordResetStatus === 'error' && 'Try Again'}
+                {passwordResetStatus === 'idle' && 'Send Reset Link'}
+              </button>
+            </div>
+            
+            {passwordResetStatus === 'sent' && (
+              <div className="user-profile__reset-notice">
+                Check your email for the password reset link. It may take a few minutes to arrive.
+              </div>
+            )}
+            {passwordResetStatus === 'error' && (
+              <div className="user-profile__reset-error">
+                Failed to send reset email. Please try again.
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Actions */}
         <section className="user-profile__section user-profile__section--actions">
           <button
@@ -173,6 +252,13 @@ export function UserProfile({ onClose }: UserProfileProps) {
           </button>
         </section>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={handlePasswordChangeSuccess}
+      />
     </div>
   );
 }

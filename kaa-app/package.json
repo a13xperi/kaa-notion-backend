@@ -21,10 +21,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "react-scripts start",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "dev": "react-app-rewired start",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "eject": "react-scripts eject",
     "storybook": "storybook dev -p 6006",
@@ -59,6 +59,7 @@
     "@storybook/addon-essentials": "^7.6.21",
     "@storybook/react": "^7.6.21",
     "@storybook/react-webpack5": "^7.6.21",
+    "react-app-rewired": "^2.2.1",
     "storybook": "^7.6.21"
   }
 }

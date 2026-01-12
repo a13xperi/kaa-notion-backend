@@ -269,6 +269,105 @@
   text-decoration: underline;
 }
 
+/* Password & Security */
+.user-profile__success-message {
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  border: 1px solid #bbf7d0;
+}
+
+.user-profile__password-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.user-profile__password-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.user-profile__password-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user-profile__password-label {
+  font-size: 0.9375rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.user-profile__password-hint {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.user-profile__password-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #2563eb;
+  color: white;
+  border: none;
+  white-space: nowrap;
+}
+
+.user-profile__password-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.user-profile__password-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.user-profile__password-btn--secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.user-profile__password-btn--secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.user-profile__password-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 0.5rem 0;
+}
+
+.user-profile__reset-notice {
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  margin-top: 0.75rem;
+  border: 1px solid #bfdbfe;
+}
+
+.user-profile__reset-error {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  margin-top: 0.75rem;
+  border: 1px solid #fecaca;
+}
+
 /* Actions */
 .user-profile__section--actions {
   display: flex;
@@ -350,6 +449,46 @@
 
   .user-profile__action--danger:hover {
     background: #7f1d1d;
+  }
+
+  .user-profile__password-label {
+    color: #f9fafb;
+  }
+
+  .user-profile__password-hint {
+    color: #9ca3af;
+  }
+
+  .user-profile__password-btn--secondary {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+  }
+
+  .user-profile__password-btn--secondary:hover:not(:disabled) {
+    background: #4b5563;
+  }
+
+  .user-profile__password-divider {
+    background: #374151;
+  }
+
+  .user-profile__success-message {
+    background: #052e16;
+    color: #86efac;
+    border-color: #166534;
+  }
+
+  .user-profile__reset-notice {
+    background: #172554;
+    color: #93c5fd;
+    border-color: #1e40af;
+  }
+
+  .user-profile__reset-error {
+    background: #450a0a;
+    color: #fca5a5;
+    border-color: #7f1d1d;
   }
 }
 
