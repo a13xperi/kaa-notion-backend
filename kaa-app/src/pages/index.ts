@@ -9,3 +9,4 @@ export {
   ProjectsTablePage, 
   ClientsTablePage,
 } from './AdminPages';
+export { AuthCallbackPage } from './AuthCallbackPage';
