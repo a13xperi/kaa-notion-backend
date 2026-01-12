@@ -16,6 +16,7 @@ import {
   extractToken,
   refreshAccessToken,
 } from '../services/authService';
+import { sendWelcomeEmail } from '../services/emailService';
 import { AuditActions, ResourceTypes, getRequestAuditMetadata, logAudit } from '../services/auditService';
 import { validationError, unauthorized, notFound } from '../utils/AppError';
 import { logger } from '../logger';
@@ -115,6 +116,17 @@ export function createAuthRouter(prisma: PrismaClient): Router {
 
         logger.info('User registered', { userId: result.user.id, email });
         recordAuthAttempt('register', 'success');
+        
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail({
+          to: result.user.email!,
+          name: result.user.email!.split('@')[0], // Use email prefix as name
+          tier: result.user.tier || 1, // Default to tier 1 if not set
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        }).catch((err) => {
+          logger.error('Failed to send welcome email', { userId: result.user.id, error: err });
+        });
+        
         void logAudit({
           action: AuditActions.REGISTER,
           resourceType: ResourceTypes.USER,

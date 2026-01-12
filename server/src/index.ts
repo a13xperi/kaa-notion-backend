@@ -22,6 +22,7 @@ import {
   createTeamRouter,
 } from './routes';
 import { createSuperAdminRouter } from './routes/superAdmin';
+import passwordResetRouter from './routes/passwordReset';
 import { initGoogleAuth } from './services/googleAuthService';
 import {
   initNotionSyncService,
@@ -211,6 +212,7 @@ if (features.apiDocsEnabled) {
 // API Routes with Rate Limiting
 // Auth routes MUST come before catch-all /api routes to avoid auth middleware blocking login/register
 app.use('/api/auth', authRateLimit, createAuthRouter(prisma));
+app.use('/api/auth', authRateLimit, passwordResetRouter); // Password reset routes
 app.use('/api/webhooks', createWebhooksRouter(prisma)); // No auth for webhooks
 app.use('/api/leads', leadRateLimit, createLeadsRouter(prisma)); // Public lead submission
 app.use('/api/checkout', checkoutRateLimit, createCheckoutRouter(prisma)); // Public checkout
