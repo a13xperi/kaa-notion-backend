@@ -29,6 +29,8 @@ interface NotionServiceRequest extends Request {
 
 export function createNotionRouter({ prisma }: NotionRouterDependencies): Router {
   const router = Router();
+  const authMiddleware = requireAuth(prisma);
+  const adminMiddleware = requireAdmin();
 
   // Apply JWT auth to all routes - requireAuth validates token and attaches user
   const authMiddleware = requireAuth(prisma);
