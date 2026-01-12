@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { prisma } from '../utils/prisma';
-import { queueMilestoneSync, queueProjectSync, SyncOperation } from './notionSyncQueue';
+import { SyncOperation } from './notionSyncQueue';
 
 /**
  * Notion Milestone Sync Service
@@ -212,8 +212,7 @@ export async function updateMilestoneBlock(
 
   if (!headingBlockId) {
     console.log('[NotionSync] Milestones section not found in project page');
-    // Trigger a full project sync to recreate the page structure
-    await queueProjectSync(milestone.projectId, 'UPDATE');
+    // Note: Project sync should be triggered separately by the caller if needed
     return null;
   }
 
@@ -421,37 +420,35 @@ export async function syncMilestoneToNotion(
 // ============================================
 
 /**
- * Queue a milestone for sync after status change
+ * Sync milestone after status change
  */
 export async function onMilestoneStatusChanged(
   milestoneId: string,
-  projectId: string
+  _projectId: string
 ): Promise<void> {
   if (!isNotionConfigured()) {
     return;
   }
 
-  await queueMilestoneSync(milestoneId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for milestone ${milestoneId}`);
-
-  // Also update project page (progress may have changed)
-  await queueProjectSync(projectId, 'UPDATE');
+  await syncMilestoneToNotion(milestoneId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for milestone ${milestoneId}`);
+  // Note: Project sync should be triggered separately if progress tracking is needed
 }
 
 /**
- * Queue a milestone for sync after creation
+ * Sync milestone after creation
  */
 export async function onMilestoneCreated(milestoneId: string): Promise<void> {
   if (!isNotionConfigured()) {
     return;
   }
 
-  await queueMilestoneSync(milestoneId, 'CREATE');
-  console.log(`[NotionSync] Queued CREATE sync for milestone ${milestoneId}`);
+  await syncMilestoneToNotion(milestoneId, 'CREATE');
+  console.log(`[NotionSync] Synced CREATE for milestone ${milestoneId}`);
 }
 
 /**
- * Queue a milestone for sync after deletion
+ * Sync milestone after deletion
  */
 export async function onMilestoneDeleted(
   milestoneId: string,
@@ -461,8 +458,8 @@ export async function onMilestoneDeleted(
     return;
   }
 
-  await queueMilestoneSync(milestoneId, 'DELETE');
-  console.log(`[NotionSync] Queued DELETE sync for milestone ${milestoneId}`);
+  await syncMilestoneToNotion(milestoneId, 'DELETE');
+  console.log(`[NotionSync] Synced DELETE for milestone ${milestoneId}`);
 }
 
 export default {

@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { prisma } from '../utils/prisma';
-import { queueDeliverableSync, SyncOperation } from './notionSyncQueue';
+import { SyncOperation } from './notionSyncQueue';
 
 /**
  * Notion Deliverable Sync Service
@@ -745,7 +745,7 @@ export async function syncDeliverableToNotion(
 // ============================================
 
 /**
- * Queue a deliverable for sync after upload
+ * Sync a deliverable after upload
  */
 export async function onDeliverableCreated(deliverableId: string): Promise<void> {
   if (!isNotionConfigured()) {
@@ -753,32 +753,32 @@ export async function onDeliverableCreated(deliverableId: string): Promise<void>
     return;
   }
 
-  await queueDeliverableSync(deliverableId, 'CREATE');
-  console.log(`[NotionSync] Queued CREATE sync for deliverable ${deliverableId}`);
+  await syncDeliverableToNotion(deliverableId, 'CREATE');
+  console.log(`[NotionSync] Synced CREATE for deliverable ${deliverableId}`);
 }
 
 /**
- * Queue a deliverable for sync after update
+ * Sync a deliverable after update
  */
 export async function onDeliverableUpdated(deliverableId: string): Promise<void> {
   if (!isNotionConfigured()) {
     return;
   }
 
-  await queueDeliverableSync(deliverableId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for deliverable ${deliverableId}`);
+  await syncDeliverableToNotion(deliverableId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for deliverable ${deliverableId}`);
 }
 
 /**
- * Queue a deliverable for sync after deletion
+ * Sync a deliverable after deletion
  */
 export async function onDeliverableDeleted(deliverableId: string): Promise<void> {
   if (!isNotionConfigured()) {
     return;
   }
 
-  await queueDeliverableSync(deliverableId, 'DELETE');
-  console.log(`[NotionSync] Queued DELETE sync for deliverable ${deliverableId}`);
+  await syncDeliverableToNotion(deliverableId, 'DELETE');
+  console.log(`[NotionSync] Synced DELETE for deliverable ${deliverableId}`);
 }
 
 export default {

@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { prisma } from '../utils/prisma';
-import { queueLeadSync, SyncOperation } from './notionSyncQueue';
+import { SyncOperation } from './notionSyncQueue';
 
 /**
  * Notion Lead Sync Service
@@ -593,6 +593,7 @@ export async function syncLeadToNotion(
 
 /**
  * Queue a lead for sync after creation
+ * Note: Direct sync - queue function not available in notionSyncQueue
  */
 export async function onLeadCreated(leadId: string): Promise<void> {
   if (!isNotionConfigured()) {
@@ -600,8 +601,8 @@ export async function onLeadCreated(leadId: string): Promise<void> {
     return;
   }
 
-  await queueLeadSync(leadId, 'CREATE');
-  console.log(`[NotionSync] Queued CREATE sync for lead ${leadId}`);
+  await syncLeadToNotion(leadId, 'CREATE');
+  console.log(`[NotionSync] Synced CREATE for lead ${leadId}`);
 }
 
 /**
@@ -612,8 +613,8 @@ export async function onLeadStatusChanged(leadId: string): Promise<void> {
     return;
   }
 
-  await queueLeadSync(leadId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for lead ${leadId}`);
+  await syncLeadToNotion(leadId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for lead ${leadId}`);
 }
 
 /**
@@ -624,8 +625,8 @@ export async function onLeadTierOverride(leadId: string): Promise<void> {
     return;
   }
 
-  await queueLeadSync(leadId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for lead ${leadId} (tier override)`);
+  await syncLeadToNotion(leadId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for lead ${leadId} (tier override)`);
 }
 
 /**
@@ -638,8 +639,8 @@ export async function onLeadClosed(leadId: string): Promise<void> {
 
   // Update status in Notion rather than archiving
   // This keeps the lead visible in the CRM but marked as closed/converted
-  await queueLeadSync(leadId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for lead ${leadId} (closed/converted)`);
+  await syncLeadToNotion(leadId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for lead ${leadId} (closed/converted)`);
 }
 
 export default {

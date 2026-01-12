@@ -187,7 +187,7 @@ export interface AuditLogEntry {
 }
 
 /**
- * Audit log record
+ * Audit log record (matches Prisma AuditLog model)
  */
 export interface AuditLogRecord {
   id: string;
@@ -195,8 +195,9 @@ export interface AuditLogRecord {
   action: string;
   resourceType: string | null;
   resourceId: string | null;
-  details: unknown;
-  ipAddress: string | null;
+  details: string | null;
+  ip: string | null;
+  userAgent: string | null;
   createdAt: Date;
 }
 

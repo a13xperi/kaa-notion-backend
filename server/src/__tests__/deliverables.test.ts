@@ -8,7 +8,21 @@ import { prisma } from '../utils/prisma';
 import { mockProject, mockUser } from './setup';
 
 // Mock storage service
+const mockStorageInstance = {
+  uploadFile: jest.fn(),
+  getSignedUrl: jest.fn(),
+  deleteFile: jest.fn(),
+  getAllowedMimeTypes: jest.fn().mockReturnValue(['application/pdf', 'image/jpeg', 'image/png']),
+  getMaxFileSizeBytes: jest.fn().mockReturnValue(50 * 1024 * 1024),
+};
+
 jest.mock('../services/storageService', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => mockStorageInstance),
+  StorageService: jest.fn().mockImplementation(() => mockStorageInstance),
+  initStorageService: jest.fn().mockReturnValue(mockStorageInstance),
+  getStorageService: jest.fn().mockReturnValue(mockStorageInstance),
+  // Helper functions for tests
   uploadFile: jest.fn(),
   getSignedUrl: jest.fn(),
   deleteFile: jest.fn(),
@@ -17,11 +31,6 @@ jest.mock('../services/storageService', () => ({
   getFileCategory: jest.fn(),
   getMaxFileSize: jest.fn(),
   formatBytes: jest.fn(),
-  ALLOWED_TYPES: {
-    document: ['application/pdf', 'application/msword'],
-    image: ['image/jpeg', 'image/png', 'image/webp'],
-    drawing: ['application/pdf', 'image/svg+xml'],
-  },
 }));
 
 import * as storageService from '../services/storageService';

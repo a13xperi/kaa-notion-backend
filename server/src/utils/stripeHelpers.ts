@@ -115,13 +115,13 @@ export function getStripeConfig(): StripeConfig {
 }
 
 function applyPriceIdsFromEnvironment(): void {
-  const envPriceIds = {
+  const envPriceIds: Record<1 | 2 | 3, string | undefined> = {
     1: process.env.STRIPE_TIER1_PRICE_ID,
     2: process.env.STRIPE_TIER2_PRICE_ID,
     3: process.env.STRIPE_TIER3_PRICE_ID,
   };
 
-  (Object.keys(envPriceIds) as Array<keyof typeof envPriceIds>).forEach((tierKey) => {
+  ([1, 2, 3] as const).forEach((tierKey) => {
     const priceId = envPriceIds[tierKey];
     if (priceId) {
       TIER_PRICING[tierKey].priceId = priceId;

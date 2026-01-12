@@ -169,7 +169,7 @@ export async function getConversionMetrics(
         status: true,
         recommendedTier: true,
         createdAt: true,
-        convertedAt: true,
+        clientId: true, // Use clientId to check if converted
       },
     });
 
@@ -177,13 +177,9 @@ export async function getConversionMetrics(
     const convertedLeads = leads.filter(l => l.status === 'CONVERTED').length;
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
-    // Calculate average time to convert
-    const convertedWithTime = leads.filter(l => l.convertedAt);
-    const totalDays = convertedWithTime.reduce((sum, lead) => {
-      const days = (lead.convertedAt!.getTime() - lead.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-      return sum + days;
-    }, 0);
-    const averageTimeToConvert = convertedWithTime.length > 0 ? totalDays / convertedWithTime.length : 0;
+    // Calculate average time to convert (using converted count since Lead model doesn't have convertedAt)
+    // Time to convert cannot be calculated without a convertedAt field
+    const averageTimeToConvert = 0; // Placeholder - would need schema update to track this
 
     // Group by tier
     const tierMap = new Map<number, { leads: number; converted: number }>();
@@ -227,26 +223,24 @@ export async function getRevenueMetrics(
   const { startDate, endDate } = getDateRange(period);
 
   try {
-    // Get all completed payments
+    // Get all succeeded payments (PaymentStatus.SUCCEEDED)
     const payments = await prisma.payment.findMany({
       where: {
-        status: 'COMPLETED',
+        status: 'SUCCEEDED',
         createdAt: { gte: startDate, lte: endDate },
       },
       include: {
-        project: {
-          include: { tier: true },
-        },
+        project: true,
       },
     });
 
     const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
     const averageOrderValue = payments.length > 0 ? totalRevenue / payments.length : 0;
 
-    // Revenue by tier
+    // Revenue by tier (using project.tier which is an Int)
     const tierRevenueMap = new Map<number, { revenue: number; count: number }>();
     payments.forEach(payment => {
-      const tier = payment.project.tier?.tier || 0;
+      const tier = payment.project.tier || 0;
       const current = tierRevenueMap.get(tier) || { revenue: 0, count: 0 };
       current.revenue += payment.amount;
       current.count++;
@@ -297,32 +291,41 @@ export async function getRevenueMetrics(
 
 export async function getTierDistribution(): Promise<TierDistribution[]> {
   try {
-    const tiers = await prisma.tier.findMany({
-      include: {
-        _count: {
-          select: { projects: true },
-        },
-        projects: {
-          include: {
-            payments: {
-              where: { status: 'COMPLETED' },
-            },
+    // Get all tiers
+    const tiers = await prisma.tier.findMany();
+    
+    // Get project counts and revenue for each tier
+    const tierStats = await Promise.all(
+      tiers.map(async (tier) => {
+        const projectCount = await prisma.project.count({
+          where: { tier: tier.id },
+        });
+        
+        const revenue = await prisma.payment.aggregate({
+          where: {
+            status: 'SUCCEEDED',
+            project: { tier: tier.id },
           },
-        },
-      },
-    });
+          _sum: { amount: true },
+        });
+        
+        return {
+          tier: tier.id,
+          tierName: tier.name,
+          count: projectCount,
+          revenue: revenue._sum.amount || 0,
+        };
+      })
+    );
 
-    const totalProjects = tiers.reduce((sum, t) => sum + t._count.projects, 0);
+    const totalProjects = tierStats.reduce((sum, t) => sum + t.count, 0);
 
-    return tiers.map(tier => ({
+    return tierStats.map(tier => ({
       tier: tier.tier,
-      tierName: tier.name,
-      count: tier._count.projects,
-      percentage: totalProjects > 0 ? Math.round((tier._count.projects / totalProjects) * 100) : 0,
-      revenue: tier.projects.reduce(
-        (sum, project) => sum + project.payments.reduce((pSum, p) => pSum + p.amount, 0),
-        0
-      ),
+      tierName: tier.tierName,
+      count: tier.count,
+      percentage: totalProjects > 0 ? Math.round((tier.count / totalProjects) * 100) : 0,
+      revenue: tier.revenue,
     })).sort((a, b) => a.tier - b.tier);
   } catch (error) {
     logger.error('Failed to get tier distribution', {}, error as Error);
@@ -347,7 +350,6 @@ export async function getLeadMetrics(
       select: {
         id: true,
         status: true,
-        source: true,
         createdAt: true,
       },
     });
@@ -362,16 +364,9 @@ export async function getLeadMetrics(
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => b.count - a.count);
 
-    // By source
-    const sourceMap = new Map<string, number>();
-    leads.forEach(lead => {
-      const source = lead.source || 'Direct';
-      sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
-    });
-
-    const bySource = Array.from(sourceMap.entries())
-      .map(([source, count]) => ({ source, count }))
-      .sort((a, b) => b.count - a.count);
+    // By source (placeholder - Lead model doesn't have source field)
+    // All leads are treated as 'Direct' until schema is updated
+    const bySource = [{ source: 'Direct', count: leads.length }];
 
     // By month
     const monthMap = new Map<string, number>();
@@ -414,15 +409,16 @@ export async function getProjectMetrics(
         id: true,
         status: true,
         createdAt: true,
-        completedAt: true,
+        // Note: Project model doesn't have completedAt field
       },
     });
 
     const totalProjects = projects.length;
+    // Use DELIVERED and CLOSED as "completed" statuses per ProjectStatus enum
     const activeProjects = projects.filter(p =>
-      p.status !== 'COMPLETED' && p.status !== 'CANCELLED'
+      p.status !== 'DELIVERED' && p.status !== 'CLOSED'
     ).length;
-    const completedProjects = projects.filter(p => p.status === 'COMPLETED').length;
+    const completedProjects = projects.filter(p => p.status === 'DELIVERED').length;
 
     // By status
     const statusMap = new Map<string, number>();
@@ -434,28 +430,20 @@ export async function getProjectMetrics(
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Average completion time
-    const completedWithTime = projects.filter(p => p.completedAt);
-    const totalDays = completedWithTime.reduce((sum, project) => {
-      const days = (project.completedAt!.getTime() - project.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-      return sum + days;
-    }, 0);
-    const averageCompletionTime = completedWithTime.length > 0 ? totalDays / completedWithTime.length : 0;
+    // Average completion time (placeholder - Project model doesn't have completedAt)
+    const averageCompletionTime = 0;
 
-    // By month
+    // By month (only tracking created since completedAt doesn't exist)
     const monthMap = new Map<string, { created: number; completed: number }>();
     projects.forEach(project => {
       const createdMonth = getMonthKey(project.createdAt);
       const current = monthMap.get(createdMonth) || { created: 0, completed: 0 };
       current.created++;
-      monthMap.set(createdMonth, current);
-
-      if (project.completedAt) {
-        const completedMonth = getMonthKey(project.completedAt);
-        const completedCurrent = monthMap.get(completedMonth) || { created: 0, completed: 0 };
-        completedCurrent.completed++;
-        monthMap.set(completedMonth, completedCurrent);
+      // Track DELIVERED projects as completed for that month
+      if (project.status === 'DELIVERED') {
+        current.completed++;
       }
+      monthMap.set(createdMonth, current);
     });
 
     const projectsByMonth = Array.from(monthMap.entries())
@@ -504,18 +492,18 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       }),
     ]);
 
-    // Conversions
+    // Conversions (using updatedAt since Lead doesn't have convertedAt)
     const [conversionsThisMonth, conversionsLastMonth, leadsForConversionThisMonth, leadsForConversionLastMonth] = await Promise.all([
       prisma.lead.count({
         where: {
           status: 'CONVERTED',
-          convertedAt: { gte: thisMonthStart },
+          updatedAt: { gte: thisMonthStart },
         },
       }),
       prisma.lead.count({
         where: {
           status: 'CONVERTED',
-          convertedAt: { gte: lastMonthStart, lte: lastMonthEnd },
+          updatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
       }),
       prisma.lead.count({
@@ -533,35 +521,35 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       ? (conversionsLastMonth / leadsForConversionLastMonth) * 100
       : 0;
 
-    // Revenue
+    // Revenue (using SUCCEEDED status per PaymentStatus enum)
     const [revenueThisMonth, revenueLastMonth, totalRevenue] = await Promise.all([
       prisma.payment.aggregate({
         where: {
-          status: 'COMPLETED',
+          status: 'SUCCEEDED',
           createdAt: { gte: thisMonthStart },
         },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
         where: {
-          status: 'COMPLETED',
+          status: 'SUCCEEDED',
           createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
-        where: { status: 'COMPLETED' },
+        where: { status: 'SUCCEEDED' },
         _sum: { amount: true },
       }),
     ]);
 
-    // Projects
+    // Projects (using DELIVERED and CLOSED per ProjectStatus enum)
     const [activeProjects, completedProjects, projectsThisMonth] = await Promise.all([
       prisma.project.count({
-        where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        where: { status: { notIn: ['DELIVERED', 'CLOSED'] } },
       }),
       prisma.project.count({
-        where: { status: 'COMPLETED' },
+        where: { status: 'DELIVERED' },
       }),
       prisma.project.count({
         where: { createdAt: { gte: thisMonthStart } },

@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { prisma } from '../utils/prisma';
-import { queueProjectSync, SyncOperation } from './notionSyncQueue';
+import { SyncOperation } from './notionSyncQueue';
 
 /**
  * Notion Project Sync Service
@@ -519,7 +519,7 @@ export async function syncProjectToNotion(
 // ============================================
 
 /**
- * Queue a project for sync after creation
+ * Sync a project after creation
  */
 export async function onProjectCreated(projectId: string): Promise<void> {
   if (!isNotionConfigured()) {
@@ -527,12 +527,12 @@ export async function onProjectCreated(projectId: string): Promise<void> {
     return;
   }
 
-  await queueProjectSync(projectId, 'CREATE');
-  console.log(`[NotionSync] Queued CREATE sync for project ${projectId}`);
+  await syncProjectToNotion(projectId, 'CREATE');
+  console.log(`[NotionSync] Synced CREATE for project ${projectId}`);
 }
 
 /**
- * Queue a project for sync after update
+ * Sync a project after update
  */
 export async function onProjectUpdated(projectId: string): Promise<void> {
   if (!isNotionConfigured()) {
@@ -540,12 +540,12 @@ export async function onProjectUpdated(projectId: string): Promise<void> {
     return;
   }
 
-  await queueProjectSync(projectId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for project ${projectId}`);
+  await syncProjectToNotion(projectId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for project ${projectId}`);
 }
 
 /**
- * Queue a project for sync after deletion/archive
+ * Sync a project after deletion/archive
  */
 export async function onProjectDeleted(projectId: string): Promise<void> {
   if (!isNotionConfigured()) {
@@ -553,15 +553,15 @@ export async function onProjectDeleted(projectId: string): Promise<void> {
     return;
   }
 
-  await queueProjectSync(projectId, 'DELETE');
-  console.log(`[NotionSync] Queued DELETE sync for project ${projectId}`);
+  await syncProjectToNotion(projectId, 'DELETE');
+  console.log(`[NotionSync] Synced DELETE for project ${projectId}`);
 }
 
 /**
- * Queue project sync when milestone status changes
+ * Sync project when milestone status changes
  */
 export async function onMilestoneStatusChanged(
-  milestoneId: string,
+  _milestoneId: string,
   projectId: string
 ): Promise<void> {
   if (!isNotionConfigured()) {
@@ -569,8 +569,8 @@ export async function onMilestoneStatusChanged(
   }
 
   // Update the project page to reflect new milestone status
-  await queueProjectSync(projectId, 'UPDATE');
-  console.log(`[NotionSync] Queued UPDATE sync for project ${projectId} (milestone changed)`);
+  await syncProjectToNotion(projectId, 'UPDATE');
+  console.log(`[NotionSync] Synced UPDATE for project ${projectId} (milestone changed)`);
 }
 
 export default {

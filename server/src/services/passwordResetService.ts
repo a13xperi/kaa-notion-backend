@@ -196,7 +196,7 @@ export class PasswordResetService {
             action: 'password_reset',
             resourceType: 'user',
             resourceId: validation.userId,
-            details: { method: 'token' },
+            details: JSON.stringify({ method: 'token' }),
           },
         });
       });
