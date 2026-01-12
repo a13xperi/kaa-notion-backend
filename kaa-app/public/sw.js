@@ -1,9 +1,9 @@
 // KAA App Service Worker
 // Provides offline functionality and caching
 
-const CACHE_NAME = 'kaa-app-v1.0.1';
-const STATIC_CACHE = 'kaa-static-v1.0.1';
-const DYNAMIC_CACHE = 'kaa-dynamic-v1.0.1';
+const CACHE_NAME = 'kaa-app-v1.0.2';
+const STATIC_CACHE = 'kaa-static-v1.0.2';
+const DYNAMIC_CACHE = 'kaa-dynamic-v1.0.2';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
@@ -130,34 +130,46 @@ async function handleApiRequest(request) {
   }
 }
 
-// Handle static file requests with cache-first strategy
+// Handle static file requests
+// Navigation requests use network-first to ensure fresh content
+// Other static files use cache-first for performance
 async function handleStaticRequest(request) {
-  // Try cache first
+  // Navigation requests (HTML pages) should use network-first
+  // to ensure users always get the latest app version
+  if (request.mode === 'navigate') {
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse.ok) {
+        const cache = await caches.open(STATIC_CACHE);
+        cache.put(request, networkResponse.clone());
+      }
+      return networkResponse;
+    } catch (error) {
+      console.log('[SW] Network failed for navigation, trying cache');
+      const cachedResponse = await caches.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      // Fall back to index.html for SPA routing
+      return caches.match('/') || new Response('Offline', { status: 503 });
+    }
+  }
+
+  // For other static files (JS, CSS, images), use cache-first
   const cachedResponse = await caches.match(request);
   if (cachedResponse) {
     return cachedResponse;
   }
 
   try {
-    // Cache miss, try network
     const networkResponse = await fetch(request);
-    
-    // Cache successful responses
     if (networkResponse.ok) {
       const cache = await caches.open(STATIC_CACHE);
       cache.put(request, networkResponse.clone());
     }
-    
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed for static file:', request.url);
-    
-    // Return offline page for navigation requests
-    if (request.mode === 'navigate') {
-      return caches.match('/') || new Response('Offline', { status: 503 });
-    }
-    
-    // For other static files, return a generic offline response
     return new Response('Offline', { status: 503 });
   }
 }

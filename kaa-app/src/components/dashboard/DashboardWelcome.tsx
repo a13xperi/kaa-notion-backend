@@ -3,6 +3,7 @@
  * Welcome section for the client portal dashboard.
  */
 
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './DashboardWelcome.css';
 
@@ -121,15 +122,15 @@ export function DashboardWelcome({
         <h2 className="dashboard-welcome__actions-title">Quick Actions</h2>
         <div className="dashboard-welcome__actions-grid">
           {QUICK_ACTIONS.map((action) => (
-            <a
+            <Link
               key={action.href}
-              href={action.href}
+              to={action.href}
               className="dashboard-welcome__action"
             >
               <span className="dashboard-welcome__action-icon">{action.icon}</span>
               <span className="dashboard-welcome__action-label">{action.label}</span>
               <span className="dashboard-welcome__action-desc">{action.description}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </div>
@@ -139,9 +140,9 @@ export function DashboardWelcome({
           <h2 className="dashboard-welcome__recent-title">Recent Projects</h2>
           <div className="dashboard-welcome__recent-list">
             {profile.projects.slice(0, 3).map((project) => (
-              <a
+              <Link
                 key={project.id}
-                href={`/portal/projects/${project.id}`}
+                to={`/portal/projects/${project.id}`}
                 className="dashboard-welcome__project"
               >
                 <div className="dashboard-welcome__project-info">
@@ -151,7 +152,7 @@ export function DashboardWelcome({
                 <span className={`dashboard-welcome__project-status dashboard-welcome__project-status--${project.status.toLowerCase().replace('_', '-')}`}>
                   {project.status.replace('_', ' ')}
                 </span>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -164,9 +165,9 @@ export function DashboardWelcome({
             <h3>Need Help?</h3>
             <p>Our team is here to support you throughout your project journey.</p>
           </div>
-          <a href="/support" className="dashboard-welcome__help-link">
+          <Link to="/portal/messages" className="dashboard-welcome__help-link">
             Get Support →
-          </a>
+          </Link>
         </div>
       </div>
     </div>
