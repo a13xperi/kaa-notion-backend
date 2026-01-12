@@ -4,10 +4,9 @@
  * Handles in-app notifications for users.
  */
 
-import { PrismaClient, NotificationType } from '@prisma/client';
+import { NotificationType } from '@prisma/client';
 import { logger } from '../config/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // ========================================
 // Types

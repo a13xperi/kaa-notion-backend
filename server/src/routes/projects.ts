@@ -8,24 +8,21 @@
  * - PATCH /api/projects/:id - Update project status (admin only)
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '../services/prismaAdapter';
 import { createProjectService, ProjectStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
-import { requireAuth, requireAdmin } from '../middleware';
+import {
+  requireAuth,
+  requireAdmin,
+  AuthenticatedUser,
+  AuthenticatedRequest,
+} from '../middleware';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Extended request with authenticated user info
- */
-export interface AuthenticatedRequest extends Request {
-  user?: AuthenticatedUser;
-}
+// Re-export for backwards compatibility (prefer importing from middleware)
+export type { AuthenticatedRequest };
 
 /**
  * Query parameters for listing projects

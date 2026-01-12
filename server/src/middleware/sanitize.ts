@@ -5,18 +5,55 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../logger';
 
-// Characters that could be used for XSS attacks
+// XSS attack patterns - comprehensive detection
 const XSS_PATTERNS = [
+  // Script tags (including variations)
   /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+  /<script[^>]*>/gi,
+
+  // Event handlers (on* attributes)
   /<[^>]+on\w+\s*=/gi,
-  /javascript:/gi,
-  /data:text\/html/gi,
-  /vbscript:/gi,
-  /<iframe/gi,
-  /<object/gi,
-  /<embed/gi,
-  /<form/gi,
+
+  // JavaScript/VBScript protocols
+  /javascript\s*:/gi,
+  /vbscript\s*:/gi,
+  /livescript\s*:/gi,
+
+  // Data URIs that could execute scripts
+  /data\s*:\s*text\/html/gi,
+  /data\s*:\s*application\/x-javascript/gi,
+  /data\s*:\s*application\/javascript/gi,
+
+  // Dangerous HTML elements
+  /<iframe[^>]*>/gi,
+  /<object[^>]*>/gi,
+  /<embed[^>]*>/gi,
+  /<form[^>]*>/gi,
+  /<svg[^>]*>/gi,
+  /<math[^>]*>/gi,
+  /<link[^>]*>/gi,
+  /<style[^>]*>/gi,
+  /<base[^>]*>/gi,
+  /<meta[^>]*>/gi,
+
+  // Expression-based XSS (IE)
+  /expression\s*\(/gi,
+  /behavior\s*:/gi,
+  /-moz-binding\s*:/gi,
+
+  // HTML entities that could bypass filters
+  /&#x?[0-9a-f]+;?/gi,
+
+  // Template injection patterns
+  /\{\{.*\}\}/gi,
+  /\$\{.*\}/gi,
+
+  // URL-encoded XSS attempts
+  /%3Cscript/gi,
+  /%3Csvg/gi,
+  /%3Ciframe/gi,
 ];
 
 // SQL injection patterns (for logging, not blocking)
@@ -178,7 +215,9 @@ export function sanitizeInput(
 
     // Log potential attacks
     if (allXSS.length > 0) {
-      console.warn(`[SECURITY] Potential XSS detected in ${req.method} ${req.path}:`, {
+      logger.warn('Potential XSS detected', {
+        method: req.method,
+        path: req.path,
         fields: allXSS,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
@@ -186,7 +225,9 @@ export function sanitizeInput(
     }
 
     if (allSQL.length > 0) {
-      console.warn(`[SECURITY] Potential SQL injection patterns in ${req.method} ${req.path}:`, {
+      logger.warn('Potential SQL injection patterns detected', {
+        method: req.method,
+        path: req.path,
         fields: allSQL,
         ip: req.ip,
         userAgent: req.headers['user-agent'],
@@ -208,7 +249,7 @@ export function sanitizeInput(
 
     next();
   } catch (error) {
-    console.error('[SECURITY] Sanitization error:', error);
+    logger.error('Sanitization error', { error, path: req.path, method: req.method });
     next(); // Continue even if sanitization fails
   }
 }
@@ -220,14 +261,16 @@ export function strictSanitize(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): void | Response {
   const bodyIssues = checkForMaliciousInput(req.body, 'body');
   const queryIssues = checkForMaliciousInput(req.query, 'query');
 
   const allXSS = [...bodyIssues.xss, ...queryIssues.xss];
 
   if (allXSS.length > 0) {
-    console.error(`[SECURITY] Blocked request with XSS in ${req.method} ${req.path}:`, {
+    logger.warn('Blocked request with XSS patterns', {
+      method: req.method,
+      path: req.path,
       fields: allXSS,
       ip: req.ip,
     });

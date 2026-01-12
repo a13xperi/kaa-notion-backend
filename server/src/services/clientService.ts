@@ -7,6 +7,7 @@
 import { PrismaClient, Client, User, Project, Lead, Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { hashPassword } from './authService';
+import { notFound, conflict, ErrorCodes } from '../utils/AppError';
 
 // ============================================================================
 // TYPES - Functional API (Stripe Integration)
@@ -96,11 +97,11 @@ export async function createClientFromLead(
   });
 
   if (!lead) {
-    throw new Error(`Lead not found: ${leadId}`);
+    throw notFound('Lead', ErrorCodes.LEAD_NOT_FOUND, leadId);
   }
 
   if (lead.status === 'CONVERTED') {
-    throw new Error(`Lead already converted: ${leadId}`);
+    throw conflict('Lead has already been converted', ErrorCodes.LEAD_ALREADY_CONVERTED, { leadId });
   }
 
   // Check for existing payment with this intent (idempotency)
@@ -394,11 +395,11 @@ export class ClientService {
       });
 
       if (!lead) {
-        throw new Error(`Lead not found: ${leadId}`);
+        throw notFound('Lead', ErrorCodes.LEAD_NOT_FOUND, leadId);
       }
 
       if (lead.client) {
-        throw new Error('Lead has already been converted to a client');
+        throw conflict('Lead has already been converted to a client', ErrorCodes.LEAD_ALREADY_CONVERTED);
       }
 
       // 2. Create or find user by email

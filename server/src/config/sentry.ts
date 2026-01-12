@@ -192,6 +192,19 @@ export function setTag(key: string, value: string): void {
   Sentry.setTag(key, value);
 }
 
+/**
+ * Add a breadcrumb for debugging
+ */
+export function addBreadcrumb(breadcrumb: {
+  category?: string;
+  message?: string;
+  level?: 'debug' | 'info' | 'warning' | 'error';
+  data?: Record<string, unknown>;
+}): void {
+  if (!isInitialized) return;
+  Sentry.addBreadcrumb(breadcrumb);
+}
+
 // ============================================================================
 // PERFORMANCE MONITORING
 // ============================================================================
@@ -247,5 +260,6 @@ export default {
   clearUser,
   setContext,
   setTag,
+  addBreadcrumb,
   startTransaction,
 };

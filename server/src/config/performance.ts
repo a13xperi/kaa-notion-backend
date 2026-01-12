@@ -130,11 +130,16 @@ export function performanceMiddleware(options: PerformanceOptions = {}) {
           statusCode: res.statusCode,
         });
 
-        addBreadcrumb('performance', 'Slow request', {
-          method: req.method,
-          path: req.path,
-          duration,
-        }, 'warning');
+        addBreadcrumb({
+          category: 'performance',
+          message: 'Slow request',
+          data: {
+            method: req.method,
+            path: req.path,
+            duration,
+          },
+          level: 'warning',
+        });
       }
 
       // Track memory delta
@@ -184,11 +189,16 @@ export function trackQuery(
       duration: `${duration.toFixed(2)}ms`,
     });
 
-    addBreadcrumb('database', 'Slow query', {
-      operation,
-      model,
-      duration,
-    }, 'warning');
+    addBreadcrumb({
+      category: 'database',
+      message: 'Slow query',
+      data: {
+        operation,
+        model,
+        duration,
+      },
+      level: 'warning',
+    });
   }
 }
 
@@ -303,6 +313,9 @@ export function stopEventLoopMonitoring(): void {
 // Metrics Reporting
 // ========================================
 
+/** Metric without raw values for reporting */
+type MetricSummary = Omit<Metric, 'values'>;
+
 export interface PerformanceReport {
   timestamp: string;
   uptime: number;
@@ -313,9 +326,9 @@ export interface PerformanceReport {
     rss: number;
   };
   eventLoopLag: number;
-  requests: Record<string, Metric>;
-  queries: Record<string, Metric>;
-  external: Record<string, Metric>;
+  requests: Record<string, MetricSummary>;
+  queries: Record<string, MetricSummary>;
+  external: Record<string, MetricSummary>;
   errors: Record<string, number>;
 }
 
@@ -336,22 +349,22 @@ export function getPerformanceReport(): PerformanceReport {
     },
     eventLoopLag,
     requests: Object.fromEntries(
-      Array.from(metrics.requests.entries()).map(([k, v]) => [
-        k,
-        { ...v, values: undefined }, // Remove raw values from report
-      ])
+      Array.from(metrics.requests.entries()).map(([k, v]) => {
+        const { values: _values, ...rest } = v;
+        return [k, rest];
+      })
     ),
     queries: Object.fromEntries(
-      Array.from(metrics.queries.entries()).map(([k, v]) => [
-        k,
-        { ...v, values: undefined },
-      ])
+      Array.from(metrics.queries.entries()).map(([k, v]) => {
+        const { values: _values, ...rest } = v;
+        return [k, rest];
+      })
     ),
     external: Object.fromEntries(
-      Array.from(metrics.external.entries()).map(([k, v]) => [
-        k,
-        { ...v, values: undefined },
-      ])
+      Array.from(metrics.external.entries()).map(([k, v]) => {
+        const { values: _values, ...rest } = v;
+        return [k, rest];
+      })
     ),
     errors: Object.fromEntries(metrics.errors),
   };

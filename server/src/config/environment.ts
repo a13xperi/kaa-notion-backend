@@ -179,20 +179,16 @@ export function initEnvironment(): Environment {
   const result = validateEnvironment();
 
   if (!result.valid) {
-    logger.error('Environment validation failed', { errors: result.errors });
     logger.error('Environment validation failed', {
-      errors: result.errors?.map((err) => `• ${err}`),
+      errors: result.errors,
+      hint: 'Please check your .env file and ensure all required variables are set.',
     });
-    logger.error('Please check your .env file and ensure all required variables are set.');
     process.exit(1);
   }
 
   // Log warnings
   if (result.warnings && result.warnings.length > 0) {
     logger.warn('Environment warnings detected', { warnings: result.warnings });
-    logger.warn('Environment warnings', {
-      warnings: result.warnings.map((warn) => `• ${warn}`),
-    });
   }
 
   logger.info('Environment validation passed', {

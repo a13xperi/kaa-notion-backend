@@ -7,15 +7,14 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { prisma } from '../utils/prisma';
 import { sendPasswordResetEmail } from '../services/emailService';
 import { logger } from '../config/logger';
 import { passwordResetRateLimit } from '../middleware/rateLimit';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Token expiry time (1 hour)
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
@@ -91,7 +90,7 @@ router.post('/forgot-password', passwordResetRateLimit, async (req: Request, res
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
@@ -127,12 +126,12 @@ router.post('/forgot-password', passwordResetRateLimit, async (req: Request, res
     });
 
     // Send reset email
-    const emailResult = await sendPasswordResetEmail({
-      email: user.email!,
-      name: user.name || undefined,
-      resetToken: token,
-      expiresIn: TOKEN_EXPIRY_DISPLAY,
-    });
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    const emailResult = await sendPasswordResetEmail(
+      user.email!,
+      resetUrl,
+      expiresAt
+    );
 
     if (!emailResult.success) {
       logger.error('Failed to send password reset email', { email, error: emailResult.error });
@@ -168,8 +167,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
-          details: validation.error.errors,
+          message: validation.error.issues[0].message,
+          details: validation.error.issues,
         },
       });
     }

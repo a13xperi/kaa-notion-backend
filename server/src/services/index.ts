@@ -310,3 +310,61 @@ export {
   type ConvertReferralInput,
   type ReferralStats,
 } from './referralService';
+
+// Password Reset Service - Secure password reset flow
+export {
+  PasswordResetService,
+  initPasswordResetService,
+  getPasswordResetService,
+  type CreateResetTokenResult,
+  type ValidateTokenResult,
+  type ResetPasswordResult,
+} from './passwordResetService';
+
+// Team Invite Service - Team member invitations
+export { TeamInviteService } from './teamInviteService';
+
+// Portfolio Service - Public portfolio gallery management
+export {
+  createPortfolio,
+  updatePortfolio,
+  deletePortfolio,
+  getPortfolioById,
+  getPortfolioBySlug,
+  getPublicPortfolios,
+  getFeaturedPortfolios,
+  getPortfolioTags,
+  getProjectTypes,
+  getAllPortfolios,
+  addImage,
+  updateImage,
+  deleteImage,
+  reorderImages,
+  setCoverImage,
+  publishPortfolio,
+  unpublishPortfolio,
+  toggleFeatured,
+  createFromProject,
+  type CreatePortfolioInput,
+  type UpdatePortfolioInput,
+  type AddImageInput,
+  type PortfolioWithImages,
+  type PortfolioListOptions,
+} from './portfolioService';
+
+// Push Notification Service - Web push notifications
+export {
+  saveSubscription,
+  removeSubscription,
+  getUserSubscriptions as getPushSubscriptions,
+  sendToUser as sendPushToUser,
+  sendToUsers as sendPushToUsers,
+  broadcast as broadcastPush,
+  notifyProjectUpdate,
+  notifyMilestoneComplete,
+  notifyNewDeliverable,
+  notifyNewMessage,
+  getVapidPublicKey,
+  type PushSubscription,
+  type PushNotificationPayload,
+} from './pushService';

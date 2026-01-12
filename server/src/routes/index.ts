@@ -13,4 +13,7 @@ export { createLeadsRouter } from './leads';
 export { createCheckoutRouter } from './checkout';
 export { createWebhooksRouter } from './webhooks';
 export { createAuthRouter } from './auth';
-export type { AuthenticatedRequest } from './projects';
+export { createTeamRouter } from './team';
+
+// Re-export type from middleware (canonical location)
+export type { AuthenticatedRequest } from '../middleware/auth';

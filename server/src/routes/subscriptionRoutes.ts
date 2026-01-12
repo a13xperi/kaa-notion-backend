@@ -6,14 +6,10 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as subscriptionService from '../services/subscriptionService';
-import { PrismaClient } from '@prisma/client';
-import Stripe from 'stripe';
+import { prisma } from '../utils/prisma';
+import { stripe } from '../utils/stripe';
 
 const router = Router();
-const prisma = new PrismaClient();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
-});
 
 // ============================================
 // SUBSCRIPTION ROUTES

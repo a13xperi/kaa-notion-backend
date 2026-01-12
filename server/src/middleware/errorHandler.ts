@@ -65,7 +65,7 @@ interface ErrorHandlerOptions {
  * Convert Zod validation error to AppError
  */
 function normalizeZodError(error: ZodError): AppError {
-  const fieldErrors: FieldError[] = error.errors.map((err) => ({
+  const fieldErrors: FieldError[] = error.issues.map((err) => ({
     field: err.path.join('.'),
     message: err.message,
     code: err.code,
@@ -599,6 +599,24 @@ export function asyncHandler<T>(
 ): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+/**
+ * Type-safe wrapper for authenticated route handlers.
+ * Allows using AuthenticatedRequest in route handlers while maintaining Express router compatibility.
+ *
+ * @example
+ * router.get('/protected', authMiddleware, authHandler(async (req, res) => {
+ *   const userId = req.user.userId; // Type-safe access
+ *   res.json({ userId });
+ * }));
+ */
+export function authHandler<T>(
+  fn: (req: Request & { user: { id: string; userId: string; email: string | null; role: string; userType: string; tier: number | null; clientId?: string } }, res: Response, next: NextFunction) => Promise<T>
+): (req: Request, res: Response, next: NextFunction) => void {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    Promise.resolve(fn(req as Request & { user: { id: string; userId: string; email: string | null; role: string; userType: string; tier: number | null; clientId?: string } }, res, next)).catch(next);
   };
 }
 

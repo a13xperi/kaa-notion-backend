@@ -280,6 +280,71 @@ View details: ${data.portalUrl}
   }),
 
   /**
+   * Password reset email
+   */
+  passwordReset: (data: {
+    resetUrl: string;
+    expiresAt: Date;
+  }) => ({
+    subject: 'Reset Your Password - SAGE',
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #059669 0%, #0d9488 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">Password Reset Request</h1>
+  </div>
+
+  <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 12px 12px;">
+    <p>Hi there,</p>
+
+    <p>We received a request to reset your password. Click the button below to create a new password:</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${data.resetUrl}" style="background: #059669; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
+        Reset Password
+      </a>
+    </div>
+
+    <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; color: #92400e; font-size: 14px;">
+        ⏰ This link will expire on <strong>${data.expiresAt.toLocaleString()}</strong>
+      </p>
+    </div>
+
+    <p style="color: #666; font-size: 14px;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+      © ${new Date().getFullYear()} SAGE Landscape Design. All rights reserved.
+    </p>
+  </div>
+</body>
+</html>
+    `,
+    text: `
+Password Reset Request
+
+Hi there,
+
+We received a request to reset your password. Click the link below to create a new password:
+
+${data.resetUrl}
+
+This link will expire on ${data.expiresAt.toLocaleString()}
+
+If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+
+© ${new Date().getFullYear()} SAGE Landscape Design. All rights reserved.
+    `,
+  }),
+
+  /**
    * New deliverable available
    */
   deliverableReady: (data: {
@@ -604,6 +669,63 @@ export async function sendDeliverableNotification(data: {
   });
 }
 
+/**
+ * Send password reset email
+ */
+export async function sendPasswordResetEmail(
+  to: string,
+  resetUrl: string,
+  expiresAt: Date
+): Promise<EmailResult> {
+  const template = EmailTemplates.passwordReset({
+    resetUrl,
+    expiresAt,
+  });
+
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    tags: ['password-reset', 'security'],
+  });
+}
+
+// ============================================================================
+// EMAIL SERVICE CLASS (for dependency injection)
+// ============================================================================
+
+export class EmailService {
+  async sendPasswordResetEmail(to: string, resetUrl: string, expiresAt: Date): Promise<EmailResult> {
+    return sendPasswordResetEmail(to, resetUrl, expiresAt);
+  }
+
+  async sendWelcomeEmail(data: Parameters<typeof sendWelcomeEmail>[0]): Promise<EmailResult> {
+    return sendWelcomeEmail(data);
+  }
+
+  async sendPaymentConfirmation(data: Parameters<typeof sendPaymentConfirmation>[0]): Promise<EmailResult> {
+    return sendPaymentConfirmation(data);
+  }
+
+  async sendMilestoneNotification(data: Parameters<typeof sendMilestoneNotification>[0]): Promise<EmailResult> {
+    return sendMilestoneNotification(data);
+  }
+
+  async sendDeliverableNotification(data: Parameters<typeof sendDeliverableNotification>[0]): Promise<EmailResult> {
+    return sendDeliverableNotification(data);
+  }
+}
+
+let emailServiceInstance: EmailService | null = null;
+
+export function getEmailService(): EmailService {
+  if (!emailServiceInstance) {
+    emailServiceInstance = new EmailService();
+  }
+  return emailServiceInstance;
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -615,5 +737,8 @@ export default {
   sendPaymentConfirmation,
   sendMilestoneNotification,
   sendDeliverableNotification,
+  sendPasswordResetEmail,
+  getEmailService,
+  EmailService,
   EmailTemplates,
 };

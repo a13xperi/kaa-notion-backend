@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth, optionalAuth } from '../middleware/authMiddleware';
+import { requireAuth, optionalAuth } from '../middleware';
 import * as portfolioService from '../services/portfolioService';
 
 const router = Router();
@@ -19,13 +19,14 @@ const router = Router();
  */
 router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
-    const { page, limit, category, style, featured } = req.query;
+    const { page, limit, projectType, tag, featured } = req.query;
 
     const portfolios = await portfolioService.getPublicPortfolios({
       page: page ? parseInt(page as string, 10) : undefined,
       limit: limit ? parseInt(limit as string, 10) : undefined,
-      category: category as string,
-      style: style as string,
+      projectType: projectType as string,
+      tag: tag as string,
+      featured: featured === 'true' ? true : featured === 'false' ? false : undefined,
     });
 
     res.json(portfolios);
@@ -53,16 +54,30 @@ router.get('/featured', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/portfolio/categories
- * Get all categories with project counts
+ * GET /api/portfolio/tags
+ * Get all unique tags from published portfolios
  */
-router.get('/categories', async (req: Request, res: Response) => {
+router.get('/tags', async (_req: Request, res: Response) => {
   try {
-    const categories = await portfolioService.getPortfolioCategories();
-    res.json(categories);
+    const tags = await portfolioService.getPortfolioTags();
+    res.json(tags);
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ error: 'Failed to fetch categories' });
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' });
+  }
+});
+
+/**
+ * GET /api/portfolio/project-types
+ * Get all unique project types from published portfolios
+ */
+router.get('/project-types', async (_req: Request, res: Response) => {
+  try {
+    const projectTypes = await portfolioService.getProjectTypes();
+    res.json(projectTypes);
+  } catch (error) {
+    console.error('Error fetching project types:', error);
+    res.status(500).json({ error: 'Failed to fetch project types' });
   }
 });
 
@@ -73,15 +88,12 @@ router.get('/categories', async (req: Request, res: Response) => {
 router.get('/:slug', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
-    const portfolio = await portfolioService.getPortfolioBySlug(slug);
+    const isAdmin = (req as any).user?.role === 'ADMIN';
+
+    // For admin, get both published and unpublished; for others, only published
+    const portfolio = await portfolioService.getPortfolioBySlug(slug, !isAdmin);
 
     if (!portfolio) {
-      return res.status(404).json({ error: 'Portfolio not found' });
-    }
-
-    // Check if portfolio is published or user is admin
-    const isAdmin = (req as any).user?.role === 'ADMIN';
-    if (!portfolio.publishedAt && !isAdmin) {
       return res.status(404).json({ error: 'Portfolio not found' });
     }
 
@@ -217,7 +229,7 @@ router.post('/:id/unpublish', requireAuth, async (req: Request, res: Response) =
 
 /**
  * POST /api/portfolio/:id/feature
- * Feature/unfeature a portfolio project (admin only)
+ * Toggle featured status of a portfolio project (admin only)
  */
 router.post('/:id/feature', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -227,12 +239,11 @@ router.post('/:id/feature', requireAuth, async (req: Request, res: Response) => 
     }
 
     const { id } = req.params;
-    const { featured } = req.body;
-    const portfolio = await portfolioService.setFeatured(id, featured !== false);
+    const portfolio = await portfolioService.toggleFeatured(id);
     res.json(portfolio);
   } catch (error: any) {
-    console.error('Error featuring portfolio:', error);
-    res.status(400).json({ error: error.message || 'Failed to feature portfolio' });
+    console.error('Error toggling portfolio featured status:', error);
+    res.status(400).json({ error: error.message || 'Failed to toggle featured status' });
   }
 });
 
@@ -312,8 +323,8 @@ router.post('/:id/images/:imageId/cover', requireAuth, async (req: Request, res:
     }
 
     const { id, imageId } = req.params;
-    const portfolio = await portfolioService.setCoverImage(id, imageId);
-    res.json(portfolio);
+    await portfolioService.setCoverImage(id, imageId);
+    res.json({ success: true });
   } catch (error: any) {
     console.error('Error setting cover image:', error);
     res.status(400).json({ error: error.message || 'Failed to set cover image' });

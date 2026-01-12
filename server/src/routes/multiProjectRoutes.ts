@@ -6,10 +6,9 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as multiProjectService from '../services/multiProjectService';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ============================================
 // PROJECT LIMIT ROUTES

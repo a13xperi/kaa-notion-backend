@@ -6,6 +6,15 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, User, UserType } from '@prisma/client';
+import { logger } from '../config/logger';
+import {
+  invalidToken,
+  tokenExpired,
+  conflict,
+  unauthorized,
+  notFound,
+  ErrorCodes,
+} from '../utils/AppError';
 
 // ============================================================================
 // TYPES
@@ -118,21 +127,21 @@ export function generateRefreshToken(payload: Omit<TokenPayload, 'type'>): strin
 export function verifyToken(token: string, expectedType: 'access' | 'refresh' = 'access'): TokenPayload {
   try {
     const payload = jwt.verify(token, authConfig.jwtSecret) as TokenPayload;
-    
+
     // Backward compatibility: tokens without type are treated as access tokens
     const tokenType = payload.type || 'access';
-    
+
     if (tokenType !== expectedType) {
-      throw new Error(`Invalid token type: expected ${expectedType}`);
+      throw invalidToken(`Invalid token type: expected ${expectedType}`);
     }
-    
+
     return payload;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Token has expired');
+      throw tokenExpired();
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token');
+      throw invalidToken();
     }
     throw error;
   }
@@ -167,7 +176,7 @@ export async function registerUser(
   });
 
   if (existingUser) {
-    throw new Error('User with this email already exists');
+    throw conflict('User with this email already exists', ErrorCodes.DUPLICATE_EMAIL);
   }
 
   // Hash password
@@ -224,13 +233,13 @@ export async function loginUser(
   });
 
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw unauthorized('Invalid email or password', ErrorCodes.INVALID_CREDENTIALS);
   }
 
   // Verify password
   const isValid = await comparePassword(input.password, user.passwordHash);
   if (!isValid) {
-    throw new Error('Invalid email or password');
+    throw unauthorized('Invalid email or password', ErrorCodes.INVALID_CREDENTIALS);
   }
 
   // Generate tokens - user found by email so it exists
@@ -315,7 +324,7 @@ export async function getUserProfile(
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw notFound('User');
   }
 
   return {
@@ -359,7 +368,7 @@ export async function refreshAccessToken(
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw notFound('User');
   }
 
   // Generate new tokens
@@ -381,29 +390,62 @@ export async function refreshAccessToken(
 }
 
 // ============================================================================
-// PASSWORD RESET (Placeholder for future implementation)
+// PASSWORD RESET
 // ============================================================================
 
+import { PasswordResetService } from './passwordResetService';
+import { getEmailService } from './emailService';
+
 /**
- * Initiate password reset - generates a reset token.
- * Note: In production, this should send an email with a reset link.
+ * Initiate password reset - generates a reset token and sends email.
  */
 export async function initiatePasswordReset(
   prisma: PrismaClient,
   email: string
-): Promise<{ message: string }> {
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-  });
+): Promise<{ message: string; token?: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.createResetToken(email.toLowerCase());
 
   // Always return success message to prevent email enumeration
-  if (!user) {
-    return { message: 'If an account exists, a reset link will be sent' };
+  const message = 'If an account exists, a reset link will be sent';
+
+  if (result.success && result.token) {
+    // Send password reset email
+    try {
+      const emailService = getEmailService();
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${result.token}`;
+
+      await emailService.sendPasswordResetEmail(email, resetUrl, result.expiresAt!);
+      logger.info('Password reset email sent', { email });
+    } catch (error) {
+      // Log error but don't fail the request
+      logger.error('Failed to send password reset email', { email, error });
+    }
+
+    // In development, also return the token for testing
+    if (process.env.NODE_ENV === 'development') {
+      return { message, token: result.token };
+    }
   }
 
-  // TODO: Generate reset token, store it, and send email
-  // For now, just return the message
-  return { message: 'If an account exists, a reset link will be sent' };
+  return { message };
+}
+
+/**
+ * Validate a password reset token.
+ */
+export async function validatePasswordResetToken(
+  prisma: PrismaClient,
+  token: string
+): Promise<{ valid: boolean; userId?: string; error?: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.validateToken(token);
+
+  return {
+    valid: result.success,
+    userId: result.userId,
+    error: result.error,
+  };
 }
 
 /**
@@ -411,9 +453,21 @@ export async function initiatePasswordReset(
  */
 export async function completePasswordReset(
   prisma: PrismaClient,
-  _resetToken: string,
-  _newPassword: string
-): Promise<{ message: string }> {
-  // TODO: Verify reset token, update password
-  return { message: 'Password reset functionality not yet implemented' };
+  resetToken: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  const passwordResetService = new PasswordResetService(prisma);
+  const result = await passwordResetService.resetPassword(resetToken, newPassword);
+
+  if (result.success) {
+    return {
+      success: true,
+      message: 'Password has been reset successfully',
+    };
+  }
+
+  return {
+    success: false,
+    message: result.error || 'Failed to reset password',
+  };
 }

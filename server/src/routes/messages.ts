@@ -6,13 +6,12 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '../utils/prisma';
 import { logger } from '../config/logger';
 import { notifyNewMessage } from '../services/notificationService';
 
 const router = Router({ mergeParams: true });
-const prisma = new PrismaClient();
 
 // ========================================
 // Validation Schemas
@@ -76,7 +75,7 @@ router.get('/', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }
@@ -187,7 +186,7 @@ router.post('/', async (req: Request, res: Response) => {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message: validation.error.errors[0].message,
+          message: validation.error.issues[0].message,
         },
       });
     }

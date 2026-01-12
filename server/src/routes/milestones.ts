@@ -10,7 +10,7 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { PrismaClient, MilestoneStatus as PrismaMilestoneStatus } from '@prisma/client';
-import { AuthenticatedRequest } from './projects';
+import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { MilestoneStatus } from '../services/projectService';
 import { logger } from '../logger';
 import { internalError } from '../utils/AppError';
@@ -128,13 +128,14 @@ function toMilestoneDetail(milestone: {
  */
 export function createMilestonesRouter(prisma: PrismaClient): Router {
   const router = Router();
+  const authMiddleware = requireAuth(prisma);
 
   // -------------------------------------------------------------------------
   // GET /api/projects/:projectId/milestones - Get all milestones for a project
   // -------------------------------------------------------------------------
   router.get(
     '/projects/:projectId/milestones',
-    requireAuth,
+    authMiddleware,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { projectId } = req.params;
@@ -208,7 +209,7 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
   // -------------------------------------------------------------------------
   router.get(
     '/milestones/:id',
-    requireAuth,
+    authMiddleware,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;

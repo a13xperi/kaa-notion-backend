@@ -160,12 +160,24 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
 
       // No token provided
       if (!token) {
-        // For development, check x-user-id header (remove in production)
-        if (process.env.NODE_ENV === 'development') {
+        // Development auth bypass - REQUIRES explicit opt-in via environment variable
+        // WARNING: Never enable this in production environments
+        if (
+          process.env.NODE_ENV === 'development' &&
+          process.env.ALLOW_DEV_AUTH_BYPASS === 'true'
+        ) {
           const devUserId = req.headers['x-user-id'] as string;
           const devUserType = req.headers['x-user-type'] as string;
 
           if (devUserId && devUserType) {
+            logger.warn('DEV AUTH BYPASS ACTIVE - Using header-based authentication', {
+              devUserId,
+              devUserType,
+              ip: req.ip,
+              path: req.path,
+              warning: 'This should NEVER appear in production logs',
+            });
+
             (req as any).user = {
               id: devUserId,
               userId: devUserId,
@@ -351,7 +363,7 @@ export async function authenticate(
 
     next();
   } catch (error) {
-    console.error('[Auth] Error fetching user:', error);
+    logger.error('Authentication error while fetching user', { error, path: req.path });
     return res.status(500).json({
       success: false,
       error: {
@@ -413,7 +425,7 @@ export async function optionalAuthenticate(
       };
     }
   } catch (error) {
-    console.error('[Auth] Error in optional auth:', error);
+    logger.error('Error in optional authentication', { error, path: req.path });
   }
 
   next();
@@ -590,7 +602,98 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => Promise<string
 
       next();
     } catch (error) {
-      console.error('[Auth] Error checking ownership:', error);
+      logger.error('Error checking resource ownership', { error });
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'AUTH_ERROR',
+          message: 'An error occurred during authorization.',
+        },
+      });
+    }
+  };
+}
+
+/**
+ * Require active project assignment
+ * Checks that the user has an active assignment to the project (unassignedAt: null)
+ * This prevents former team members from accessing project resources
+ */
+export function requireProjectAccess(getProjectId: (req: Request) => string | null) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required.',
+        },
+      });
+    }
+
+    // Admins can access any project
+    const adminRoles = ['ADMIN', 'TEAM'];
+    if (adminRoles.includes(user.role) || adminRoles.includes(user.userType)) {
+      return next();
+    }
+
+    const projectId = getProjectId(req);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Project ID is required.',
+        },
+      });
+    }
+
+    try {
+      // Check for active project assignment
+      // CRITICAL: unassignedAt must be null to ensure only current members have access
+      const assignment = await prisma.projectAssignment.findFirst({
+        where: {
+          projectId: projectId,
+          userId: user.id,
+          unassignedAt: null, // Only active assignments - prevents former members from accessing
+        },
+      });
+
+      if (!assignment) {
+        // Also check if user is the project's client owner
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { clientId: true },
+        });
+
+        if (!project) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Project not found.',
+            },
+          });
+        }
+
+        // Allow if user is the project's client
+        if (project.clientId !== user.clientId) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: 'You do not have access to this project.',
+            },
+          });
+        }
+      }
+
+      next();
+    } catch (error) {
+      logger.error('Error checking project access', { error, projectId: req.query.projectId, path: req.path });
       return res.status(500).json({
         success: false,
         error: {

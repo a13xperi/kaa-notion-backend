@@ -5,10 +5,8 @@
  * Provides conversion rates, revenue trends, tier distribution, and more.
  */
 
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../config/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // ========================================
 // Types
