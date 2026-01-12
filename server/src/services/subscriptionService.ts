@@ -3,7 +3,8 @@
  * Handles Stripe subscription management, recurring billing, and tier upgrades
  */
 
-import { Subscription, SubscriptionStatus } from '@prisma/client';
+import { Subscription, SubscriptionStatus } from '../types/prisma-types';
+import Stripe from 'stripe';
 import { prisma } from '../utils/prisma';
 import { stripe, isStripeEnabled, requireStripe } from '../utils/stripe';
 import { logger } from '../config/logger';
@@ -588,13 +589,13 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
     past_due: 'PAST_DUE',
     canceled: 'CANCELED',
     unpaid: 'PAST_DUE',
-    incomplete: 'PENDING',
+    incomplete: 'PAUSED',
     incomplete_expired: 'CANCELED',
-    trialing: 'TRIAL',
+    trialing: 'TRIALING',
     paused: 'PAUSED',
   };
 
-  return statusMap[status] || 'PENDING';
+  return statusMap[status] || 'PAUSED';
 }
 
 async function updateClientTier(clientId: string, tier: number): Promise<void> {

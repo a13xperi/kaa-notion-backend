@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../types/prisma-types';
 import {
   AppError,
   ErrorCodes,

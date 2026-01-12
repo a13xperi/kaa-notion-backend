@@ -4,7 +4,8 @@
  * Supports both functional API (for Stripe webhook flows) and class-based API (for advanced use).
  */
 
-import { PrismaClient, Client, User, Project, Lead, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Client, User, Project, Lead, Prisma } from '../types/prisma-types';
 import { prisma } from '../utils/prisma';
 import { hashPassword } from './authService';
 import { notFound, conflict, ErrorCodes } from '../utils/AppError';

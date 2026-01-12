@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/authMiddleware';
 import * as teamService from '../services/teamService';
-import { TeamRole } from '@prisma/client';
+import { TeamRole } from '../types/prisma-types';
 
 const router = Router();
 

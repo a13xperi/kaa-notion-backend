@@ -4,7 +4,8 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, LeadStatus, Prisma, UserType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { LeadStatus, Prisma, UserType } from '../types/prisma-types';
 import { AppError, notFound, validationError, forbidden, internalError } from '../utils/AppError';
 import { recordLeadCreated } from '../config/metrics';
 import {
@@ -293,7 +294,7 @@ export function createLeadsRouter(prisma: PrismaClient): Router {
       }
 
       const { page, limit, status, tier, search, startDate, endDate } =
-        req.query as LeadFiltersInput;
+        req.query as unknown as LeadFiltersInput;
       const skip = (page - 1) * limit;
 
       // Build where clause

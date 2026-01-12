@@ -3,7 +3,8 @@
  * Prisma connection pooling and management utilities.
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Prisma } from '../types/prisma-types';
 import { logger } from '../logger';
 import { recordDbQuery } from './metrics';
 
@@ -133,7 +134,6 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
 
   // Set up event handlers for logging, stats, and metrics
   if (config.logQueries) {
-    // @ts-expect-error - Prisma event types are complex
     prisma.$on('query', (e: Prisma.QueryEvent) => {
       const durationMs = e.duration;
       recordQuery(durationMs);
@@ -169,7 +169,6 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   } else {
     // Even if not logging, still record metrics for production monitoring
-    // @ts-expect-error - Prisma event types are complex
     prisma.$on('query', (e: Prisma.QueryEvent) => {
       const durationMs = e.duration;
       
@@ -189,13 +188,11 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   }
 
-  // @ts-expect-error - Prisma event types are complex  
   prisma.$on('error', (e: Error) => {
     logger.error('Database error', { error: e.message });
     stats.totalErrors++;
   });
 
-  // @ts-expect-error - Prisma event types are complex
   prisma.$on('warn', (e: { message: string }) => {
     logger.warn('Database warning', { message: e.message });
   });
