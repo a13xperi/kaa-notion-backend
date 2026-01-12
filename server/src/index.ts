@@ -235,7 +235,9 @@ const figmaClient = new FigmaClient({
 });
 
 // WebSocket server for real-time updates (notifications + Figma requests)
-const wss = new WebSocketServer({ port: 3002 });
+const wsPort = parseInt(process.env.WS_PORT || '3002', 10);
+const wss = new WebSocketServer({ port: wsPort });
+logger.info(`WebSocket server listening on port ${wsPort}`);
 initRealtimeService(wss, {}, figmaClient);
 
 // Test endpoint
