@@ -111,7 +111,8 @@ function handleMulterError(err: any, req: Request, res: Response, next: Function
 export function createUploadRouter({ prisma }: UploadRouterDependencies): Router {
   const router = Router();
   const authMiddleware = requireAuth(prisma);
-  const adminMiddleware = requireAdmin(prisma);
+  // requireAdmin takes AdminOptions, not PrismaClient
+  const adminMiddleware = requireAdmin();
 
   // ============================================================================
   // POST /api/upload - Upload a single file

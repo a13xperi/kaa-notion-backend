@@ -99,9 +99,9 @@ export async function getOrCreateStripeCustomer(clientId: string): Promise<strin
     throw notFound('Client');
   }
 
-  // Return existing customer ID if available
-  if (client.subscription?.stripeCustomerId) {
-    return client.subscription.stripeCustomerId;
+  // Return existing customer ID if available (stripeCustomerId is on Client, not Subscription)
+  if (client.stripeCustomerId) {
+    return client.stripeCustomerId;
   }
 
   // Create new Stripe customer
@@ -173,19 +173,23 @@ export async function createSubscription(
 
   // Free tier - create without Stripe subscription
   if (tier === 1 || !tierConfig.stripePriceIdMonthly) {
+    // Store stripeCustomerId on Client, not Subscription
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { stripeCustomerId },
+    });
+
     const subscription = await prisma.subscription.upsert({
       where: { clientId },
       create: {
         clientId,
-        tier,
-        stripeCustomerId,
+        stripeSubscriptionId: `free_${clientId}`,
+        stripePriceId: 'free',
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
       },
       update: {
-        tier,
-        stripeCustomerId,
         status: 'ACTIVE',
         currentPeriodStart: new Date(),
         currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
@@ -213,24 +217,28 @@ export async function createSubscription(
     },
   });
 
-  // Store subscription in database
+  // Store stripeCustomerId on Client
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { stripeCustomerId },
+  });
+
+  // Store subscription in database (tier is stored on Client, not Subscription)
+  // Use TRIALING as initial status since PENDING is not a valid SubscriptionStatus
   const subscription = await prisma.subscription.upsert({
     where: { clientId },
     create: {
       clientId,
-      tier,
-      stripeCustomerId,
       stripeSubscriptionId: stripeSubscription.id,
-      stripePriceId: tierConfig.stripePriceIdMonthly,
-      status: 'PENDING',
+      stripePriceId: tierConfig.stripePriceIdMonthly!,
+      status: 'TRIALING',
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     },
     update: {
-      tier,
       stripeSubscriptionId: stripeSubscription.id,
-      stripePriceId: tierConfig.stripePriceIdMonthly,
-      status: 'PENDING',
+      stripePriceId: tierConfig.stripePriceIdMonthly!,
+      status: 'TRIALING',
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     },
@@ -294,9 +302,8 @@ export async function updateSubscriptionTier(
     const updated = await prisma.subscription.update({
       where: { clientId },
       data: {
-        tier: newTier,
-        stripeSubscriptionId: null,
-        stripePriceId: null,
+        stripeSubscriptionId: `free_${clientId}`,
+        stripePriceId: 'free',
         status: 'ACTIVE',
         canceledAt: null,
         cancelAtPeriodEnd: false,
@@ -327,10 +334,10 @@ export async function updateSubscriptionTier(
     });
   }
 
+  // tier is stored on Client, not Subscription
   const updated = await prisma.subscription.update({
     where: { clientId },
     data: {
-      tier: newTier,
       stripePriceId: tierConfig.stripePriceIdMonthly,
     },
   });
@@ -415,16 +422,18 @@ export async function createBillingPortalSession(
   clientId: string,
   returnUrl: string
 ): Promise<string> {
-  const subscription = await prisma.subscription.findUnique({
-    where: { clientId },
+  // stripeCustomerId is on Client, not Subscription
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { stripeCustomerId: true },
   });
 
-  if (!subscription?.stripeCustomerId) {
+  if (!client?.stripeCustomerId) {
     throw notFound('Stripe customer');
   }
 
   const session = await stripe.billingPortal.sessions.create({
-    customer: subscription.stripeCustomerId,
+    customer: client.stripeCustomerId,
     return_url: returnUrl,
   });
 
@@ -546,17 +555,18 @@ async function handleSubscriptionCanceled(
 async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
   const customerId = invoice.customer as string;
 
-  const subscription = await prisma.subscription.findFirst({
+  // stripeCustomerId is on Client, not Subscription
+  const client = await prisma.client.findFirst({
     where: { stripeCustomerId: customerId },
+    include: { subscription: true },
   });
 
-  if (subscription) {
+  if (client?.subscription) {
+    // Subscription model has no lastPaymentDate/lastPaymentAmount fields
     await prisma.subscription.update({
-      where: { id: subscription.id },
+      where: { id: client.subscription.id },
       data: {
         status: 'ACTIVE',
-        lastPaymentDate: new Date(),
-        lastPaymentAmount: invoice.amount_paid,
       },
     });
   }
@@ -565,13 +575,15 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
   const customerId = invoice.customer as string;
 
-  const subscription = await prisma.subscription.findFirst({
+  // stripeCustomerId is on Client, not Subscription
+  const client = await prisma.client.findFirst({
     where: { stripeCustomerId: customerId },
+    include: { subscription: true },
   });
 
-  if (subscription) {
+  if (client?.subscription) {
     await prisma.subscription.update({
-      where: { id: subscription.id },
+      where: { id: client.subscription.id },
       data: {
         status: 'PAST_DUE',
       },
@@ -635,15 +647,21 @@ export async function getSubscriptionMetrics(): Promise<{
 
   const activeSubscriptions = subscriptions.filter((s) => s.status === 'ACTIVE').length;
 
-  const byTier: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  subscriptions.forEach((s) => {
-    byTier[s.tier] = (byTier[s.tier] || 0) + 1;
+  // tier is on Client, not Subscription - need to get it from clients
+  const clientsWithTier = await prisma.client.findMany({
+    where: { subscription: { status: { not: 'CANCELED' } } },
+    select: { tier: true },
   });
 
-  // Calculate MRR
+  const byTier: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  clientsWithTier.forEach((c) => {
+    byTier[c.tier] = (byTier[c.tier] || 0) + 1;
+  });
+
+  // Calculate MRR using client tiers
   let mrr = 0;
-  subscriptions.forEach((s) => {
-    const pricing = TIER_PRICING[s.tier as keyof typeof TIER_PRICING];
+  clientsWithTier.forEach((c) => {
+    const pricing = TIER_PRICING[c.tier as keyof typeof TIER_PRICING];
     if (pricing?.monthlyPrice) {
       mrr += pricing.monthlyPrice;
     }

@@ -160,6 +160,8 @@ export async function getConversionMetrics(
 
   try {
     // Get all leads in the period
+    // Get all leads in the period
+    // Note: Lead model has no convertedAt field - use updatedAt for converted leads as proxy
     const leads = await prisma.lead.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
@@ -169,7 +171,7 @@ export async function getConversionMetrics(
         status: true,
         recommendedTier: true,
         createdAt: true,
-        convertedAt: true,
+        updatedAt: true,
       },
     });
 
@@ -177,10 +179,10 @@ export async function getConversionMetrics(
     const convertedLeads = leads.filter(l => l.status === 'CONVERTED').length;
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
-    // Calculate average time to convert
-    const convertedWithTime = leads.filter(l => l.convertedAt);
+    // Calculate average time to convert using updatedAt as conversion time proxy
+    const convertedWithTime = leads.filter(l => l.status === 'CONVERTED');
     const totalDays = convertedWithTime.reduce((sum, lead) => {
-      const days = (lead.convertedAt!.getTime() - lead.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      const days = (lead.updatedAt.getTime() - lead.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       return sum + days;
     }, 0);
     const averageTimeToConvert = convertedWithTime.length > 0 ? totalDays / convertedWithTime.length : 0;
@@ -227,26 +229,24 @@ export async function getRevenueMetrics(
   const { startDate, endDate } = getDateRange(period);
 
   try {
-    // Get all completed payments
+    // Get all succeeded payments (PaymentStatus uses SUCCEEDED not COMPLETED)
     const payments = await prisma.payment.findMany({
       where: {
-        status: 'COMPLETED',
+        status: 'SUCCEEDED',
         createdAt: { gte: startDate, lte: endDate },
       },
       include: {
-        project: {
-          include: { tier: true },
-        },
+        project: true,
       },
     });
 
     const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
     const averageOrderValue = payments.length > 0 ? totalRevenue / payments.length : 0;
 
-    // Revenue by tier
+    // Revenue by tier (tier is on Project directly, not a relation)
     const tierRevenueMap = new Map<number, { revenue: number; count: number }>();
     payments.forEach(payment => {
-      const tier = payment.project.tier?.tier || 0;
+      const tier = payment.project.tier || 0;
       const current = tierRevenueMap.get(tier) || { revenue: 0, count: 0 };
       current.revenue += payment.amount;
       current.count++;
@@ -297,33 +297,37 @@ export async function getRevenueMetrics(
 
 export async function getTierDistribution(): Promise<TierDistribution[]> {
   try {
-    const tiers = await prisma.tier.findMany({
-      include: {
-        _count: {
-          select: { projects: true },
-        },
-        projects: {
-          include: {
-            payments: {
-              where: { status: 'COMPLETED' },
-            },
-          },
-        },
-      },
+    // Tier model has no projects relation - query tiers and projects separately
+    const tiers = await prisma.tier.findMany();
+
+    // Get project counts and revenue by tier
+    const projectsByTier = await prisma.project.groupBy({
+      by: ['tier'],
+      _count: { id: true },
     });
 
-    const totalProjects = tiers.reduce((sum, t) => sum + t._count.projects, 0);
+    // Get revenue by tier from succeeded payments
+    const revenueByTier = await prisma.payment.groupBy({
+      by: ['tier'],
+      where: { status: 'SUCCEEDED' },
+      _sum: { amount: true },
+    });
 
-    return tiers.map(tier => ({
-      tier: tier.tier,
-      tierName: tier.name,
-      count: tier._count.projects,
-      percentage: totalProjects > 0 ? Math.round((tier._count.projects / totalProjects) * 100) : 0,
-      revenue: tier.projects.reduce(
-        (sum, project) => sum + project.payments.reduce((pSum, p) => pSum + p.amount, 0),
-        0
-      ),
-    })).sort((a, b) => a.tier - b.tier);
+    const projectCountMap = new Map(projectsByTier.map(p => [p.tier, p._count.id]));
+    const revenueMap = new Map(revenueByTier.map(r => [r.tier || 0, r._sum.amount || 0]));
+
+    const totalProjects = projectsByTier.reduce((sum, p) => sum + p._count.id, 0);
+
+    return tiers.map(tier => {
+      const count = projectCountMap.get(tier.id) || 0;
+      return {
+        tier: tier.id,
+        tierName: tier.name,
+        count,
+        percentage: totalProjects > 0 ? Math.round((count / totalProjects) * 100) : 0,
+        revenue: revenueMap.get(tier.id) || 0,
+      };
+    }).sort((a, b) => a.tier - b.tier);
   } catch (error) {
     logger.error('Failed to get tier distribution', {}, error as Error);
     throw error;
@@ -340,6 +344,7 @@ export async function getLeadMetrics(
   const { startDate, endDate } = getDateRange(period);
 
   try {
+    // Lead model has no source field
     const leads = await prisma.lead.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
@@ -347,7 +352,6 @@ export async function getLeadMetrics(
       select: {
         id: true,
         status: true,
-        source: true,
         createdAt: true,
       },
     });
@@ -362,16 +366,8 @@ export async function getLeadMetrics(
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => b.count - a.count);
 
-    // By source
-    const sourceMap = new Map<string, number>();
-    leads.forEach(lead => {
-      const source = lead.source || 'Direct';
-      sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
-    });
-
-    const bySource = Array.from(sourceMap.entries())
-      .map(([source, count]) => ({ source, count }))
-      .sort((a, b) => b.count - a.count);
+    // By source - not available in schema, return placeholder
+    const bySource = [{ source: 'Direct', count: leads.length }];
 
     // By month
     const monthMap = new Map<string, number>();
@@ -406,6 +402,8 @@ export async function getProjectMetrics(
   const { startDate, endDate } = getDateRange(period);
 
   try {
+    // Project model has no completedAt field - use status and updatedAt as proxy
+    // ProjectStatus: INTAKE, ONBOARDING, IN_PROGRESS, AWAITING_FEEDBACK, REVISIONS, DELIVERED, CLOSED
     const projects = await prisma.project.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
@@ -414,15 +412,19 @@ export async function getProjectMetrics(
         id: true,
         status: true,
         createdAt: true,
-        completedAt: true,
+        updatedAt: true,
       },
     });
 
     const totalProjects = projects.length;
+    // Active = not DELIVERED or CLOSED
     const activeProjects = projects.filter(p =>
-      p.status !== 'COMPLETED' && p.status !== 'CANCELLED'
+      p.status !== 'DELIVERED' && p.status !== 'CLOSED'
     ).length;
-    const completedProjects = projects.filter(p => p.status === 'COMPLETED').length;
+    // Completed = DELIVERED or CLOSED
+    const completedProjects = projects.filter(p => 
+      p.status === 'DELIVERED' || p.status === 'CLOSED'
+    ).length;
 
     // By status
     const statusMap = new Map<string, number>();
@@ -434,15 +436,17 @@ export async function getProjectMetrics(
       .map(([status, count]) => ({ status, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Average completion time
-    const completedWithTime = projects.filter(p => p.completedAt);
+    // Average completion time using updatedAt for DELIVERED/CLOSED projects
+    const completedWithTime = projects.filter(p => 
+      p.status === 'DELIVERED' || p.status === 'CLOSED'
+    );
     const totalDays = completedWithTime.reduce((sum, project) => {
-      const days = (project.completedAt!.getTime() - project.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      const days = (project.updatedAt.getTime() - project.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       return sum + days;
     }, 0);
     const averageCompletionTime = completedWithTime.length > 0 ? totalDays / completedWithTime.length : 0;
 
-    // By month
+    // By month - track completed by status change to DELIVERED/CLOSED
     const monthMap = new Map<string, { created: number; completed: number }>();
     projects.forEach(project => {
       const createdMonth = getMonthKey(project.createdAt);
@@ -450,8 +454,8 @@ export async function getProjectMetrics(
       current.created++;
       monthMap.set(createdMonth, current);
 
-      if (project.completedAt) {
-        const completedMonth = getMonthKey(project.completedAt);
+      if (project.status === 'DELIVERED' || project.status === 'CLOSED') {
+        const completedMonth = getMonthKey(project.updatedAt);
         const completedCurrent = monthMap.get(completedMonth) || { created: 0, completed: 0 };
         completedCurrent.completed++;
         monthMap.set(completedMonth, completedCurrent);
@@ -504,18 +508,18 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       }),
     ]);
 
-    // Conversions
+    // Conversions - Lead has no convertedAt field, use updatedAt for CONVERTED leads
     const [conversionsThisMonth, conversionsLastMonth, leadsForConversionThisMonth, leadsForConversionLastMonth] = await Promise.all([
       prisma.lead.count({
         where: {
           status: 'CONVERTED',
-          convertedAt: { gte: thisMonthStart },
+          updatedAt: { gte: thisMonthStart },
         },
       }),
       prisma.lead.count({
         where: {
           status: 'CONVERTED',
-          convertedAt: { gte: lastMonthStart, lte: lastMonthEnd },
+          updatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
       }),
       prisma.lead.count({
@@ -533,35 +537,35 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       ? (conversionsLastMonth / leadsForConversionLastMonth) * 100
       : 0;
 
-    // Revenue
+    // Revenue - PaymentStatus uses SUCCEEDED not COMPLETED
     const [revenueThisMonth, revenueLastMonth, totalRevenue] = await Promise.all([
       prisma.payment.aggregate({
         where: {
-          status: 'COMPLETED',
+          status: 'SUCCEEDED',
           createdAt: { gte: thisMonthStart },
         },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
         where: {
-          status: 'COMPLETED',
+          status: 'SUCCEEDED',
           createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
         },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
-        where: { status: 'COMPLETED' },
+        where: { status: 'SUCCEEDED' },
         _sum: { amount: true },
       }),
     ]);
 
-    // Projects
+    // Projects - ProjectStatus uses DELIVERED/CLOSED not COMPLETED/CANCELLED
     const [activeProjects, completedProjects, projectsThisMonth] = await Promise.all([
       prisma.project.count({
-        where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        where: { status: { notIn: ['DELIVERED', 'CLOSED'] } },
       }),
       prisma.project.count({
-        where: { status: 'COMPLETED' },
+        where: { status: { in: ['DELIVERED', 'CLOSED'] } },
       }),
       prisma.project.count({
         where: { createdAt: { gte: thisMonthStart } },

@@ -133,8 +133,15 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
   });
 
   // Set up event handlers for logging, stats, and metrics
+  // Note: Prisma 5.x $on type requires explicit type assertion
+  const prismaWithEvents = prisma as unknown as {
+    $on(event: 'query', callback: (e: Prisma.QueryEvent) => void): void;
+    $on(event: 'error', callback: (e: Error) => void): void;
+    $on(event: 'warn', callback: (e: { message: string }) => void): void;
+  };
+
   if (config.logQueries) {
-    prisma.$on('query', (e: Prisma.QueryEvent) => {
+    prismaWithEvents.$on('query', (e: Prisma.QueryEvent) => {
       const durationMs = e.duration;
       recordQuery(durationMs);
       
@@ -169,7 +176,7 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   } else {
     // Even if not logging, still record metrics for production monitoring
-    prisma.$on('query', (e: Prisma.QueryEvent) => {
+    prismaWithEvents.$on('query', (e: Prisma.QueryEvent) => {
       const durationMs = e.duration;
       
       // Extract model and operation (simplified)
@@ -188,12 +195,12 @@ export function createPrismaClient(overrides: Partial<DatabaseConfig> = {}): Pri
     });
   }
 
-  prisma.$on('error', (e: Error) => {
+  prismaWithEvents.$on('error', (e: Error) => {
     logger.error('Database error', { error: e.message });
     stats.totalErrors++;
   });
 
-  prisma.$on('warn', (e: { message: string }) => {
+  prismaWithEvents.$on('warn', (e: { message: string }) => {
     logger.warn('Database warning', { message: e.message });
   });
 

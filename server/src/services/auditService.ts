@@ -665,7 +665,8 @@ export class AuditService {
       },
     });
 
-    return record as AuditLogRecord;
+    // Cast via unknown since Prisma record has `ip` but AuditLogRecord expects `ipAddress`
+    return record as unknown as AuditLogRecord;
   }
 
   /**

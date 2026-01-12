@@ -189,14 +189,14 @@ export class PasswordResetService {
           data: { usedAt: new Date() },
         });
 
-        // Create audit log
+        // Create audit log (details must be JSON string)
         await tx.auditLog.create({
           data: {
             userId: validation.userId,
             action: 'password_reset',
             resourceType: 'user',
             resourceId: validation.userId,
-            details: { method: 'token' },
+            details: JSON.stringify({ method: 'token' }),
           },
         });
       });

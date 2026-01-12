@@ -112,7 +112,7 @@ export class TeamInviteService {
       expiresAt.setDate(expiresAt.getDate() + INVITE_EXPIRY_DAYS);
 
       // Create user account (inactive until invite accepted)
-      let user = existingUser;
+      let user: { id: string; email: string | null } | null = existingUser;
       if (!user) {
         // Create placeholder user with temporary password
         const tempPasswordHash = await bcrypt.hash(
@@ -127,6 +127,7 @@ export class TeamInviteService {
             userType: 'TEAM',
             role: role,
           },
+          select: { id: true, email: true },
         });
       }
 
@@ -142,17 +143,17 @@ export class TeamInviteService {
         },
       });
 
-      // Create audit log
+      // Create audit log (details must be JSON string)
       await this.prisma.auditLog.create({
         data: {
           userId: invitedById,
           action: 'team_invite_created',
           resourceType: 'team_member',
           resourceId: teamMember.id,
-          details: {
+          details: JSON.stringify({
             invitedEmail: normalizedEmail,
             role: role,
-          },
+          }),
         },
       });
 
@@ -280,16 +281,16 @@ export class TeamInviteService {
           },
         });
 
-        // Create audit log
+        // Create audit log (details must be JSON string)
         await tx.auditLog.create({
           data: {
             userId: teamMember.userId,
             action: 'team_invite_accepted',
             resourceType: 'team_member',
             resourceId: teamMember.id,
-            details: {
+            details: JSON.stringify({
               role: teamMember.role,
-            },
+            }),
           },
         });
 
@@ -358,16 +359,16 @@ export class TeamInviteService {
         },
       });
 
-      // Create audit log
+      // Create audit log (details must be JSON string)
       await this.prisma.auditLog.create({
         data: {
           userId: invitedById,
           action: 'team_invite_resent',
           resourceType: 'team_member',
           resourceId: teamMemberId,
-          details: {
+          details: JSON.stringify({
             email: teamMember.user.email,
-          },
+          }),
         },
       });
 
@@ -438,16 +439,16 @@ export class TeamInviteService {
           });
         }
 
-        // Create audit log
+        // Create audit log (details must be JSON string)
         await tx.auditLog.create({
           data: {
             userId: cancelledById,
             action: 'team_invite_cancelled',
             resourceType: 'team_member',
             resourceId: teamMemberId,
-            details: {
+            details: JSON.stringify({
               email: teamMember.user.email,
-            },
+            }),
           },
         });
       });
