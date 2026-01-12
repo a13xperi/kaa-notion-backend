@@ -7,9 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
 import { prisma } from '../utils/prisma';
-import { verifyToken as verifyTokenUtil, generateToken as generateTokenUtil } from '../utils/auth';
 import { AppError, ErrorCodes, unauthorized, invalidToken, tokenExpired, internalError } from '../utils/AppError';
-import { logger } from '../logger';
 
 // ============================================================================
 // TYPES
@@ -55,10 +53,14 @@ export interface AuthenticatedRequest extends Request {
 // CONFIGURATION
 // ============================================================================
 
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const TOKEN_REFRESH_THRESHOLD = 60 * 60; // Refresh if less than 1 hour remaining
 const JWT_REFRESH_THRESHOLD = 60 * 60 * 24; // Refresh if expires within 24 hours
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required for authentication');
+}
 
 // ============================================================================
 // JWT UTILITIES
@@ -282,13 +284,33 @@ export async function authenticate(
   }
 
   // Verify token
-  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
-
-  if (!payload) {
+  let payload: JwtPayload;
+  try {
+    const verifiedPayload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
+    if (!verifiedPayload) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: ErrorCodes.INVALID_TOKEN,
+          message: 'Invalid or expired token. Please log in again.',
+        },
+      });
+    }
+    payload = verifiedPayload;
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode ?? 401).json({
+        success: false,
+        error: {
+          code: error.code || ErrorCodes.INVALID_TOKEN,
+          message: error.message || 'Invalid or expired token. Please log in again.',
+        },
+      });
+    }
     return res.status(401).json({
       success: false,
       error: {
-        code: 'INVALID_TOKEN',
+        code: ErrorCodes.INVALID_TOKEN,
         message: 'Invalid or expired token. Please log in again.',
       },
     });
@@ -348,15 +370,12 @@ export async function authenticate(
 
     // Check if token needs refresh and add new token to response header
     if (tokenNeedsRefresh(payload)) {
-      const newToken = generateTokenUtil(
-        {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-        },
-        JWT_SECRET,
-        24 // 24 hours
-      );
+      const newToken = generateToken({
+        userId: user.id,
+        email: user.email || '',
+        userType: (user.userType as JwtPayload['userType']) || 'SAGE_CLIENT',
+        tier: user.tier || undefined,
+      });
 
       res.setHeader('X-Token-Refresh', newToken);
     }
@@ -388,9 +407,16 @@ export async function optionalAuthenticate(
     return next();
   }
 
-  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
+  let payload: JwtPayload | null = null;
+  try {
+    const verifiedPayload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
+    payload = verifiedPayload;
+  } catch {
+    // Optional auth - silently continue if token is invalid
+    return next();
+  }
 
-  if (!payload || !payload.userId) {
+  if (!payload?.userId) {
     return next();
   }
 

@@ -125,8 +125,12 @@ export function validateEnvironment(): ValidationResult {
   // Production-specific FATAL errors (block startup)
   if (config.NODE_ENV === 'production') {
     // JWT_SECRET must be strong in production
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
-      productionErrors.push('JWT_SECRET must be at least 64 characters in production');
+    const disallowedSecrets = new Set([
+      'development-secret-key',
+      'development-secret-change-in-production',
+    ]);
+    if (disallowedSecrets.has(config.JWT_SECRET) || config.JWT_SECRET.length < 64) {
+      productionErrors.push('JWT_SECRET must be at least 64 characters and not a default value in production');
     }
 
     // CORS must be configured in production
@@ -150,18 +154,6 @@ export function validateEnvironment(): ValidationResult {
 
   // Production-specific warnings (non-fatal)
   if (config.NODE_ENV === 'production') {
-    // Require a strong JWT secret to prevent token forgery in production.
-    if (config.JWT_SECRET === 'development-secret-key' || config.JWT_SECRET.length < 64) {
-      productionErrors.push('JWT_SECRET must be a strong random secret (64+ chars) in production');
-    }
-    // Require explicit CORS/Frontend allowlist in production to avoid permissive CORS.
-    if (!config.CORS_ORIGINS && !config.FRONTEND_URL) {
-      productionErrors.push('CORS_ORIGINS or FRONTEND_URL must be set in production');
-    }
-    // If Stripe is enabled, webhook verification must be configured in production.
-    if (config.STRIPE_SECRET_KEY && !config.STRIPE_WEBHOOK_SECRET) {
-      productionErrors.push('STRIPE_WEBHOOK_SECRET must be set when Stripe is enabled in production');
-    }
     if (!config.STRIPE_SECRET_KEY) {
       warnings.push('STRIPE_SECRET_KEY not set - payments will not work');
     }
@@ -178,13 +170,6 @@ export function validateEnvironment(): ValidationResult {
     if (!config.DATABASE_URL.includes('localhost') && !config.DATABASE_URL.includes('127.0.0.1')) {
       warnings.push('DATABASE_URL points to non-local database in development mode');
     }
-  }
-
-  if (productionErrors.length > 0) {
-    return {
-      valid: false,
-      errors: productionErrors,
-    };
   }
 
   return {

@@ -162,8 +162,8 @@ logger.info('Audit service initialized');
 
 // Initialize auth service
 initAuthService({
-  jwtSecret: process.env.JWT_SECRET || 'development-secret-key',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  jwtSecret: envConfig.JWT_SECRET,
+  jwtExpiresIn: envConfig.JWT_EXPIRES_IN,
   saltRounds: 12,
 });
 logger.info('Auth service initialized');

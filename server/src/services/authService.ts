@@ -61,7 +61,7 @@ export interface LoginInput {
 // ============================================================================
 
 let authConfig: AuthConfig = {
-  jwtSecret: process.env.JWT_SECRET || 'development-secret-key',
+  jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m', // Short-lived access token
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d', // Long-lived refresh token
   saltRounds: 12,
