@@ -282,7 +282,7 @@ export async function authenticate(
   }
 
   // Verify token
-  const payload = verifyTokenUtil(token, JWT_SECRET) as TokenPayload | null;
+  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
 
   if (!payload) {
     return res.status(401).json({
@@ -388,7 +388,7 @@ export async function optionalAuthenticate(
     return next();
   }
 
-  const payload = verifyTokenUtil(token, JWT_SECRET) as TokenPayload | null;
+  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
 
   if (!payload || !payload.userId) {
     return next();

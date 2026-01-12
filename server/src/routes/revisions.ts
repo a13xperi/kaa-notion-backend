@@ -99,14 +99,13 @@ router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Resp
     const revision = await prisma.revisionRequest.create({
       data: {
         milestoneId,
-        requestedById: user.id,
+        requesterId: user.id,
         description,
         priority,
-        attachments: attachments || [],
         status: 'PENDING',
       },
       include: {
-        requestedBy: {
+        requester: {
           select: {
             id: true,
             name: true,
@@ -128,10 +127,10 @@ router.post('/milestones/:milestoneId/revisions', async (req: Request, res: Resp
       },
     });
 
-    // Update milestone status
+    // Update milestone status to IN_PROGRESS while revision is being addressed
     await prisma.milestone.update({
       where: { id: milestoneId },
-      data: { status: 'REVISION_REQUESTED' },
+      data: { status: 'IN_PROGRESS' },
     });
 
     // Notify team about revision request
@@ -216,7 +215,7 @@ router.get('/milestones/:milestoneId/revisions', async (req: Request, res: Respo
       where: { milestoneId },
       orderBy: { createdAt: 'desc' },
       include: {
-        requestedBy: {
+        requester: {
           select: {
             id: true,
             name: true,
@@ -278,7 +277,7 @@ router.patch('/revisions/:id', async (req: Request, res: Response) => {
             },
           },
         },
-        requestedBy: true,
+        requester: true,
       },
     });
 
@@ -307,11 +306,11 @@ router.patch('/revisions/:id', async (req: Request, res: Response) => {
       where: { id },
       data: {
         status,
-        response,
+        resolution: response,
         resolvedAt: status === 'COMPLETED' || status === 'REJECTED' ? new Date() : null,
       },
       include: {
-        requestedBy: {
+        requester: {
           select: {
             id: true,
             name: true,
@@ -421,7 +420,7 @@ router.get('/projects/:projectId/revisions', async (req: Request, res: Response)
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        requestedBy: {
+        requester: {
           select: {
             id: true,
             name: true,
