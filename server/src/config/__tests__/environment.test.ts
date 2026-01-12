@@ -78,6 +78,7 @@ describe('Environment Configuration', () => {
       process.env.NODE_ENV = 'production';
       process.env.DATABASE_URL = 'postgresql://localhost/test';
       process.env.JWT_SECRET = 'a'.repeat(64);
+      process.env.CORS_ORIGINS = 'https://example.com';
       
       const result = validateEnvironment();
       
@@ -86,15 +87,43 @@ describe('Environment Configuration', () => {
       expect(result.warnings?.some(w => w.includes('STRIPE'))).toBe(true);
     });
 
-    it('should warn about weak JWT_SECRET in production', () => {
+    it('should fail when JWT_SECRET is weak in production', () => {
       process.env.NODE_ENV = 'production';
       process.env.DATABASE_URL = 'postgresql://localhost/test';
       process.env.JWT_SECRET = 'a'.repeat(32); // Valid but weak
+      process.env.CORS_ORIGINS = 'https://example.com';
       
       const result = validateEnvironment();
       
-      expect(result.valid).toBe(true);
-      expect(result.warnings?.some(w => w.includes('JWT_SECRET') && w.includes('weak'))).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors?.some(e => e.includes('JWT_SECRET'))).toBe(true);
+    });
+
+    it('should fail when production CORS allowlist is missing', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.DATABASE_URL = 'postgresql://localhost/test';
+      process.env.JWT_SECRET = 'a'.repeat(64);
+      delete process.env.CORS_ORIGINS;
+      delete process.env.FRONTEND_URL;
+
+      const result = validateEnvironment();
+
+      expect(result.valid).toBe(false);
+      expect(result.errors?.some(e => e.includes('CORS_ORIGINS') || e.includes('FRONTEND_URL'))).toBe(true);
+    });
+
+    it('should fail when Stripe is enabled without a webhook secret in production', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.DATABASE_URL = 'postgresql://localhost/test';
+      process.env.JWT_SECRET = 'a'.repeat(64);
+      process.env.CORS_ORIGINS = 'https://example.com';
+      process.env.STRIPE_SECRET_KEY = 'sk_live_123';
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+
+      const result = validateEnvironment();
+
+      expect(result.valid).toBe(false);
+      expect(result.errors?.some(e => e.includes('STRIPE_WEBHOOK_SECRET'))).toBe(true);
     });
 
     it('should parse PORT as number', () => {
