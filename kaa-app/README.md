@@ -2,6 +2,37 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Development workflow (monorepo)
+
+Start both services
+```bash
+npm run dev
+```
+- web: React (CRA) on http://localhost:3000
+- api: runs ../server with hot-reload (HTTP :3001, WebSocket :3002)
+
+Stop both services
+```bash
+npm run stop
+```
+This also frees ports 3000/3001/3002 if they’re occupied.
+
+Dependency changes
+- Stop dev servers before running installs to avoid transient rebuild errors while node_modules updates.
+
+Avoid backgrounded dev commands
+- Do not append `&` to dev commands; it leaves jobs suspended (tty input). Use terminal splits or this orchestrated script.
+- If you must detach:
+```bash
+nohup npm run dev:api </dev/null >/tmp/api.log 2>&1 & disown
+nohup npm run dev:web </dev/null >/tmp/web.log 2>&1 & disown
+```
+
+Port cleanup
+```bash
+lsof -ti tcp:3000,3001,3002 | xargs kill -TERM
+```
+
 ## Available Scripts
 
 In the project directory, you can run:

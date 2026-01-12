@@ -21,7 +21,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "react-scripts start",
+    "dev": "concurrently -k -n api,web -c green,blue \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "react-scripts start",
+    "dev:api": "npm --prefix ../server run dev",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -34,7 +36,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "test:e2e:codegen": "playwright codegen localhost:3000"
+    "test:e2e:codegen": "playwright codegen localhost:3000",
+    "stop": "sh -c 'PIDS=$(lsof -ti tcp:3000,3001,3002 || true); [ -n \"$PIDS\" ] && kill -TERM $PIDS || true'"
   },
   "eslintConfig": {
     "extends": [
@@ -59,6 +62,7 @@
     "@storybook/addon-essentials": "^7.6.21",
     "@storybook/react": "^7.6.21",
     "@storybook/react-webpack5": "^7.6.21",
+    "concurrently": "^8.2.2",
     "storybook": "^7.6.21"
   }
 }

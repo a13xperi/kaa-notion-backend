@@ -129,9 +129,27 @@ The server includes comprehensive error handling for:
 
 ## Development
 
-For development with hot-reloading:
+Option A: Monorepo orchestrator (recommended)
+From `kaa-app/`:
 ```bash
+cd kaa-app
 npm run dev
+```
+
+Option B: Backend only
+```bash
+cd server
+npm run dev
+```
+
+Stop both services (from `kaa-app/`):
+```bash
+npm run stop
+```
+
+If a port is stuck:
+```bash
+lsof -ti tcp:3000,3001,3002 | xargs kill -TERM
 ```
 
 ## Testing
