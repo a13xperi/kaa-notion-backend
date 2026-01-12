@@ -1432,7 +1432,7 @@ export function DatabaseExplorerPage() {
             setSelectedRecord(null);
           }}
           title={`Record Details - ${selectedRecord.id || 'Unknown'}`}
-          size="large"
+size="lg"
         >
           <div style={dbExplorerStyles.recordDetail}>
             {Object.entries(selectedRecord).map(([key, value]) => (
