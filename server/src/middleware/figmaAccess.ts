@@ -54,7 +54,11 @@ export function createFigmaAccessMiddleware(prismaClient: PrismaClient) {
         });
       }
 
-      const accessFilters = [{ projectAssignments: { some: { userId: user.id } } }];
+      // Type the filter array properly for Prisma
+      const accessFilters: Array<
+        | { projectAssignments: { some: { userId: string } } }
+        | { clientId: string }
+      > = [{ projectAssignments: { some: { userId: user.id } } }];
 
       if (user.clientId) {
         accessFilters.push({ clientId: user.clientId });

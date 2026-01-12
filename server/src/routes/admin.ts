@@ -14,9 +14,8 @@ import { PrismaClient } from '@prisma/client';
 import { Client as NotionClient } from '@notionhq/client';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers';
-import { logger } from '../logger';
+import { logger } from '../config/logger';
 import { internalError } from '../utils/AppError';
-import { requireAdmin, requireAuth } from '../middleware';
 import { AuditActions, ResourceTypes, logAuditFromRequest } from '../services/auditService';
 
 // ============================================================================

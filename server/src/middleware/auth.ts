@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { AppError, ErrorCodes, unauthorized, invalidToken, tokenExpired, internalError } from '../utils/AppError';
+import { logger } from '../config/logger';
 
 // ============================================================================
 // TYPES
@@ -286,7 +287,7 @@ export async function authenticate(
   // Verify token
   let payload: JwtPayload;
   try {
-    const verifiedPayload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
+    const verifiedPayload = verifyToken(token) as unknown as TokenPayload | null;
     if (!verifiedPayload) {
       return res.status(401).json({
         success: false,
@@ -296,7 +297,11 @@ export async function authenticate(
         },
       });
     }
-    payload = verifiedPayload;
+    // Add userType to payload if missing (TokenPayload may not have it)
+    payload = {
+      ...verifiedPayload,
+      userType: (verifiedPayload as JwtPayload).userType || 'SAGE_CLIENT',
+    } as JwtPayload;
   } catch (error) {
     if (error instanceof AppError) {
       return res.status(error.statusCode ?? 401).json({
@@ -409,8 +414,12 @@ export async function optionalAuthenticate(
 
   let payload: JwtPayload | null = null;
   try {
-    const verifiedPayload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
-    payload = verifiedPayload;
+    const verifiedPayload = verifyToken(token) as unknown as TokenPayload | null;
+    // Add userType to payload if missing
+    payload = verifiedPayload ? {
+      ...verifiedPayload,
+      userType: (verifiedPayload as JwtPayload).userType || 'SAGE_CLIENT',
+    } as JwtPayload : null;
   } catch {
     // Optional auth - silently continue if token is invalid
     return next();

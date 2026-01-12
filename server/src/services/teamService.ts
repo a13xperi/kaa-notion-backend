@@ -8,6 +8,14 @@ import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { notFound, conflict, forbidden, badRequest, ErrorCodes } from '../utils/AppError';
 import { hashPassword } from './authService';
+import { logger } from '../config/logger';
+
+// Placeholder for sendEmail - TODO: implement proper email service
+async function sendEmail(options: { to: string; subject: string; html: string; text: string }): Promise<void> {
+  // In development, just log the email
+  logger.info('Email would be sent', { to: options.to, subject: options.subject });
+  // TODO: Integrate with actual email service (SendGrid, SES, etc.)
+}
 
 const INVITE_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
