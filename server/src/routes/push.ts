@@ -45,7 +45,7 @@ router.post('/subscribe', authenticate, async (req: AuthenticatedRequest, res: R
       });
     }
 
-    const subscription = await pushService.subscribe(userId, {
+    await pushService.saveSubscription(userId, {
       endpoint,
       keys: {
         p256dh: keys.p256dh,
@@ -55,7 +55,7 @@ router.post('/subscribe', authenticate, async (req: AuthenticatedRequest, res: R
 
     res.json({
       success: true,
-      data: { subscriptionId: subscription.id },
+      data: { message: 'Subscribed successfully' },
     });
   } catch (error) {
     console.error('Failed to subscribe:', error);
@@ -82,7 +82,7 @@ router.delete('/unsubscribe', authenticate, async (req: AuthenticatedRequest, re
       });
     }
 
-    await pushService.unsubscribe(userId, endpoint);
+    await pushService.removeSubscription(endpoint);
 
     res.json({
       success: true,

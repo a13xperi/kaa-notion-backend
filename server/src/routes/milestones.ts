@@ -404,13 +404,13 @@ export function createMilestonesRouter(prisma: PrismaClient): Router {
             action: 'milestone_update',
             resourceType: 'milestone',
             resourceId: id,
-            details: {
+            details: JSON.stringify({
               projectId: existingMilestone.projectId,
               milestoneName: existingMilestone.name,
               previousStatus: existingMilestone.status,
               newStatus: body.status || existingMilestone.status,
               updatedFields: Object.keys(updateData),
-            },
+            }),
           },
         });
 

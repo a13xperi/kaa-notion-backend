@@ -88,7 +88,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
           userId: req.user!.id,
           action: 'notion_sync_triggered',
           resourceType: 'notion_sync',
-          details: results,
+          details: JSON.stringify(results),
         },
       });
 
@@ -119,7 +119,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
           userId: req.user!.id,
           action: 'notion_retry_triggered',
           resourceType: 'notion_sync',
-          details: { retriedCount: count },
+          details: JSON.stringify({ retriedCount: count }),
         },
       });
 
@@ -179,7 +179,7 @@ export function createNotionRouter({ prisma }: NotionRouterDependencies): Router
           action: 'notion_project_sync',
           resourceType: 'project',
           resourceId: id,
-          details: { taskId },
+          details: JSON.stringify({ taskId }),
         },
       });
 

@@ -90,12 +90,12 @@ model User {
   deliverables        Deliverable[]
   notifications       Notification[]
   messages            Message[]
-  revisionRequests    RevisionRequest[] @relation("RevisionRequester")
-  revisionsResolved   RevisionRequest[] @relation("RevisionResolver")
+  revisionRequests    RevisionRequest[]    @relation("RevisionRequester")
+  revisionsResolved   RevisionRequest[]    @relation("RevisionResolver")
   pushSubscriptions   PushSubscription[]
   teamMember          TeamMember?
   projectAssignments  ProjectAssignment[]
-  invitedTeamMembers  TeamMember[]       @relation("InvitedBy")
+  invitedTeamMembers  TeamMember[]         @relation("InvitedBy")
   passwordResetTokens PasswordResetToken[]
 
   @@index([email])
@@ -134,14 +134,14 @@ model Client {
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lead              Lead?          @relation("ClientLead", fields: [leadId], references: [id])
-  projects          Project[]
-  leads             Lead[]         @relation("ClientLeads")
-  subscription      Subscription?
-  referralsMade     Referral[]     @relation("Referrer")
-  referredBy        Referral?      @relation("ReferredClient")
-  referralCredits   ReferralCredit[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead            Lead?            @relation("ClientLead", fields: [leadId], references: [id])
+  projects        Project[]
+  leads           Lead[]           @relation("ClientLeads")
+  subscription    Subscription?
+  referralsMade   Referral[]       @relation("Referrer")
+  referredBy      Referral?        @relation("ReferredClient")
+  referralCredits ReferralCredit[]
 
   @@index([userId])
   @@index([tier])
@@ -208,8 +208,8 @@ model Project {
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  client             Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  lead               Lead?              @relation(fields: [leadId], references: [id])
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lead               Lead?               @relation(fields: [leadId], references: [id])
   milestones         Milestone[]
   payments           Payment[]
   deliverables       Deliverable[]
@@ -336,8 +336,8 @@ model AuditLog {
   action       String // Action enum value (e.g. "LEAD_CREATE", "LOGIN")
   resourceType String?  @map("resource_type") // "USER", "LEAD", "PROJECT", etc.
   resourceId   String?  @map("resource_id") // UUID of the resource
-  details      String?  // JSON string with additional context
-  ip           String?  // Client IP address
+  details      String? // JSON string with additional context
+  ip           String? // Client IP address
   userAgent    String?  @map("user_agent") // Client user agent
   createdAt    DateTime @default(now()) @map("created_at")
 
@@ -419,17 +419,17 @@ enum NotificationType {
 }
 
 model Notification {
-  id          String           @id @default(uuid())
-  userId      String           @map("user_id")
-  type        NotificationType
-  title       String
-  message     String
-  link        String?          // URL to navigate to
-  resourceType String?         @map("resource_type") // PROJECT, MILESTONE, DELIVERABLE, etc.
-  resourceId  String?          @map("resource_id")
-  read        Boolean          @default(false)
-  readAt      DateTime?        @map("read_at")
-  createdAt   DateTime         @default(now()) @map("created_at")
+  id           String           @id @default(uuid())
+  userId       String           @map("user_id")
+  type         NotificationType
+  title        String
+  message      String
+  link         String? // URL to navigate to
+  resourceType String?          @map("resource_type") // PROJECT, MILESTONE, DELIVERABLE, etc.
+  resourceId   String?          @map("resource_id")
+  read         Boolean          @default(false)
+  readAt       DateTime?        @map("read_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -445,7 +445,7 @@ model Message {
   projectId   String   @map("project_id")
   senderId    String   @map("sender_id")
   content     String
-  attachments Json?    // Array of attachment URLs
+  attachments Json? // Array of attachment URLs
   isInternal  Boolean  @default(false) @map("is_internal") // Internal team messages
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -461,17 +461,17 @@ model Message {
 }
 
 model RevisionRequest {
-  id          String   @id @default(uuid())
-  milestoneId String   @map("milestone_id")
-  requesterId String   @map("requester_id")
+  id          String    @id @default(uuid())
+  milestoneId String    @map("milestone_id")
+  requesterId String    @map("requester_id")
   description String
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DECLINED
-  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DECLINED
+  priority    String    @default("NORMAL") // LOW, NORMAL, HIGH
   resolvedAt  DateTime? @map("resolved_at")
   resolvedBy  String?   @map("resolved_by")
-  resolution  String?   // Admin notes on resolution
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  resolution  String? // Admin notes on resolution
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
   milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
@@ -489,14 +489,14 @@ model RevisionRequest {
 // ============================================
 
 model PushSubscription {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
-  endpoint       String    @unique
-  p256dh         String    // Public key for encryption
-  auth           String    // Auth secret
-  expirationTime BigInt?   @map("expiration_time")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  endpoint       String   @unique
+  p256dh         String // Public key for encryption
+  auth           String // Auth secret
+  expirationTime BigInt?  @map("expiration_time")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -540,11 +540,11 @@ model TeamMember {
 }
 
 model ProjectAssignment {
-  id           String   @id @default(uuid())
-  projectId    String   @map("project_id")
-  userId       String   @map("user_id")
-  role         String   @default("contributor") // lead, contributor, reviewer
-  assignedAt   DateTime @default(now()) @map("assigned_at")
+  id           String    @id @default(uuid())
+  projectId    String    @map("project_id")
+  userId       String    @map("user_id")
+  role         String    @default("contributor") // lead, contributor, reviewer
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
   unassignedAt DateTime? @map("unassigned_at")
 
   // Relations
@@ -659,25 +659,25 @@ model ReferralCredit {
 // ============================================
 
 model PortfolioProject {
-  id             String    @id @default(uuid())
-  projectId      String?   @unique @map("project_id") // Optional link to actual project
-  title          String
-  slug           String    @unique
-  description    String
-  shortDescription String? @map("short_description")
-  location       String?
-  projectType    String    @map("project_type") // residential, commercial, landscape, etc.
-  completedAt    DateTime? @map("completed_at")
-  featured       Boolean   @default(false)
-  published      Boolean   @default(false)
-  publishedAt    DateTime? @map("published_at")
-  displayOrder   Int       @default(0) @map("display_order")
-  tags           String[] // Array of tags for filtering
-  seoTitle       String?   @map("seo_title")
-  seoDescription String?   @map("seo_description")
-  seoKeywords    String[]  @map("seo_keywords")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(uuid())
+  projectId        String?   @unique @map("project_id") // Optional link to actual project
+  title            String
+  slug             String    @unique
+  description      String
+  shortDescription String?   @map("short_description")
+  location         String?
+  projectType      String    @map("project_type") // residential, commercial, landscape, etc.
+  completedAt      DateTime? @map("completed_at")
+  featured         Boolean   @default(false)
+  published        Boolean   @default(false)
+  publishedAt      DateTime? @map("published_at")
+  displayOrder     Int       @default(0) @map("display_order")
+  tags             String[] // Array of tags for filtering
+  seoTitle         String?   @map("seo_title")
+  seoDescription   String?   @map("seo_description")
+  seoKeywords      String[]  @map("seo_keywords")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   // Relations
   project Project?         @relation(fields: [projectId], references: [id])

@@ -400,7 +400,7 @@ export function createTeamRouter(prisma: PrismaClient): Router {
             action: 'team_member_updated',
             resourceType: 'team_member',
             resourceId: id,
-            details: updateData,
+            details: JSON.stringify(updateData),
           },
         });
 

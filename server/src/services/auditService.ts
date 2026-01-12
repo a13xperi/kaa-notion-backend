@@ -244,7 +244,7 @@ export async function logAudit(data: AuditLogData): Promise<void> {
         resourceId: data.resourceId || null,
         userId: data.userId || null,
         details: data.details ? JSON.stringify(data.details) : null,
-        ipAddress: data.metadata?.ip || null,
+        ip: data.metadata?.ip || null,
         userAgent: data.metadata?.userAgent || null,
         createdAt: new Date(),
       },
@@ -619,8 +619,8 @@ export class AuditService {
         action: entry.action,
         resourceType: entry.resourceType || undefined,
         resourceId: entry.resourceId || undefined,
-        details: (entry.details as Prisma.InputJsonValue) || undefined,
-        ipAddress: entry.ipAddress || undefined,
+        details: entry.details ? JSON.stringify(entry.details) : undefined,
+        ip: entry.ipAddress || undefined,
       },
     });
 
@@ -658,8 +658,8 @@ export class AuditService {
         action: entry.action,
         resourceType: entry.resourceType || undefined,
         resourceId: entry.resourceId || undefined,
-        details: (entry.details as Prisma.InputJsonValue) || undefined,
-        ipAddress: entry.ipAddress || undefined,
+        details: entry.details ? JSON.stringify(entry.details) : undefined,
+        ip: entry.ipAddress || undefined,
       })),
     });
 

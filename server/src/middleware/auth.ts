@@ -35,7 +35,7 @@ export interface TokenPayload {
 export interface AuthenticatedUser {
   id: string;
   userId: string; // Alias for compatibility
-  email: string | null;
+  email: string;
   name: string | null;
   role: string;
   userType: 'KAA_CLIENT' | 'SAGE_CLIENT' | 'TEAM' | 'ADMIN';
@@ -282,7 +282,7 @@ export async function authenticate(
   }
 
   // Verify token
-  const payload = verifyTokenUtil(token, JWT_SECRET) as TokenPayload | null;
+  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
 
   if (!payload) {
     return res.status(401).json({
@@ -338,7 +338,7 @@ export async function authenticate(
     (req as AuthenticatedRequest).user = {
       id: user.id,
       userId: user.id,
-      email: user.email,
+      email: user.email || '',
       name: user.name,
       role: user.role || user.userType || 'SAGE_CLIENT',
       userType: (user.userType as AuthenticatedUser['userType']) || 'SAGE_CLIENT',
@@ -388,7 +388,7 @@ export async function optionalAuthenticate(
     return next();
   }
 
-  const payload = verifyTokenUtil(token, JWT_SECRET) as TokenPayload | null;
+  const payload = verifyTokenUtil(token, JWT_SECRET) as unknown as TokenPayload | null;
 
   if (!payload || !payload.userId) {
     return next();
@@ -416,7 +416,7 @@ export async function optionalAuthenticate(
       (req as AuthenticatedRequest).user = {
         id: user.id,
         userId: user.id,
-        email: user.email,
+        email: user.email || '',
         name: user.name,
         role: user.role || user.userType || 'SAGE_CLIENT',
         userType: (user.userType as AuthenticatedUser['userType']) || 'SAGE_CLIENT',

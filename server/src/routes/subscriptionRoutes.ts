@@ -290,12 +290,12 @@ router.get('/payment-methods', requireAuth, async (req: Request, res: Response) 
       include: { subscription: true },
     });
 
-    if (!client?.subscription?.stripeCustomerId) {
+    if (!client?.stripeCustomerId) {
       return res.json([]);
     }
 
     const paymentMethods = await stripe.paymentMethods.list({
-      customer: client.subscription.stripeCustomerId,
+      customer: client.stripeCustomerId,
       type: 'card',
     });
 
@@ -382,12 +382,12 @@ router.get('/invoices', requireAuth, async (req: Request, res: Response) => {
       include: { subscription: true },
     });
 
-    if (!client?.subscription?.stripeCustomerId) {
+    if (!client?.stripeCustomerId) {
       return res.json([]);
     }
 
     const invoices = await stripe.invoices.list({
-      customer: client.subscription.stripeCustomerId,
+      customer: client.stripeCustomerId,
       limit: 20,
     });
 

@@ -594,11 +594,11 @@ export function createProjectsRouter(prisma: PrismaClient): Router {
           action: 'project_update',
           resourceType: 'project',
           resourceId: id,
-          details: {
+          details: JSON.stringify({
             previousStatus: existingProject.status,
             newStatus: status || existingProject.status,
             updatedFields: Object.keys(updateData),
-          },
+          }),
         },
       });
 

@@ -1,9 +1,10 @@
-import type { AuthenticatedUser } from '../middleware';
+import type { AuthenticatedUser } from '../middleware/auth';
 
 declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
+      token?: string;
     }
   }
 }

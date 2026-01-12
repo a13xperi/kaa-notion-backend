@@ -773,10 +773,10 @@ export function createAdminRouter(prisma: PrismaClient): Router {
             userId: req.user!.id,
             action: 'sync_health_check',
             resourceType: 'sync',
-            details: {
+            details: JSON.stringify({
               syncStatus: comparison.syncStatus,
               discrepancyCount: comparison.projects.discrepancies.length,
-            },
+            }),
           },
         });
 
