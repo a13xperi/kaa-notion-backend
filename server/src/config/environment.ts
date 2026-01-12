@@ -120,7 +120,6 @@ export function validateEnvironment(): ValidationResult {
   }
 
   const config = result.data;
-  const productionErrors: string[] = [];
 
   // Production-specific FATAL errors (block startup)
   if (config.NODE_ENV === 'production') {
