@@ -46,6 +46,7 @@ import {
   requireProjectAccess,
   requireNotionService,
   requireStorageService,
+  createFigmaAccessMiddleware,
 } from './middleware';
 import { authenticate } from './middleware/auth';
 import { logger, requestLogger } from './logger';
@@ -234,14 +235,10 @@ app.get('/test', (req, res) => {
 });
 
 // REST API endpoints for Figma
-// Protected with authentication and project access check
-// Requires projectId query parameter to verify user has access to the project
-const figmaProjectAccess = requireProjectAccess((req) => {
-  const projectId = req.query.projectId;
-  return typeof projectId === 'string' ? projectId : null;
-});
+// Protected with authentication and Figma-specific access middleware
+const figmaAuth = [requireAuth(prisma), createFigmaAccessMiddleware(prisma)];
 
-app.get('/file/:fileKey', authenticate, figmaProjectAccess, async (req, res, next) => {
+const getFigmaFileHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const { projectId } = req.query;
     if (!projectId || typeof projectId !== 'string') {
@@ -260,9 +257,9 @@ app.get('/file/:fileKey', authenticate, figmaProjectAccess, async (req, res, nex
   } catch (error) {
     next(internalError('Failed to fetch Figma file', error as Error));
   }
-});
+};
 
-app.get('/file/:fileKey/nodes', authenticate, figmaProjectAccess, async (req, res, next) => {
+const getFigmaNodesHandler = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const { nodeIds, projectId } = req.query;
     if (!projectId || typeof projectId !== 'string') {
@@ -288,7 +285,12 @@ app.get('/file/:fileKey/nodes', authenticate, figmaProjectAccess, async (req, re
   } catch (error) {
     next(internalError('Failed to fetch Figma nodes', error as Error));
   }
-});
+};
+
+app.get('/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
+app.get('/api/file/:fileKey', figmaAuth, getFigmaFileHandler);
+app.get('/api/file/:fileKey/nodes', figmaAuth, getFigmaNodesHandler);
 
 app.post('/webhook', handleFigmaWebhook);
 
