@@ -195,24 +195,21 @@ if (features.apiDocsEnabled) {
 }
 
 // API Routes with Rate Limiting
-app.use('/api/projects', apiRateLimiter, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
-app.use('/api/notion', adminRateLimit, requireNotionService, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
-app.use('/api/upload', uploadRateLimit, requireStorageService, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
+// Auth routes MUST come before catch-all /api routes to avoid auth middleware blocking login/register
+app.use('/api/auth', authRateLimit, createAuthRouter(prisma));
+app.use('/api/webhooks', createWebhooksRouter(prisma)); // No auth for webhooks
+app.use('/api/leads', leadRateLimit, createLeadsRouter(prisma)); // Public lead submission
+app.use('/api/checkout', checkoutRateLimit, createCheckoutRouter(prisma)); // Public checkout
+
+// Protected routes
 const apiAuth = requireAuth(prisma);
 app.use('/api/projects', apiRateLimiter, apiAuth, createProjectsRouter(prisma));
-app.use('/api', apiRateLimiter, apiAuth, createMilestonesRouter(prisma)); // Handles /api/projects/:id/milestones and /api/milestones/:id
-app.use('/api', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma)); // Handles /api/projects/:id/deliverables and /api/deliverables/:id
-app.use('/api/admin', apiAuth, adminRateLimit, createAdminRouter(prisma)); // Redis-backed admin rate limits (per-user when available).
-app.use('/api/notion', apiAuth, adminRateLimit, createNotionRouter({ prisma })); // Redis-backed admin rate limits (per-user when available).
-app.use('/api/upload', apiAuth, uploadRateLimit, createUploadRouter({ prisma })); // Redis-backed upload rate limits (per-user when available).
-app.use('/api/leads', leadRateLimit, createLeadsRouter(prisma)); // Redis-backed lead rate limits (per-user when available).
-app.use('/api/checkout', checkoutRateLimit, createCheckoutRouter(prisma)); // Redis-backed checkout rate limits (per-user when available).
-app.use('/api/webhooks', createWebhooksRouter(prisma)); // Handles /api/webhooks/* endpoints (no rate limit for webhooks)
-app.use('/api/auth', authRateLimit, createAuthRouter(prisma)); // Redis-backed auth rate limits (per-user when available).
-app.use('/api/team', apiRateLimit, createTeamRouter(prisma)); // Redis-backed team rate limits (per-user when available).
+app.use('/api/milestones', apiRateLimiter, apiAuth, createMilestonesRouter(prisma));
+app.use('/api/deliverables', apiRateLimiter, apiAuth, createDeliverablesRouter(prisma));
+app.use('/api/admin', apiAuth, adminRateLimit, createAdminRouter(prisma));
+app.use('/api/notion', apiAuth, adminRateLimit, requireNotionService, createNotionRouter({ prisma }));
+app.use('/api/upload', apiAuth, uploadRateLimit, requireStorageService, createUploadRouter({ prisma }));
+app.use('/api/team', apiAuth, apiRateLimit, createTeamRouter(prisma));
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', createMetricsRouter());
