@@ -15,6 +15,7 @@
     "dev": "concurrently \"cd server && npm run dev\" \"cd kaa-app && npm run dev\"",
     "start": "cd server && npm start",
     "build": "cd server && npm run build && cd ../kaa-app && npm run build",
+    "build:vercel": "cd server && npm run build && npx prisma generate --schema=../prisma/schema.prisma && cd ../kaa-app && npm run build",
     "test": "cd server && npm test && cd ../kaa-app && npm test -- --watchAll=false",
     "test:backend": "cd server && npm test",
     "test:frontend": "cd kaa-app && npm test -- --watchAll=false",
@@ -60,6 +61,7 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@prisma/client": "^5.20.0",
+    "@vercel/node": "^3.0.0",
     "@types/bcrypt": "^5.0.2",
     "concurrently": "^8.2.2",
     "jest-util": "^30.2.0",
