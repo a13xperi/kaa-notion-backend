@@ -1,47 +1,40 @@
 {
   "version": 2,
-  "buildCommand": "npm run build:vercel",
+  "name": "kaa-frontend",
+  "buildCommand": "cd kaa-app && npm install && npm run build",
   "outputDirectory": "kaa-app/build",
-  "installCommand": "npm install && cd kaa-app && npm install && cd ../server && npm install",
+  "installCommand": "npm install",
   "framework": null,
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/((?!api).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/static/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-correlation-id, x-user-id" }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "github": {
     "enabled": true,
     "silent": true
   },
   "git": {
     "deploymentEnabled": {
-      "main": true,
-      "staging": true
+      "main": true
     }
   }
 }
