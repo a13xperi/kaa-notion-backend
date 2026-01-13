@@ -9,6 +9,11 @@ const FeatureDemo: React.FC<FeatureDemoProps> = ({ onBack }) => {
   const [activeDemo, setActiveDemo] = useState<string>('overview');
   const [mobileView, setMobileView] = useState(false);
 
+  const [emailTo, setEmailTo] = useState('aitkenassociates@gmail.com');
+  const [emailType, setEmailType] = useState('welcome');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [emailMessage, setEmailMessage] = useState('');
+
   const demos = [
     { id: 'overview', name: '🎯 Overview', description: 'Complete feature showcase' },
     { id: 'mobile', name: '📱 Mobile Responsive', description: 'Touch-optimized interface' },
@@ -17,7 +22,8 @@ const FeatureDemo: React.FC<FeatureDemoProps> = ({ onBack }) => {
     { id: 'client-hub', name: '🏠 Client Hub', description: 'Personalized dashboard' },
     { id: 'quick-actions', name: '⚡ Quick Actions', description: 'Floating action button' },
     { id: 'skeleton', name: '💀 Skeleton Loading', description: 'Loading state animations' },
-    { id: 'dark-mode', name: '🌙 Dark Mode', description: 'Theme switching' }
+    { id: 'dark-mode', name: '🌙 Dark Mode', description: 'Theme switching' },
+    { id: 'email-testing', name: '📧 Email Testing', description: 'Test email templates' }
   ];
 
   const renderOverview = () => (
@@ -418,6 +424,138 @@ const FeatureDemo: React.FC<FeatureDemoProps> = ({ onBack }) => {
     </div>
   );
 
+  const sendTestEmail = async () => {
+    setEmailStatus('sending');
+    setEmailMessage('');
+    
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/admin/test-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ type: emailType, to: emailTo }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setEmailStatus('success');
+        setEmailMessage(`✅ ${data.message}`);
+      } else {
+        setEmailStatus('error');
+        setEmailMessage(`❌ ${data.error?.message || 'Failed to send email'}`);
+      }
+    } catch (err) {
+      setEmailStatus('error');
+      setEmailMessage(`❌ Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const renderEmailTestingDemo = () => (
+    <div className="demo-section">
+      <h2>📧 Email Testing</h2>
+      <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+        Test different email templates by sending them to a specified email address.
+        <br />
+        <strong>Note:</strong> In test mode, emails can only be sent to the Resend account email (aitkenassociates@gmail.com).
+      </p>
+      
+      <div className="email-testing-form" style={{
+        background: '#f8f9fa',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        maxWidth: '500px',
+      }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+            Email Address
+          </label>
+          <input
+            type="email"
+            value={emailTo}
+            onChange={(e) => setEmailTo(e.target.value)}
+            placeholder="Enter email address"
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '1rem',
+            }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+            Email Type
+          </label>
+          <select
+            value={emailType}
+            onChange={(e) => setEmailType(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              background: 'white',
+            }}
+          >
+            <option value="welcome">🎉 Welcome Email</option>
+            <option value="password-reset">🔐 Password Reset</option>
+            <option value="payment">💳 Payment Confirmation</option>
+            <option value="milestone">🎯 Milestone Notification</option>
+            <option value="deliverable">📦 Deliverable Notification</option>
+          </select>
+        </div>
+        
+        <button
+          onClick={sendTestEmail}
+          disabled={emailStatus === 'sending' || !emailTo}
+          style={{
+            width: '100%',
+            padding: '0.75rem 1.5rem',
+            background: emailStatus === 'sending' ? '#ccc' : '#4f46e5',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: 500,
+            cursor: emailStatus === 'sending' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {emailStatus === 'sending' ? '📤 Sending...' : '📧 Send Test Email'}
+        </button>
+        
+        {emailMessage && (
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            background: emailStatus === 'success' ? '#d1fae5' : '#fee2e2',
+            color: emailStatus === 'success' ? '#065f46' : '#991b1b',
+          }}>
+            {emailMessage}
+          </div>
+        )}
+      </div>
+      
+      <div className="feature-list" style={{ marginTop: '2rem' }}>
+        <h3>Available Email Types:</h3>
+        <ul>
+          <li><strong>Welcome Email:</strong> Sent to new users when they register</li>
+          <li><strong>Password Reset:</strong> Contains a link to reset password</li>
+          <li><strong>Payment Confirmation:</strong> Sent after successful payment</li>
+          <li><strong>Milestone Notification:</strong> Updates on project milestones</li>
+          <li><strong>Deliverable Notification:</strong> When new files are available</li>
+        </ul>
+      </div>
+    </div>
+  );
+
   const renderDarkModeDemo = () => (
     <div className="demo-section">
       <h2>🌙 Dark Mode & Polish</h2>
@@ -460,6 +598,7 @@ const FeatureDemo: React.FC<FeatureDemoProps> = ({ onBack }) => {
       case 'quick-actions': return renderQuickActionsDemo();
       case 'skeleton': return renderSkeletonDemo();
       case 'dark-mode': return renderDarkModeDemo();
+      case 'email-testing': return renderEmailTestingDemo();
       default: return renderOverview();
     }
   };

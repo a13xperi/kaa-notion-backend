@@ -86,6 +86,7 @@ export const AuditActions = {
   ADMIN_VIEW_PROJECTS: 'ADMIN_VIEW_PROJECTS',
   ADMIN_VIEW_CLIENTS: 'ADMIN_VIEW_CLIENTS',
   ADMIN_VIEW_USERS: 'ADMIN_VIEW_USERS',
+  ADMIN_SEND_TEST_EMAIL: 'ADMIN_SEND_TEST_EMAIL',
 
   // Sync operations
   SYNC_NOTION_START: 'SYNC_NOTION_START',
@@ -180,6 +181,7 @@ export const ResourceTypes = {
   WEBSOCKET: 'WEBSOCKET',
   ADMIN: 'ADMIN',
   DATABASE: 'DATABASE',
+  EMAIL: 'EMAIL',
 } as const;
 
 export type ResourceType =

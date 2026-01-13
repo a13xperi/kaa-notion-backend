@@ -17,6 +17,13 @@ import { getPageTitle, mapNotionStatusToPostgres } from '../utils/notionHelpers'
 import { logger } from '../config/logger';
 import { internalError } from '../utils/AppError';
 import { AuditActions, ResourceTypes, logAuditFromRequest } from '../services/auditService';
+import {
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+  sendPaymentConfirmation,
+  sendMilestoneNotification,
+  sendDeliverableNotification,
+} from '../services/emailService';
 
 // ============================================================================
 // TYPES
@@ -1301,6 +1308,142 @@ export function createAdminRouter(prisma: PrismaClient): Router {
         );
       } catch (error) {
         next(internalError('Failed to fetch record', error as Error));
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/admin/test-email - Send test emails (for development/testing)
+  // -------------------------------------------------------------------------
+  router.post(
+    '/test-email',
+    authMiddleware,
+    requireAdmin,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { type, to } = req.body;
+
+        if (!type || !to) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Both "type" and "to" fields are required',
+            },
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(to)) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid email address format',
+            },
+          });
+        }
+
+        let result;
+        const testData = {
+          userName: 'Test User',
+          projectName: 'Test Project',
+          milestoneName: 'Design Review',
+          deliverableName: 'Final Design Package',
+        };
+
+        switch (type) {
+          case 'welcome':
+            result = await sendWelcomeEmail({
+              to,
+              name: testData.userName,
+              tier: 2,
+              loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+            });
+            break;
+
+          case 'password-reset':
+            const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=test-token-12345`;
+            result = await sendPasswordResetEmail(
+              to,
+              resetUrl,
+              new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+            );
+            break;
+
+          case 'payment':
+            result = await sendPaymentConfirmation({
+              to,
+              name: testData.userName,
+              projectName: testData.projectName,
+              projectId: 'test-project-id',
+              amount: 250000, // $2,500.00 in cents
+              currency: 'usd',
+              tier: 2,
+              receiptUrl: 'https://stripe.com/receipt/test',
+            });
+            break;
+
+          case 'milestone':
+            result = await sendMilestoneNotification({
+              to,
+              name: testData.userName,
+              projectName: testData.projectName,
+              projectId: 'test-project-id',
+              milestoneName: testData.milestoneName,
+              nextMilestone: 'Final Delivery',
+            });
+            break;
+
+          case 'deliverable':
+            result = await sendDeliverableNotification({
+              to,
+              name: testData.userName,
+              projectName: testData.projectName,
+              projectId: 'test-project-id',
+              deliverableName: testData.deliverableName,
+              downloadUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/portal/deliverables/test-file`,
+            });
+            break;
+
+          default:
+            return res.status(400).json({
+              success: false,
+              error: {
+                code: 'VALIDATION_ERROR',
+                message: `Unknown email type: ${type}. Valid types: welcome, password-reset, payment, milestone, deliverable`,
+              },
+            });
+        }
+
+        if (result.success) {
+          logger.info(`Test email sent: ${type} to ${to}`, { messageId: result.messageId });
+          void logAuditFromRequest(
+            req,
+            AuditActions.ADMIN_SEND_TEST_EMAIL,
+            ResourceTypes.EMAIL,
+            undefined,
+            { emailType: type, to, messageId: result.messageId }
+          );
+
+          return res.json({
+            success: true,
+            message: `Test ${type} email sent successfully`,
+            messageId: result.messageId,
+          });
+        } else {
+          logger.error(`Failed to send test email: ${type} to ${to}`, { error: result.error });
+          return res.status(500).json({
+            success: false,
+            error: {
+              code: 'EMAIL_SEND_FAILED',
+              message: result.error || 'Failed to send email',
+            },
+          });
+        }
+      } catch (error) {
+        next(internalError('Failed to send test email', error as Error));
       }
     }
   );
